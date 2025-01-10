@@ -1,0 +1,69 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © ChartingCycles
+// Credit to @MagicEins for the original script
+// @version=5
+
+indicator(title = "Up Volume vs Down Volume", shorttitle="UVol vs DVol", precision=0)
+ticker = input.string("NY","Choose Market:",options=["NY","NQ","US","DJ","AM","AX"])
+string cumrel = input.string("Cumulative","Cumulative or Relative",options=["Cumulative","Relative"])
+ninety = input(false,"90% Underlay")
+
+
+//Calcs
+upvol = request.security("UPVOL."+ticker, "", close)
+downvol = request.security("DNVOL."+ticker, "", close)
+uratio = upvol/(upvol+downvol)
+dratio = downvol/(upvol+downvol)
+
+p80 = 0.8 * (upvol+downvol)
+p90 = 0.9 * (upvol+downvol)
+is_u80 = upvol>p80 and upvol<p90 ? true : false
+is_d80 = downvol>p80 and downvol<p90 ? true : false
+is_u90 = upvol>p90 ? true : false
+is_d90 = downvol>p90 ? true : false
+
+float cru = switch cumrel
+    "Cumulative" => upvol
+    "Relative" => uratio
+
+float crd = switch cumrel
+    "Cumulative" => downvol*-1
+    "Relative" => dratio*-1
+    
+float u90 = switch cumrel
+    "Cumulative" => p90
+    "Relative" => .9
+    
+float d90 = switch cumrel
+    "Cumulative" => p90*-1
+    "Relative" => -.9
+    
+    
+//Plot
+
+plot(ninety ? u90 : na, title="90% Up",style=plot.style_columns,color=color.white, transp=90)
+plot(ninety ? d90 : na, title="90% Down",style=plot.style_columns,color=color.white,transp=90)
+plot(cru, title="Up Volume",style=plot.style_columns,color= is_u90 ? color.new(#1ad06e,transp=50) : color.new(color.teal,transp=50))
+plot(crd, title="Down Volume",style=plot.style_columns,color= is_d90 ? color.new(#ff1200,transp=50) : color.new(color.red,transp=50))
+plotshape((is_u80), title="is 80 Up-day?", style=shape.triangleup, size=size.tiny,text="8",textcolor=color.teal,color=color.teal, location=location.bottom)
+plotshape((is_d80), title="is 80 Down-day?", style=shape.triangledown, size=size.tiny,text="8",textcolor=color.red,color=color.red, location=location.top)
+plotshape((is_u90), title="is 90 Up-day?", style=shape.triangleup, size=size.tiny,text="9",textcolor=#1ad06e,color=#1ad06e, location=location.bottom)
+plotshape((is_d90), title="is 90 Down-day?", style=shape.triangledown, size=size.tiny,text="9",textcolor=#ff1200,color=#ff1200, location=location.top)
+
+
+//Panel
+var string GP2 = 'Display'
+show_header = input.bool(true, title='Show Table', inline='10', group=GP2)
+string i_tableYpos = input.string('bottom', 'Panel Position', inline='11', options=['top', 'middle', 'bottom'], group=GP2)
+string i_tableXpos = input.string('right', '', inline='11', options=['left', 'center', 'right'], group=GP2)
+string textsize = input.string('normal', 'Text Size', inline='12', options=['small', 'normal', 'large'], group=GP2)
+var table dtrDisplay = table.new(i_tableYpos + '_' + i_tableXpos, 3, 2, frame_width=1, frame_color=color.black, border_width=1, border_color=color.black)
+first_time = 0
+first_time := bar_index == 0 ? time : first_time[1]
+if barstate.islast
+    // We only populate the table on the last bar.
+    if show_header == true
+        table.cell(dtrDisplay, 1, 0, 'Up Volume', bgcolor=color.black, text_size=textsize, text_color=color.white)
+        table.cell(dtrDisplay, 1, 1, str.tostring(math.round(uratio,3)*100) + '%', bgcolor=color.black, text_size=textsize, text_color=color.white)
+        table.cell(dtrDisplay, 2, 0, 'Down Volume', bgcolor=color.black, text_size=textsize, text_color=color.white)
+        table.cell(dtrDisplay, 2, 1, str.tostring(math.round(dratio,3)*100) + '%', bgcolor=color.black, text_size=textsize, text_color=color.white)

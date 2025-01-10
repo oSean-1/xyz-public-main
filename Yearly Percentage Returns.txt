@@ -1,0 +1,176 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Botnet101
+
+//@version=5
+indicator(title="Yearly Percentage Returns", overlay=false, precision=2, format=format.percent, max_labels_count=500)
+
+// Inputs
+//{
+show_separator  = input.bool  (defval=true                                           , title="Enable Separator", group='Separator Settings', inline='Separator')
+color_separator = input.color (defval=color.new(color.yellow , 80)                 , title=""                , group='Separator Settings', inline='Separator')
+
+show_line1      = input.bool  (defval=false                                          , title="Line 1", group='Lines Settings', inline='Line 1')
+value_line1     = input.float (defval=0                                              , title=""      , group='Lines Settings', inline='Line 1')
+color_line1     = input.color (defval=color.new(color.white , 70)                  , title=""      , group='Lines Settings', inline='Line 1')
+style_line1     = input.string(defval="Dashed", options=["Dashed", "Dotted", "Solid"], title=""      , group='Lines Settings', inline='Line 1')
+
+show_line2      = input.bool  (defval=false                                          , title="Line 2", group='Lines Settings', inline='Line 2')
+value_line2     = input.float (defval=0                                              , title=""      , group='Lines Settings', inline='Line 2')
+color_line2     = input.color (defval=color.new(color.white , 70)                  , title=""      , group='Lines Settings', inline='Line 2')
+style_line2     = input.string(defval="Dashed", options=["Dashed", "Dotted", "Solid"], title=""      , group='Lines Settings', inline='Line 2')
+
+show_line3      = input.bool  (defval=false                                          , title="Line 3", group='Lines Settings', inline='Line 3')
+value_line3     = input.float (defval=0                                              , title=""      , group='Lines Settings', inline='Line 3')
+color_line3     = input.color (defval=color.new(color.white , 70)                  , title=""      , group='Lines Settings', inline='Line 3')
+style_line3     = input.string(defval="Dashed", options=["Dashed", "Dotted", "Solid"], title=""      , group='Lines Settings', inline='Line 3')
+
+show_line4      = input.bool  (defval=false                                          , title="Line 4", group='Lines Settings', inline='Line 4')
+value_line4     = input.float (defval=0                                              , title=""      , group='Lines Settings', inline='Line 4')
+color_line4     = input.color (defval=color.new(color.white , 70)                  , title=""      , group='Lines Settings', inline='Line 4')
+style_line4     = input.string(defval="Dashed", options=["Dashed", "Dotted", "Solid"], title=""      , group='Lines Settings', inline='Line 4')
+
+show_line5      = input.bool  (defval=false                                          , title="Line 5", group='Lines Settings', inline='Line 5')
+value_line5     = input.float (defval=0                                              , title=""      , group='Lines Settings', inline='Line 5')
+color_line5     = input.color (defval=color.new(color.white , 70)                  , title=""      , group='Lines Settings', inline='Line 5')
+style_line5     = input.string(defval="Dashed", options=["Dashed", "Dotted", "Solid"], title=""      , group='Lines Settings', inline='Line 5')
+
+input_table_enable    = input.bool  (defval=true       , title="Enable Table", group="Table Settings")
+input_table_size      = input.string(defval="Small"    , title="Size"        , group="Table Settings", options=["Auto", "Tiny", "Small", "Normal", "Large", "Huge"])
+input_table_position  = input.string(defval="Top Right", title="Position"    , group="Table Settings", options=["Top Left", "Top Right", "Bottom Left", "Bottom Right"])
+input_table_direction = input.string(defval="Vertical" , title="Direction"   , group="Table Settings", options=["Vertical", "Horizontal"])
+input_sort_order      = input.string(defval="Ascending", title="Sort By"     , group="Table Settings", options=["Ascending", "Descending"])
+//}
+
+
+table_size = switch input_table_size
+    "Auto"   => size.auto
+    "Tiny"   => size.tiny
+    "Small"  => size.small
+    "Normal" => size.normal
+    "Large"  => size.large
+    "Huge"   => size.huge
+    
+table_position = switch input_table_position
+    "Top Left"     => position.top_left
+    "Top Right"    => position.top_right
+    "Bottom Left"  => position.bottom_left
+    "Bottom Right" => position.bottom_right
+
+
+GetLineStyle (line_style) =>
+    switch line_style
+        "Dashed" => hline.style_dashed
+        "Dotted" => hline.style_dotted
+        "Solid"  => hline.style_solid
+        
+GetOpen (timeframe) => request.security(syminfo.tickerid, timeframe, close[1], lookahead=barmerge.lookahead_on)
+
+
+var float[] yearly_returns = array.new_float(0)
+var int[] year_array       = array.new_int(0)
+var float yearly_openPrice = 0.0
+var table returns_table    = table(na)
+
+
+// Plot Yearly return
+//{ 
+// Check if it is a new year
+bool isNewYear = year(time) != year(time[1])
+
+// Get the Yearly Opening price
+yearly_openPrice := GetOpen('12M')
+
+// Calculate the yearly return
+float yearly_return = 100 * (close - yearly_openPrice) / yearly_openPrice
+
+color plot_color = yearly_return > 0 ? color.green : color.red
+plot(yearly_return, title="Yearly Returns", style=plot.style_areabr, color=color.new(plot_color, 30))
+
+// Show Background color
+color separator_col = show_separator and isNewYear ? color_separator : na
+bgcolor(separator_col, title="Year separator", editable=false)
+//}
+
+
+// Plot current and previous yearly return Labels
+//{
+label past_return_label = na
+label current_return_label = na
+
+if (isNewYear)
+    // Only push non-NaN values to array
+    bool isNaN = na(yearly_return[1])
+    if (not isNaN)
+        past_return_label := label.new(bar_index[1], yearly_return[1], str.tostring(yearly_return[1], format.percent), textcolor=color.white, color=plot_color[1])
+        label.set_style(past_return_label, yearly_return[1] > 0 ? label.style_label_down : label.style_label_up)
+    
+        array.push(yearly_returns, yearly_return[1])
+        array.push(year_array    , year-1      )
+
+    label.delete(past_return_label[1])
+        
+
+// Plot current year returns
+if (barstate.islast)
+    current_return_label := label.new(bar_index, yearly_return, str.tostring(yearly_return, format.percent), textcolor=color.white, color=plot_color)
+    label.set_style(current_return_label, yearly_return > 0 ? label.style_label_down : label.style_label_up)
+
+    array.push(yearly_returns, yearly_return)
+    array.push(year_array    , year         )
+    
+    label.delete(current_return_label[1])
+//}  
+    
+
+// Plot Horizontal lines
+//{
+hline(show_line1 ? value_line1 : na, title="Line 1", color=color_line1, linestyle=GetLineStyle(style_line1), editable=false)
+hline(show_line2 ? value_line2 : na, title="Line 2", color=color_line2, linestyle=GetLineStyle(style_line2), editable=false)
+hline(show_line3 ? value_line3 : na, title="Line 3", color=color_line3, linestyle=GetLineStyle(style_line3), editable=false)
+hline(show_line4 ? value_line4 : na, title="Line 4", color=color_line4, linestyle=GetLineStyle(style_line4), editable=false)
+hline(show_line5 ? value_line5 : na, title="Line 5", color=color_line5, linestyle=GetLineStyle(style_line5), editable=false)
+//}
+
+// Plot Table
+//{
+InsertCell (id, int col_index, int row_index, string _text, color _colour=#aaaaaa) => 
+    table.cell(table_id=id, column=col_index, row=row_index, text=_text, text_size=table_size, bgcolor=_colour)
+
+if (barstate.islast and input_table_enable and array.size(yearly_returns) > 0)
+    
+    int _header_size = 2
+    int _returns_size = array.size(yearly_returns) + 1
+    
+    _table = switch input_table_direction
+        "Vertical"   => array.from(_header_size , _returns_size)
+        "Horizontal" => array.from(_returns_size, _header_size)
+     
+    int _column_size = array.get(_table, 0)
+    int _rows_size   = array.get(_table, 1)
+
+    returns_table := table.new(table_position, columns=_column_size, rows=_rows_size, border_width=1)
+    
+    // Insert headers to table
+    if input_table_direction == "Vertical"
+        InsertCell(returns_table, 0, 0, "Year"     )
+        InsertCell(returns_table, 1, 0, "% Returns")
+    else
+        InsertCell(returns_table, 0, 0, "Year"     )
+        InsertCell(returns_table, 0, 1, "% Returns")
+        
+    // Insert data to table
+    for i=0 to array.size(yearly_returns) - 1
+        color col = array.get(yearly_returns, i) > 0 ? color.green : color.red
+        
+        string _year    = str.tostring(array.get(year_array    , i)                )
+        string _returns = str.tostring(array.get(yearly_returns, i), format.percent)
+        
+        if input_table_direction == "Vertical"
+            int _row_pos = input_sort_order == "Descending" ? _rows_size - i - 1 : i + 1
+            InsertCell(returns_table, 0 ,_row_pos, _year                )
+            InsertCell(returns_table, 1 ,_row_pos, _returns, _colour=col)
+        else
+            int _column_pos = input_sort_order == "Descending" ? _column_size - i - 1 : i + 1
+            InsertCell(returns_table, _column_pos, 0, _year                )
+            InsertCell(returns_table, _column_pos, 1, _returns, _colour=col)
+//}

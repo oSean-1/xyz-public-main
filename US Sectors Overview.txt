@@ -1,0 +1,286 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © MUQWISHI
+
+//@version=5
+indicator("US Sectors Overview", overlay = true)
+
+// |++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++|
+// |                                   INPUT                                    |
+// |++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++|
+
+// Sorting
+sortTable = input.string(title="Sort Table by" , defval="High-Low Change%", 
+     options=["High-Low Change%", "Low-High Change%", "Alphabet", "Correlated"])
+
+// Set Type
+set       = input.string(title="Sector Set Type " , defval="SPDR SECTOR FUNDs", 
+     options = ["SPDR SECTOR FUNDs", "VANGUARD SECTOR ETFs"])
+
+
+// Correlation
+chos_symbol = input.string("Chart Symbol", title = "Correlated To     ", 
+             options = ["Chart Symbol" , "Custom"], group = "Correlation", inline="s01")
+corr_symbol = input.symbol("SPY", title= "", group = "Correlation", inline="s01", 
+             tooltip = "Only Vaild When Choosing 'Custom'")
+corr_length = input.int(10, title= "Length", minval=1, maxval=1000, 
+                 group= "Correlation")
+
+
+// Table Position
+in_table_pos = input.string(title="Table Location", defval= "Middle Right", 
+     options = [ "Top Right" , "Middle Right" , "Bottom Right" , 
+                 "Top Center", "Middle Center", "Bottom Center", 
+                 "Top Left"  , "Middle Left"  , "Bottom Left" ], 
+              group= "Table Styling")
+
+
+// Table Size
+in_table_size = input.string(title="Table Size", defval="Small", 
+     options=["Auto",  "Huge",  "Large", "Normal", "Small", "Tiny"], 
+     group= "Table Styling")
+
+
+// Table Colors
+cell_lowColor  = input.color(color.red, title= "Low Cell  ", 
+                     inline="1", group="TableColor")
+cell_midColor  = input.color(color.yellow, title= "Mid Cell  ", 
+                     inline="2", group="TableColor")
+cell_highColor = input.color(color.green, title= "High Cell ", 
+                     inline="3", group="TableColor")
+
+
+background_col = input.color(color.gray, title= "  Background Color", 
+                     inline="1", group="TableColor")
+title_textCol  = input.color(color.white, title="  Title Text Color ", 
+                     inline="2", group="TableColor")
+cell_textCol   = input.color(color.black, title="  Cell Text Color ", 
+                     inline="3", group="TableColor")
+
+
+
+// |++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++|
+// |                                  SYMBOLS                                   |
+// |++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++|
+
+sym_short(s) => 
+    str.substring(s, str.pos(s, ":") + 1)
+
+symbol(num, req) =>
+    if req == "symbols"
+        if set == "SPDR SECTOR FUNDs"
+            symbols=  num ==  0 ? "NASDAQ:QQQ": num ==  1 ? "AMEX:SPY" :
+                        
+                      num ==  2 ? "AMEX:XLC"  : num ==  3 ? "AMEX:XLY" : 
+                      num ==  4 ? "AMEX:XLP"  : num ==  5 ? "AMEX:XLE" : 
+                      num ==  6 ? "AMEX:XLF"  : num ==  7 ? "AMEX:XLV" :
+                      num ==  8 ? "AMEX:XLI"  : num ==  9 ? "AMEX:XLB" : 
+                      num == 10 ? "AMEX:XLRE" : num == 11 ? "AMEX:XLK" : 
+                      num == 12 ? "AMEX:XLU"  : na
+        
+        else if set == "VANGUARD SECTOR ETFs"
+            symbols=  num ==  0 ? "NASDAQ:QQQ": num ==  1 ? "AMEX:SPY" :
+                        
+                      num ==  2 ? "AMEX:VOX"  : num ==  3 ? "AMEX:VCR" : 
+                      num ==  4 ? "AMEX:VDC"  : num ==  5 ? "AMEX:VDE" : 
+                      num ==  6 ? "AMEX:VFH"  : num ==  7 ? "AMEX:VHT" :
+                      num ==  8 ? "AMEX:VIS"  : num ==  9 ? "AMEX:VAW" : 
+                      num == 10 ? "AMEX:VNQ"  : num == 11 ? "AMEX:VGT" : 
+                      num == 12 ? "AMEX:VPU"  : na
+        
+    else if req == "description"
+        des=     num==  0 ? "INVESCO"                : 
+                 num==  1 ? "S&P500"                 :
+                    
+                 num==  2 ? "Communication"          : 
+                 num==  3 ? "Consumer Discretionary" :
+                 num==  4 ? "Consumer Staples"       :
+                 num==  5 ? "Energy"                 : 
+                 num==  6 ? "Financial"              : 
+                 num==  7 ? "Health Care"            :
+                 num==  8 ? "Industrial"             : 
+                 num==  9 ? "Materials"              : 
+                 num== 10 ? "Real Estate"            : 
+                 num== 11 ? "Technology"             : 
+                 num== 12 ? "Utilities"              :  na
+
+
+// |++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++|
+// |                                 CALCULATION                                |
+// |++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++|
+
+// Adjest TimeFrame
+mkt_tf() =>
+    if (timeframe.isdaily and timeframe.multiplier > 1) or 
+       (timeframe.isweekly or timeframe.ismonthly)
+        mkt_tf = timeframe.period 
+
+    else
+        mkt_tf = "D"
+
+
+// Sorting Table
+[colMtx, order] = switch sortTable
+    "High-Low Change%" => [2, order.descending]
+    "Low-High Change%" => [2, order.ascending ]
+    "Correlated"       => [3, order.descending]
+    => [0, order.ascending]
+
+
+// Target Symbol for Correlation
+custm = request.security(ticker.modify(corr_symbol, syminfo.session), 
+         timeframe.period,  close,  barmerge.gaps_off)
+
+sym2 = chos_symbol == "Custom"? custm : close
+
+// Matrix 
+leaders = matrix.new<float>(2,  4, na)
+sectors = matrix.new<float>(11, 4, na)
+
+
+// Fill Matrix Function
+fun_matrix(mtxName, row, adj) =>
+    
+    // Symbol Name
+    string sym= symbol(row, "symbols")
+    s = ticker.modify(sym, syminfo.session)
+    
+    // Symbol code
+    matrix.set(mtxName, row + adj, 0, row)
+    
+    // Price
+    cls  = request.security(s, timeframe.period, close, barmerge.gaps_off)
+    matrix.set(mtxName, row + adj, 1, cls)
+    
+    // Change in Price
+    preCls = request.security(s, mkt_tf(), close,    barmerge.gaps_off)
+    mktCls = request.security(s, mkt_tf(), close[1], barmerge.gaps_off)
+
+    cls1 = session.ispremarket ? preCls : mktCls
+
+    chng = (cls-cls1)/ cls1
+    matrix.set(mtxName, row + adj, 2, chng)
+    
+    
+    // Correlation
+    correlation = ta.correlation(cls, sym2, corr_length)
+    matrix.set(mtxName, row + adj, 3, correlation)
+    
+
+//++++++++++ Leaders Matrix
+fun_matrix(leaders,  0,  0)
+fun_matrix(leaders,  1,  0)
+
+matrix.sort(leaders, colMtx, order)
+
+
+//++++++++++ Sector Matrix
+fun_matrix(sectors,  2, -2)
+fun_matrix(sectors,  3, -2)
+fun_matrix(sectors,  4, -2)
+fun_matrix(sectors,  5, -2)
+fun_matrix(sectors,  6, -2)
+fun_matrix(sectors,  7, -2)
+fun_matrix(sectors,  8, -2)
+fun_matrix(sectors,  9, -2)
+fun_matrix(sectors, 10, -2)
+fun_matrix(sectors, 11, -2)
+fun_matrix(sectors, 12, -2)
+
+matrix.sort(sectors, colMtx, order)
+
+// |++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++|
+// |                                   Table                                    |
+// |++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++|
+
+// Get Table Position
+table_pos(p) => 
+    switch p
+        "Top Right"     => position.top_right     
+        "Middle Right"  => position.middle_right   
+        "Bottom Right"  => position.bottom_right  
+        "Top Center"    => position.top_center    
+        "Middle Center" => position.middle_center
+        "Bottom Center" => position.bottom_center
+        "Top Left"      => position.top_left      
+        "Middle Left"   => position.middle_left 
+        => position.bottom_left
+
+
+// Get Table Size
+table_size(s) =>
+    switch s
+        "Auto"   => size.auto   
+        "Huge"   => size.huge   
+        "Large"  => size.large  
+        "Normal" => size.normal 
+        "Small"  => size.small
+        => size.tiny
+tz = table_size(in_table_size)
+
+// Get Title Column
+fun_titlCol(tbl, col, txtCol) =>
+    table.cell(tbl, col, 0, 
+     text       = txtCol, 
+     text_color = title_textCol, 
+     text_size  = tz, 
+     bgcolor    = background_col)
+   
+
+// Get Cell Values
+fun_cell(tbl, row, mtxName, mtxRow) =>
+
+    changePerc = math.round(matrix.get(mtxName, mtxRow, 2), 4) * 100
+    bgColor    = changePerc < 0 ? 
+     color.from_gradient(changePerc, -1.5,    0, cell_lowColor, cell_midColor ): 
+     color.from_gradient(changePerc,     0, 1.5, cell_midColor, cell_highColor)
+
+    
+    table.cell(tbl, 0, row,
+     text       = sym_short(symbol(matrix.get(mtxName, mtxRow, 0), "symbols")),
+     text_color = title_textCol, text_size = tz, bgcolor= background_col)
+    
+    
+    table.cell(tbl, 1, row,
+     text       = symbol(matrix.get(mtxName, mtxRow, 0), "description"),
+     text_color = cell_textCol, text_size = tz, bgcolor = bgColor)
+    
+    table.cell(tbl, 2, row,
+     text       = str.tostring(matrix.get(mtxName, mtxRow, 1), "#.##"),
+     text_color = cell_textCol, text_size = tz, bgcolor = bgColor)
+    
+    table.cell(tbl, 3, row,
+     text       = str.tostring(changePerc) +"%",
+     text_color = cell_textCol, text_size = tz, bgcolor = bgColor)
+    
+    table.cell(tbl, 4, row,
+     text       = str.tostring(matrix.get(mtxName, mtxRow, 3), "#.###"),
+     text_color = cell_textCol, text_size = tz, bgcolor = bgColor)
+    
+    
+// Create Table
+var tbl = table.new(table_pos(in_table_pos), 5, 16, frame_width = 5, 
+         border_width = 1, border_color = color.new(title_textCol, 100))
+
+
+// Fill up Cells.
+if barstate.islast
+    // columns
+    fun_titlCol(tbl, 0, "Symbol"                                              )
+    fun_titlCol(tbl, 1, "Description"                                         )
+    fun_titlCol(tbl, 2, " Last "                                              )
+    fun_titlCol(tbl, 3, "Change% \n TF= "  + mkt_tf()                         )
+    fun_titlCol(tbl, 4, "Correlation\nTo " + 
+             sym_short(chos_symbol == "Custom" ? corr_symbol : syminfo.ticker))
+
+    // Leaders
+    fun_cell(tbl, 1, leaders, 0)
+    fun_cell(tbl, 2, leaders, 1)
+    
+    // Sectors
+    table.cell(tbl, 0, 3,
+     text= set, text_color = title_textCol, text_size = tz, bgcolor = background_col)
+    table.merge_cells(tbl, 0, 3, 4, 3)
+    
+    
+    for i = 4 to 14 
+        fun_cell(tbl, i, sectors, i - 4)

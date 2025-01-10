@@ -1,0 +1,113 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// @tradersTerminal
+
+//@version=5
+indicator('[TT] Sectors RSI Breadth - SPX (SP500) - www.Traders-Terminal.com')
+
+rsiUpperThreshold = input.int (defval=70,title="RSI Upper Threshold")
+rsiLowerThreshold = input.int (defval=30,title="RSI Lower Threshold")
+
+string timeFrame = input.timeframe(defval = "", title = "Input TF")
+int rsiPeriod = input.int(title="RSI Period", defval=14, minval=1, maxval=100)
+
+t1 = 'XLC'
+t2 = 'XLY'
+t3 = 'XLP'
+t4 = 'XLE'
+t5 = 'XLF'
+t6 = 'XLV'
+t7 = 'XLI'
+t8 = 'XLB'
+t9 = 'XLRE'
+t10 = 'XLK'
+t11 = 'XLU'
+
+//Get the RSI of the stocks
+rsi1 = ta.rsi(request.security	(t1 , timeFrame, close) ,rsiPeriod)
+rsi2 = ta.rsi(request.security	(t2 , timeFrame, close) ,rsiPeriod)
+rsi3 = ta.rsi(request.security	(t3 , timeFrame, close) ,rsiPeriod)
+rsi4  = ta.rsi(request.security	(t4 , timeFrame, close), rsiPeriod)
+rsi5 = ta.rsi(request.security	(t5 , timeFrame, close) ,rsiPeriod)
+rsi6 = ta.rsi(request.security	(t6 , timeFrame, close) ,rsiPeriod)
+rsi7 = ta.rsi(request.security	(t7 , timeFrame, close) ,rsiPeriod)
+rsi8 = ta.rsi(request.security	(t8 , timeFrame, close) ,rsiPeriod)
+rsi9 = ta.rsi(request.security	(t9 , timeFrame, close) ,rsiPeriod)
+rsi10 = ta.rsi(request.security	(t10 , timeFrame, close) ,rsiPeriod)
+rsi11 = ta.rsi(request.security	(t11 , timeFrame, close) ,rsiPeriod)
+
+
+countAbove70 = 0
+countBelow30 = 0
+//Check upper threshold
+if rsi1>rsiUpperThreshold
+    countAbove70 +=1
+if rsi2>rsiUpperThreshold
+    countAbove70 +=1
+if rsi3>rsiUpperThreshold
+    countAbove70 +=1
+if rsi4>rsiUpperThreshold
+    countAbove70 +=1
+if rsi5>rsiUpperThreshold
+    countAbove70 +=1
+if rsi6>rsiUpperThreshold
+    countAbove70 +=1
+if rsi7>rsiUpperThreshold
+    countAbove70 +=1
+if rsi8>rsiUpperThreshold
+    countAbove70 +=1
+if rsi9>rsiUpperThreshold
+    countAbove70 +=1
+if rsi10>rsiUpperThreshold
+    countAbove70 +=1        
+if rsi11>rsiUpperThreshold
+    countAbove70 +=1
+
+//Check lower threshold 
+if rsi1<rsiLowerThreshold
+    countBelow30 +=1
+if rsi2<rsiLowerThreshold
+    countBelow30 +=1
+if rsi3<rsiLowerThreshold
+    countBelow30 +=1
+if rsi4<rsiLowerThreshold
+    countBelow30 +=1
+if rsi5<rsiLowerThreshold
+    countBelow30 +=1
+if rsi6<rsiLowerThreshold
+    countBelow30 +=1
+if rsi7<rsiLowerThreshold
+    countBelow30 +=1
+if rsi8<rsiLowerThreshold
+    countBelow30 +=1
+if rsi9<rsiLowerThreshold
+    countBelow30 +=1
+if rsi10<rsiLowerThreshold
+    countBelow30 +=1        
+if rsi11<rsiLowerThreshold
+    countBelow30 +=1
+
+totalPerctAboveUpperTh = (countAbove70 / 11) * 100
+totalPerctBelowLowerTh = (countBelow30 / 11) * 100
+
+// Convert countBelow30 to a negative value for plotting below 0
+totalPerctBelowLowerThNeg = -(countBelow30 / 11) * 100
+
+// Plotting the percentage of sectors above the upper threshold and below the lower threshold
+plot(totalPerctAboveUpperTh, "Pct Sectors > RSI Thld", color = color.rgb(33, 149, 243, 50), style = plot.style_columns)
+plot(totalPerctBelowLowerThNeg, "Pct Sectors < RSI Thld (Negative)", color = color.red, style = plot.style_columns)
+//Plotting the count
+//plot(totalPerctAboveUpperTh,"Pct Sectors > RSI Thld",color = color.rgb(33, 149, 243, 50), style = plot.style_columns)
+//plot(totalPerctBelowLowerTh, "Pct Sectors < Below RSI Thld",color=color.red,style = plot.style_columns)
+
+bearMarketExtrLT = input.int(defval = -80, title = 'Bear Market Extreme Long Term')
+bearMarketExtrMT = input.int(defval = -50, title = 'Bear Market Extreme Long Term')
+bearMarketExtrST = input.int(defval = -20, title = 'Bear Market Extreme Short Term')
+bearMarketPlot_LTLn = plot(bearMarketExtrLT,'Bear Extreme Level 1', color = #eff545a6)
+bearMarketPlot_MTLn = plot(bearMarketExtrMT,'Bear Extreme Level 2', color = color.rgb(93, 172, 20, 10))
+bearMarketPlot_STLn = plot(bearMarketExtrST,'Bear Extreme Level 3', color = #0f7629)
+
+bullMarketExtrLT = input.int(defval = 35, title = 'Bull Market Extreme Long Term')
+bullMarketExtrST = input.int(defval = 65, title = 'Bull Market Extreme Short Term')
+bullMarketPlot_LTLn = plot(bullMarketExtrLT, 'Bull Extreme Level 1', color = color.rgb(229, 154, 14, 16))
+bullMarketPlot_STLn = plot(bullMarketExtrST, 'Bull Extreme Level 2', color = #fe0404d6)
+

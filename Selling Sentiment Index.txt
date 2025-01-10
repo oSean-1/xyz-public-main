@@ -1,0 +1,36 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © TRJAKE_kr
+
+//@version=5
+indicator("Selling Sentiment Index", shorttitle="PsyIndex", overlay=false)
+
+length = input.int(14, minval=1, title="Length")
+overbought = input.int(70, title="Overbought Threshold")
+diLength = input.int(14, title="DI Length")
+adxSmoothing = input.int(14, title="ADX Smoothing")
+scalingFactor = 33.3
+
+mfi = ta.mfi(hlc3, length)
+rsi = ta.rsi(close, length)
+high_low_range = high - low
+avg_range = ta.sma(high_low_range, length)
+
+[_, _, adx] = ta.dmi(diLength, adxSmoothing)
+
+weight_adjust = adx / 100
+
+mfi_weight = mfi >= 70 and close > close[1] ? scalingFactor * (1 - weight_adjust) :
+             mfi <= 30 and close < close[1] ? -scalingFactor * (1 - weight_adjust) : 0
+rsi_weight = rsi >= 70 and close > close[1] ? scalingFactor * (1 - weight_adjust) :
+             rsi <= 30 and close < close[1] ? -scalingFactor * (1 - weight_adjust) : 0
+volatility_weight = high_low_range > avg_range ? scalingFactor * (1 - weight_adjust) : 
+                     -scalingFactor * (1 - weight_adjust)
+
+psych_index = mfi_weight + rsi_weight + volatility_weight
+normalized_index = math.min(math.max(psych_index, 0), 100)
+
+a= plot(normalized_index, title="Psychological Index", color = normalized_index > overbought ? color.red : normalized_index > overbought*0.8 ? color.new(#de4714, 0) : normalized_index > overbought*0.6 ? color.new(color.orange, 20) : normalized_index > overbought*0.4 ? color.rgb(187, 203, 80) : normalized_index > overbought*0.2 ? color.new(color.green, 40) : na , style = plot.style_histogram)
+plot(ta.sma(normalized_index,7), color=color.new(color.red, 50))
+b = plot(overbought, color=color.new(color.white, 100), style = plot.style_line, display = display.none)
+
+hline(overbought)

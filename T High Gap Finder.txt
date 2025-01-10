@@ -1,0 +1,100 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © ProfessorZoom
+
+//@version=4
+study("Thigh Gap", overlay=true, max_bars_back=4000)
+
+// Inputs
+var barsBack = input(title="Bars to Check For", type=input.integer, defval=4000, group="Main Settings", minval=50, maxval=4000, step=1)
+var extendUnFilled = input(title="Extend Unfilled Gap Boxes", type=input.bool, defval=true, group="Main Settings")
+var showFilledBoxes = input(title="Show Filled Gap Boxes", type=input.bool, defval=true, group="Main Settings")
+var gapFilledLabelColor = input(title="Gap Filled Label Color", type=input.color, defval=color.white, group="Main Settings")
+var hideAllFilledStuff = input(title="Hide All Filled Gap Stuff", type=input.bool, defval=true, group="Main Settings")
+var showLabels = input(title="Show Gap Notification Labels", type=input.bool, defval=false, group="Main Settings")
+
+var gapUpLabelColor = input(title="Gap Up Label Color", type=input.color, defval=color.white, group="Gap Up")
+var gapUpBackgroundColor = input(title="Gap Up Border Color", type=input.color, defval=color.rgb(255,255,255,75), group="Gap Up")
+var gapUpBorderColor = input(title="Gap Up Background Color", type=input.color, defval=color.white, group="Gap Up")
+
+var gapDownLabelColor = input(title="Gap Down Label Color", type=input.color, defval=color.white, group="Gap Down")
+var gapDownBackgroundColor = input(title="Gap Down Border Color", type=input.color, defval=color.rgb(255,255,255,75), group="Gap Down")
+var gapDownBorderColor = input(title="Gap Down Background Color", type=input.color, defval=color.white, group="Gap Down")
+
+// Really wish we could write classes
+
+// Gap Ups
+var gapUpBarsAgo = array.new_int()
+var gapUpRight = array.new_int()
+var gapUpLeft = array.new_int()
+var gapUpHighs = array.new_float()
+var gapUpLows = array.new_float()
+var gapUpClosed = array.new_int()
+
+// Gap Downs
+var gapDownBarsAgo = array.new_int()
+var gapDownRight = array.new_int()
+var gapDownLeft = array.new_int()
+var gapDownHighs = array.new_float()
+var gapDownLows = array.new_float()
+var gapDownClosed = array.new_int()
+
+// We take the current bar and look back
+// what we do here is to go back back back back
+if barstate.islast
+
+    // Check for gaps
+    for i = 0 to barsBack
+    
+        // Gap Ups
+        if low[i] > high[i+1]
+            if showLabels
+                label.new(bar_index[i], high[i], "Gap Up", color=gapUpLabelColor)
+            array.push(gapUpBarsAgo, i)
+            array.push(gapUpRight, bar_index[i])
+            array.push(gapUpLeft, bar_index[i+1])
+            array.push(gapUpHighs, low[i])
+            array.push(gapUpLows, high[i+1])
+            
+        // Gap Downs
+        if high[i] < low[i+1]
+            if showLabels
+                label.new(bar_index[i], high[i], "Gap Down", color=gapUpLabelColor)
+            array.push(gapDownBarsAgo, i)
+            array.push(gapDownRight, bar_index[i])
+            array.push(gapDownLeft, bar_index[i+1])
+            array.push(gapDownHighs, low[i+1])
+            array.push(gapDownLows, high[i])
+    
+    // [GAP UP] Check if any gaps are filled
+    if (array.size(gapUpBarsAgo) > 0)
+        for i = 0 to array.size(gapUpRight) - 1
+            for j = array.get(gapUpBarsAgo, i) to 0
+                if low[j] <= array.get(gapUpLows, i)
+                    if showFilledBoxes and hideAllFilledStuff == false
+                        box.new(left=array.get(gapUpLeft, i), top=array.get(gapUpHighs, i), right=bar_index[j], bottom=array.get(gapUpLows, i), border_width=1, border_style=line.style_solid, bgcolor=gapUpBackgroundColor, border_color=gapUpBorderColor)
+                    if hideAllFilledStuff == false and showLabels
+                        label.new(bar_index[j], low[j], "Gap Filled", color=gapFilledLabelColor, style=label.style_label_up)
+                    array.push(gapUpClosed, array.get(gapUpRight, i))
+                    break
+                    
+        // [GAP UP] Draw unfilled gap boxes
+        for i = 0 to array.size(gapUpRight) - 1
+            if array.includes(gapUpClosed, array.get(gapUpRight, i)) == false
+                box.new(left=array.get(gapUpLeft, i), top=array.get(gapUpHighs, i), right=bar_index, bottom=array.get(gapUpLows, i), border_width=1, border_style=line.style_solid, bgcolor=gapUpBackgroundColor, border_color=gapUpBorderColor, extend=extendUnFilled ? extend.right : extend.none)
+    
+    // [GAP DOWN] Check if any gaps are filled
+    if (array.size(gapDownBarsAgo) > 0)
+        for i = 0 to array.size(gapDownRight) - 1
+            for j = array.get(gapDownBarsAgo, i) to 0
+                if high[j] >= array.get(gapDownHighs, i)
+                    if showFilledBoxes and hideAllFilledStuff == false
+                        box.new(left=array.get(gapDownLeft, i), top=array.get(gapDownHighs, i), right=bar_index[j], bottom=array.get(gapDownLows, i), border_width=1, border_style=line.style_solid, bgcolor=gapDownBackgroundColor, border_color=gapDownBorderColor)
+                    if hideAllFilledStuff == false and showLabels
+                        label.new(bar_index[j], high[j], "Gap Filled", color=gapFilledLabelColor, style=label.style_label_down)
+                    array.push(gapDownClosed, array.get(gapDownRight, i))
+                    break
+                
+        // [GAP DOWN] Draw unfilled gap boxes
+        for i = 0 to array.size(gapDownRight) - 1
+            if array.includes(gapDownClosed, array.get(gapDownRight, i)) == false
+                box.new(left=array.get(gapDownLeft, i), top=array.get(gapDownHighs, i), right=bar_index, bottom=array.get(gapDownLows, i), border_width=1, border_style=line.style_solid, bgcolor=gapDownBackgroundColor, border_color=gapDownBorderColor, extend=extendUnFilled ? extend.right : extend.none)

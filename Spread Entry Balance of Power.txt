@@ -1,0 +1,154 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © DeuceDavis
+
+//@version=4
+study(title="Spread Entry Balance of Power", shorttitle="@String", format=format.volume, overlay=false, resolution="")
+
+
+rsiPeriod = input(title="RSI Period", type=input.integer, defval=14)
+
+dmiPeriod = input(title="DMI Period", type=input.integer, defval=14)
+dmiSmoothing = input(title="DMI Smoothing", type=input.integer, defval=14)
+
+bbPeriod = input(title="Bollinger Bands Period", type=input.integer, defval=20)
+bbMultiplier = input(title="Bollinger Bands Multiplier", type=input.integer, defval=2)
+
+kcPeriod = input(title="Keltner Channel Period", type=input.integer, defval=20)
+kcMultiplier = input(title="Keltner Channel Multiplier", type=input.float, defval=1.5)
+
+rsiPlot = rsi(close, rsiPeriod)
+
+_src = input(title="Source", type=input.source, defval=close)
+switcher = input(title="Source", options = ["Mean", "Close", "Custom Series"], defval="Mean")
+p = switcher=="Mean" ? hl2 : switcher=="Close" ? close : switcher=="Custom Series" ? close > open ? (high+close)/2 : low : na
+
+//
+
+
+k = input(10)
+bias = input(1, "Bias")
+lambda = input(3, "Lambda")
+
+fisher(_src, _window) =>
+    high_ = highest(atan(sqrt(high)), _window/bias)
+    low_ = lowest(atan(sqrt(low)), _window)
+    value = 0.0
+    value := .66 * ((atan(sqrt(p)) - low_) / (high_ - low_) - .5) + .67 * nz(value[1])
+    fisher = 1/k * log((1 + value) / (1 - value))
+    
+Fishx = fisher(close, 155)
+ 
+
+[diPlus, diMinus, adx] = dmi(dmiPeriod, dmiSmoothing)
+[middleBB, upperBB, lowerBB] = bb(close, 20, 2)
+[middleKC, upperKC, lowerKC] = kc(close, 20, 1.5)
+
+//Bull or Bear side is determined whether the price is above or below the Bollinger Band Basis (BB Middle)
+bullOrBear = close < middleBB ? "Bull" : "Bear"
+
+//Condition used in both Bull and Bear setups
+bbOutsideKC = ((lowerBB < lowerKC) and (upperBB > upperKC)) ? 1 : 0
+
+//Conditions used for Bull setups
+lowerBB_Bounce = lowest(5) <= lowerBB ? 1 : 0
+adxUpTrend = adx > adx[1] ? 1 : 0
+bullRSIStat = rsiPlot[0] > rsiPlot[1] ? 1 : 0
+diMinusStat = diMinus[0] < diMinus[1] ? 1 : 0
+lowerBBStat = close < middleBB and close > lowerBB ? 1 : 0
+lowerKCStat = close < lowerKC ? 1 : 0
+rsiUnder30 = rsiPlot < 30 ? 1: 0
+FishStat1 = Fishx < -.30 ? 1 : 0
+
+bullCondition = rsiPlot > 70 ? 0 : bullRSIStat + diMinusStat + lowerBBStat + lowerKCStat + bbOutsideKC + lowerBB_Bounce + adxUpTrend + rsiUnder30 + FishStat1
+
+//Conditions used for Bear setups
+upperBB_Bounce = highest(5) >= upperBB ? 1 : 0
+adxDownTrend = adx < adx[1] ? 1 : 0
+bearRSIStat = rsiPlot[0] < rsiPlot[1] ? 1 : 0
+diPlusStat = diPlus[0] > diPlus[1] ? 1 : 0
+upperBBStat = close > middleBB and close < upperBB ? 1 : 0
+upperKCStat = close > upperKC ? 1 : 0
+rsiOver70 = rsiPlot > 70 ? 1: 0
+FishStat2 = Fishx > .30 ? 1:0
+
+bearCondition = rsiPlot < 30 ? 0 : (bearRSIStat + diPlusStat + upperBBStat + upperKCStat + bbOutsideKC + upperBB_Bounce + adxDownTrend + rsiOver70 + FishStat2) * -1
+
+tradeCondition = bullOrBear == "Bull" ? (bullCondition) : (bearCondition)
+
+bullColor = #00ffcb
+bearColor = #f44336
+
+var sessionFills = array.new_color(21)
+
+array.set(sessionFills, 0, color.new(bearColor, 0))
+array.set(sessionFills, 1, color.new(bearColor, 10))
+array.set(sessionFills, 2, color.new(bearColor, 20))
+array.set(sessionFills, 3, color.new(bearColor, 30))
+array.set(sessionFills, 4, color.new(bearColor, 40))
+array.set(sessionFills, 5, color.new(bearColor, 50))
+array.set(sessionFills, 6, color.new(bearColor, 60))
+array.set(sessionFills, 7, color.new(bearColor, 70))
+array.set(sessionFills, 8, color.new(bearColor, 80))
+array.set(sessionFills, 9, color.new(bearColor, 90))
+array.set(sessionFills, 10, color.new(bullColor, 100))
+array.set(sessionFills, 11, color.new(bullColor, 100))
+array.set(sessionFills, 12, color.new(bullColor, 80))
+array.set(sessionFills, 13, color.new(bullColor, 70))
+array.set(sessionFills, 14, color.new(bullColor, 60))
+array.set(sessionFills, 15, color.new(bullColor, 50))
+array.set(sessionFills, 16, color.new(bullColor, 40))
+array.set(sessionFills, 17, color.new(bullColor, 30))
+array.set(sessionFills, 18, color.new(bullColor, 20))
+array.set(sessionFills, 19, color.new(bullColor, 10))
+array.set(sessionFills, 20, color.new(bullColor, 0))
+
+upperTop=input(6)
+upperBottom=input(4.9)
+lowerTop=input(-6)
+lowerBottom=input(-4.9)
+
+//plot(1, style=3, color=gray), plot(-1, style=3, color=gray)
+ul1=plot(upperTop, "OB High")
+ul2=plot(upperBottom, "OB Low")
+
+ll1=plot(lowerTop, "OS High")
+ll2=plot(lowerBottom, "OS Low")
+
+
+plot(series=bullCondition, title="Bull Power Level", style=plot.style_columns, color=array.get(sessionFills, bullCondition+10))
+plot(series=bullCondition, title="Bull Power Level", style=plot.style_cross, color=array.get(sessionFills, bullCondition+10))
+plot(series=bearCondition, title="Bear Power Level", style=plot.style_columns, color=array.get(sessionFills, bearCondition+10))
+plot(series=bearCondition, title="Bear Power Level", style=plot.style_cross, color=array.get(sessionFills, bearCondition+10))
+src = input(hlc3,title="Source")
+bbLength = input(12, title="Bollinger length")
+bbN = input(2, title="Bollinger deviation")
+kLength = input(25, title="keltner Length")
+kN = input(1.25, title="Keltner deviation")
+
+//Keltner
+kUpper = ema(close,bbLength) + kN*atr(kLength)
+kLower = ema(close,bbLength) - kN*atr(kLength)
+
+//--- Bollinger
+bbUpper = ema(src,bbLength) + bbN*stdev(src,bbLength)
+bbLower = ema(src,bbLength) - bbN*stdev(src,bbLength)
+
+
+//--- BB Squeeze
+squeeze = bbUpper <= kUpper and bbLower >=kLower
+squeezecolor = squeeze ? color.white : color.gray
+
+
+//plots
+plot(0, linewidth = 2, color=squeezecolor, title="Squeeze indicator")
+
+Sigma= input(6)
+Sigma2= input(-6)
+
+barcolor(bullCondition > Sigma ? color.white : bearCondition < Sigma2 ? color.red :na)
+
+
+bullish = bullCondition > Sigma
+bearish = bearCondition < Sigma2
+
+

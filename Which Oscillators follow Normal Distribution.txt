@@ -1,0 +1,238 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Dicargo_Beam
+
+//@version=5
+indicator("Oscillator: Which follows Normal Distribution?", max_lines_count = 120)
+//When doing machine learning using oscillators, 
+//it would be better if the oscillators were normally distributed. 
+//So I analyzed the distribution of oscillators.
+
+len = input.int(14,"Oscillator Length", minval=2)
+src = input.source(close,"Source")
+wavetrend(src, len1, len2, normalize)=>
+    //[LazyBear]
+    //default value: src = hlc3, len1 = 10, len2 = 21
+    esa = ta.ema(src, len1)
+    d = ta.ema(math.abs(src - esa), len1)
+    ci = (src - esa) / (0.015 * d)
+    tci = ta.ema(ci, len2) 
+    normalize? tci/2+50 : tci
+
+adx(len, normalize)=> //
+    up = ta.change(high)
+    down = -ta.change(low)
+    plusDM = na(up) ? na : (up > down and up > 0 ? up : 0)
+    minusDM = na(down) ? na : (down > up and down > 0 ? down : 0)
+    trur = ta.rma(ta.tr, len)
+    plus = fixnan(100 * ta.rma(plusDM, len) / trur)
+    minus = fixnan(100 * ta.rma(minusDM, len) / trur)
+    sum = plus + minus
+    adx = 100 * ta.rma(math.abs(plus - minus) / (sum == 0 ? 1 : sum), len)
+    //below is empirical expression
+    adx := normalize? (math.log(adx)-ta.cum(math.log(adx))/bar_index)/1.7*50+50 : (adx-40)/4*5+50
+    plus := normalize? (math.log(plus)-ta.cum(math.log(plus))/bar_index)/1.7*50+50 : (plus-40)/4*5+50
+    minus := normalize? (math.log(minus)-ta.cum(math.log(minus))/bar_index)/1.7*50+50 : (minus-40)/4*5+50
+    [adx, plus, minus]
+[_adx, _plus, _minus] = adx(len, true)
+[adx, plus, minus] = adx(len, false)
+
+rvi(src,len) => //Relative Volatility Index
+    stddev = ta.stdev(src, len)
+    upper = ta.ema(ta.change(src) <= 0 ? 0 : stddev, len)
+    lower = ta.ema(ta.change(src) > 0 ? 0 : stddev, len)
+    rvi = upper / (upper + lower) * 100
+
+cmo(src,len) => //Chande Momentum Oscillator
+    momm = ta.change(src)
+    m1 = momm >= 0.0 ? momm : 0.0
+    m2 = momm >= 0.0 ? 0.0 : -momm
+    sm1 = math.sum(m1, len)
+    sm2 = math.sum(m2, len)
+    chandeMO = 100 * (sm1-sm2) / (sm1+sm2)
+    normalized_cmo = chandeMO/2+50
+
+imi(len) => //Intraday Momentum Index
+    gain = close > open ? close - open : 0
+    loss = close > open ? 0 : open - close
+    upSum = math.sum(gain, len)
+    downSum = math.sum(loss, len)
+    imi = 100 * upSum / (upSum + downSum)
+
+williamsR(src,len)=>
+	max = ta.highest(len)
+	min = ta.lowest(len)
+	100 * (src - max) / (max - min) + 100
+
+vrsi(src,len)=>
+    ta.rsi(ta.cum(ta.change(src)*volume),len) // by RicardoSantos
+
+
+Osc_Type = input.string("Relative Strength Index", "Ocilator type",
+  options = ["Relative Strength Index", "Money Flow Index", "Average Directional Index(ADX)","+DI", "-DI",
+  "Logged ADX", "WaveTrend", "Stochastic", "Stoch_Only_Close",
+  "Relative Volatility Index", "Chande Momentum Oscillator", "Intraday Momentum Index", "Williams %R", "Volume Relative Strength Index"],
+  tooltip="WaveTrend(length, length*2+1)\nStoch(length, 2)\nLogged ADX is log(adx) # try length under 22")
+
+
+
+osc = switch Osc_Type
+	"Money Flow Index"                  => ta.mfi(src, len)
+    "Average Directional Index(ADX)"    => adx
+    "+DI"                               => plus
+    "-DI"                               => minus
+    "Logged ADX"                        => _adx
+    "WaveTrend"                         => wavetrend(close, len, len*2+1, true)
+    "Stochastic"                        => ta.sma(ta.stoch(close, high, low, len),2)
+    "Stoch_Only_Close"                  => ta.sma(ta.stoch(close, close, close, len),2)
+    "Relative Volatility Index"         => rvi(src,len)
+    "Chande Momentum Oscillator"        => cmo(src,len)
+    "Intraday Momentum Index"           => imi(len)
+    "Williams %R"                       => williamsR(src, len)
+    "Volume Relative Strength Index"    => vrsi(src,len)
+	=> ta.rsi(src,len)
+
+
+
+//get values
+var osc_range = array.new_int(51,0)
+get_samples()=>
+    mean = 50
+    for i = 0 to 50
+        if math.round(osc/2)*2 > i*2-0.5 and math.round(osc/2)*2 < i*2+0.5
+            array.set(osc_range, i, array.get(osc_range,i) + 1)
+    sample_num = array.sum(osc_range) //sum of number of samples
+    variance_sum = 0.0
+    for i = 0 to 50
+        variance_sum += math.pow(i*2 - mean,2) * array.get(osc_range,i)
+    var osc_stdev = 0.0
+    
+    variance = variance_sum/sample_num
+    osc_stdev := math.pow(variance,0.5)
+
+    var _95_percent_confidence_interval = 0.0
+    //Z = (X-50) / rsi_stdev
+    var X1 = 0
+    var X2 = 0
+    X1 := math.max(0,math.round((50 - 1.96*osc_stdev)/2)*2), X2 := math.min(math.round((50 + 1.96*osc_stdev)/2)*2,100)
+    _95_percent_confidence_interval_num = 0.0
+
+    for i = int(X1/2) to int(X2/2)
+        _95_percent_confidence_interval_num += array.get(osc_range,i)
+    _95_percent_confidence_interval := _95_percent_confidence_interval_num/sample_num*100
+    [sample_num, osc_stdev, _95_percent_confidence_interval, mean, X1, X2]
+
+[sample_num, osc_stdev, _95_percent_confidence_interva, mean, X1, X2] = get_samples()
+
+
+//draw Normalized Distribution Graph
+pdf(x) => 1/(math.pow(math.pi*2,0.5)*osc_stdev)*math.exp(-0.5*math.pow(x,2)/math.pow(osc_stdev,2))
+var pdf_range = array.new_float(51,0)
+get_pdf()=>
+    for i = 0 to 50
+        array.set(pdf_range, i, pdf((i*2-50)))
+get_pdf()
+var pdf_lines = array.new_line()
+if barstate.islast
+    for i = 0 to 49
+        array.push(pdf_lines, line.new(bar_index+5 + i*2, array.get(pdf_range, i)*2000, bar_index+5 + i*2+2, array.get(pdf_range, i+1)*2000, color=color.orange))
+        if array.size(pdf_lines) > 50
+            pdf_line_del = array.shift(pdf_lines)
+            line.delete(pdf_line_del)
+
+
+
+//check if it follows Normal Distribution
+check()=>
+    variance_sum = 0.0
+    for i = 0 to 50
+        variance_sum += math.abs((array.get(osc_range, i)/sample_num*1000-array.get(pdf_range, i)*2000)*(math.pow(math.abs(i-25)+2,0.5)))
+    var check_stdev = 0.0
+    variance = variance_sum/5
+    check_stdev := math.pow(variance,0.5)
+    var string txt = na
+    var color col = na
+
+    //verifying normal distribution
+    if check_stdev > 9 //this is empirical constant
+        txt := "This not follow normal distribution "
+        col := color.red
+    else
+        txt := "This follow normal distribution "
+        col := color.green
+
+    [txt, col, check_stdev]
+
+[verification_txt, verification_col, check_stdev] = check()
+
+var label check_label = na
+if barstate.islast
+    check_label := label.new(bar_index+55 , math.max(100,array.max(osc_range)/sample_num*1000), text = verification_txt,
+      style=label.style_label_down, color=color.new(color.black,99), textcolor=verification_col)
+label.delete(check_label[1])
+
+
+//Oscillator Name
+var label name_label = na
+if barstate.islast
+    name_label := label.new(bar_index-20, 100, text = Osc_Type,
+      style=label.style_label_down, color=color.new(color.black,99), textcolor=color.rgb(131, 236, 44))
+label.delete(name_label[1])
+
+
+
+
+
+//draw Oscillator's Distribution
+var lines = array.new_line()
+var labels = array.new_label()
+var box rangebox = na
+
+conf_msg = if X1 != 0 
+    str.tostring(X1) + " to "+ str.tostring(X2) + " covers " +str.tostring(_95_percent_confidence_interva,"#.0")+" %"
+else
+    ""
+
+txt_length = if Osc_Type == "WaveTrend"
+    str.tostring(len)+", "+str.tostring(len*2+1)
+else if Osc_Type == "Stochastic" or Osc_Type == "Stoch_Only_Close"
+    str.tostring(len)+", 2"
+else 
+    str.tostring(len)
+
+if barstate.islast
+    rangebox := box.new(bar_index+5, math.max(100,array.max(osc_range)/sample_num*1000), bar_index+105, 0, bgcolor=color.new(color.green,90),
+      text = "Samples = "+str.tostring(sample_num)+"\n"+Osc_Type+"'s length = " + txt_length+"\nstdev = "+str.tostring(osc_stdev,"#.##")+"\n"+conf_msg,
+      text_size = size.normal, text_color = color.rgb(170, 154, 5),text_halign = text.align_right, text_valign = text.align_top)
+    for i = 0 to 50
+        array.push(lines, line.new(bar_index+5 + i*2, 0, bar_index+5 + i*2, array.get(osc_range, i)/sample_num*1000 ) )
+        if i == 25
+            array.push(labels, label.new(bar_index+5 + i*2, 0, text = " "+str.tostring(i*2)+ "\nZ="+str.tostring((i*2-mean)/osc_stdev,"#.##"),
+              style=label.style_label_up, color=color.new(color.black,99), textcolor=color.rgb(150, 180, 13)))
+        if (i == int(X1/2) or i == int(X2/2)) and X1!=0
+            array.push(labels, label.new(bar_index+5 + i*2, 0, text = " "+str.tostring(i*2)+ "\nZ="+str.tostring((i*2-mean)/osc_stdev,"#.##"),
+              style=label.style_label_up, color=color.new(color.black,99), textcolor=color.rgb(150, 180, 13)))
+        if array.size(lines) > 51
+            line_del = array.shift(lines)
+            line.delete(line_del)
+        n = X1!=0? 3:1
+        if array.size(labels) > n
+            label_del = array.shift(labels)
+            label.delete(label_del)
+box.delete(rangebox[1])
+
+
+
+
+//plot Oscillator
+plot(osc, "Oscillator", color=color.aqua)
+plot(0, "0", color=color.gray)
+plot(50,"50", color=color.gray)
+plot(100,"100", color=color.gray)
+
+
+
+
+
+
+
+

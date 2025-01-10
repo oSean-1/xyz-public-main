@@ -1,0 +1,134 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Cmo22
+
+
+//@version=5
+indicator("Ultimate Machine Learning RSI (Deep Learning Edition)", overlay=false)
+import TradingView/ta/8
+
+// === Inputs === //
+lookback = input.int(1000, title="Learning Lookback Period")
+momentumWeight = input.float(1.2, title="Momentum Weighting Factor")
+volatilityWeight = input.float(1.5, title="Volatility Weighting Factor")
+min_rsi_length = input.int(1, title="Min RSI Length", minval=1)
+max_rsi_length = input.int(1000, title="Max RSI Length", minval=10)
+learning_rate = input.float(0.000001, title="Learning Rate", minval=0.0000001, maxval=1)
+adaptive_learning_rate = input.bool(true, title="Adaptive Learning Rate", tooltip="Enable adaptive learning rate for more refined adjustments.")
+memory_factor = input.float(0.7, title="Memory Factor", minval=0, maxval=1)
+simulations = input.int(200, title="Monte Carlo Simulations")
+
+// === Feature Extraction === //
+priceChange = close - close[1]
+momentum = ta.mom(close, lookback)
+volatility = ta.stdev(close, lookback)
+atr = ta.atr(14)
+
+// === Probabilistic Monte Carlo Simulation (Enhanced) === //
+totalSimulatedSignal = 0.0
+volatility_cluster_factor = 1.0  // A factor for adjusting the simulation based on volatility regimes
+
+for i = 0 to simulations - 1
+    prob = (2 * math.random() - 1) * momentumWeight
+    prob := prob * (volatility * volatilityWeight) * volatility_cluster_factor
+    totalSimulatedSignal := totalSimulatedSignal + prob
+
+probabilisticSignal = totalSimulatedSignal / simulations
+
+// === Z-Score for Extreme Market Conditions === //
+zScore(src, length) =>
+    mean = ta.sma(src, length)
+    stdDev = ta.stdev(src, length)
+    (src - mean) / stdDev
+
+priceZScore = zScore(close, lookback)
+
+// === Dynamic Learning Rate === //
+// This makes the learning rate adaptive, becoming smaller in quiet markets and larger in volatile ones.
+adjustLearningRate(volatility) =>
+    base_rate = learning_rate
+    rate_adjustment = if adaptive_learning_rate
+        math.max(0.000001, math.min(0.01, base_rate * volatility / ta.sma(volatility, lookback)))
+    else
+        base_rate
+    rate_adjustment
+
+adaptive_rate = adjustLearningRate(volatility)
+
+// === Recursive Learning and Feedback === //
+calculateError(trueVal, predictedVal) =>
+    error = trueVal - predictedVal
+    error
+
+adjustLengthBasedOnError(baseLength, error) =>
+    adjustment = 1 + (error * adaptive_rate)
+    adjustedLength = baseLength * adjustment
+    adjustedLength := math.max(min_rsi_length, math.min(max_rsi_length, adjustedLength))
+    adjustedLength
+
+// === Adaptive Smoothing for High-Volatility Conditions === //
+adaptiveSmoothing(src, length, highVolatility) =>
+    highVolatility ? ta.tema2(src, length) : ta.ema2(src, length)
+
+// === RSI Calculation Function === //
+calcRSI(src, length) =>
+    up = ta.rma2(math.max(src, 0), length)
+    down = ta.rma2(math.abs(math.min(src, 0)), length)
+    rs = up / down
+    rsi = down == 0 ? 100 : up == 0 ? 0 : 100 - (100 / (1 + rs))
+    rsi
+
+// === Reinforcement Learning with Feedback === //
+rsi_length = input.int(14, title="Initial RSI Length")
+trueRSI = calcRSI(priceChange, rsi_length)
+
+// Predict RSI using probabilistic signal and Z-Score adjustment
+predictedRSI = calcRSI(probabilisticSignal, rsi_length * (1 + priceZScore))
+error = calculateError(trueRSI, predictedRSI)
+
+// Adjust RSI Length based on error with recursive feedback
+adjustedRSILength = adjustLengthBasedOnError(rsi_length, error)
+
+// Calculate Adaptive RSI with adjusted length
+adaptiveRSI = calcRSI(priceChange, adjustedRSILength)
+
+// === Recursive Memory Feedback (Deeper Learning) === //
+// Use past memory of how the RSI performed to further refine the system.
+var float[] rsiMemory = array.new_float(10, 0.0)
+
+if bar_index > 10
+    for i = 0 to array.size(rsiMemory) - 1
+        array.set(rsiMemory, i, adaptiveRSI)
+
+memoryAvg = array.avg(rsiMemory)
+recursiveFeedback = memory_factor * memoryAvg + (1 - memory_factor) * adaptiveRSI
+
+// === Volatility-Based Reinforcement === //
+// Volatility can influence the memory factor to become more reactive.
+volatility_reinforcement = volatilityWeight * volatility / ta.sma(volatility, lookback)
+reinforcedSignal = recursiveFeedback + volatility_reinforcement
+
+// === Final Smoothed RSI with Volatility Awareness === //
+highVolatility = volatility > ta.sma(volatility, lookback)
+smoothedRSI = adaptiveSmoothing(reinforcedSignal, adjustedRSILength, highVolatility)
+
+// === Probabilistic RSI Weighting === //
+// Combine true RSI, adaptive RSI, and recursive feedback for a final weighted RSI
+combinedRSI = (smoothedRSI + trueRSI + recursiveFeedback) / 3
+
+// === Multi-Factor Dynamic Thresholds for Overbought/Oversold === //
+dynamicOverbought = 70 * (1 + priceZScore)
+dynamicOversold = 30 * (1 - priceZScore)
+
+// === Multi-Factor Reinforcement Learning Signal === //
+// Combine RSI, probabilistic signal, and memory feedback for a highly refined output.
+combinedSignal = (combinedRSI + probabilisticSignal + memoryAvg) / 3
+
+// === Plotting === //
+plot(combinedSignal, title="Ultimate ML-RSI", color=color.blue, linewidth=2)
+hline(55, "Overbought", color=color.red)
+hline(10, "Oversold", color=color.green)
+hline(35, "Neutral", color=color.gray)
+
+// === Alerts for Significant RSI Levels === //
+alertcondition(combinedSignal > dynamicOverbought, title="Overbought", message="RSI is Overbought")
+alertcondition(combinedSignal < dynamicOversold, title="Oversold", message="RSI is Oversold")

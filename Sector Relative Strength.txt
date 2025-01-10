@@ -1,0 +1,325 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © atlas54000
+// This script is a remastered version of my previous relative strength scanner
+
+//@version=5
+
+indicator("Sector Relative Strength", shorttitle = "Sector RS", overlay = true)
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+    // INPUTS // ---------------------------------------------------------------
+
+        // Parameters names //
+
+var string strength1 = "Relative Strength 1", var string strength2 = "Relative Strength 2", var string strength3 = "Relative Strength 3"
+var string change1   = "Price Change",        var string volume1   = "Relative Volume",     var string des       = "Desactivated"
+
+var string l   = "Left",     var string c   = "Center",   var string r   = "Right"
+var string s   = "Small",    var string m   = "Medium"
+
+
+        // Calculation parameters //
+
+ch_1 = input.bool        (defval = true,  title = "Display the 5M RS",     group = "5M RS parameters")
+le_1 = input.int         (defval = 12,    title = "Period of the 5M RS",   group = "5M RS parameters")
+tf_1 = "5"
+
+ch_2 = input.bool        (defval = true,  title = "Display a second RS",   group = "Second RS parameters")
+tf_2 = input.timeframe   (defval = "30",  title = "Second RS timeframe",   group = "Second RS parameters")
+le_2 = input.int         (defval = 6,     title = "Second RS period",      group = "Second RS parameters")
+
+ch_3 = input.bool        (defval = true,  title = "Display a third RS",    group = "Third RS parameters")
+tf_3 = input.timeframe   (defval = "60",  title = "Third RS timeframe",    group = "Third RS parameters")
+le_3 = input.int         (defval = 6,     title = "Third RS period",       group = "Third RS parameters")
+
+ch_c = input.bool        (defval = true,  title = "Display change",                 group = "Change parameters")
+mu_c = input.int         (defval = 3,     title = "Number of 5M candles used",      group = "Change parameters")
+mu_1 = (5 * mu_c)
+
+ch_v = input.bool        (defval = true,  title = "Display RV",                     group = "Relative volume parameters")
+mu_v = input.int         (defval = 3,     title = "Number of 5M candles used",      group = "Relative volume parameters")
+le_v = input.int         (defval = 78,    title = "Length of volume SMA",           group = "Relative volume parameters")
+mu_2 = mu_v * 5
+
+sorting = input.string      (defval = change1,   title = "Activate sorting using",    group = "Sorting parameters",        options = [des, change1, volume1, strength1, strength2, strength3])
+
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+        // Graphical parameters //
+
+cl_1 = input.float       (defval = 0.75,  title = "Upper limit",               group = "Heatmap parameters")
+cl_2 = input.float       (defval = 0.50,  title = "Middle limit",              group = "Heatmap parameters")
+cl_3 = input.float       (defval = 0.25,  title = "Lower limit",               group = "Heatmap parameters")
+
+cl_s = input.bool        (defval = true,  title = "Dark mode",                 group = "Color theme")
+
+ta_s = input.string      (defval = s,     title = "Text size",                 group = "Table display setting",   options = [s, m])
+ta_p = input.string      (defval = r,     title = "Position of table",         group = "Table display setting",   options = [l, c, r])
+
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+        // Symbol selection //
+        
+s00 = "SPY", s01 = "XLC", s02 = "XLY", s03 = "XLP",  s04 = "XLE", s05 = "XLF"
+s06 = "XLV", s07 = "XLI", s08 = "XLB", s09 = "XLRE", s10 = "XLK", s11 = "XLU"
+
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+    // REQUESTS // -------------------------------------------------------------
+
+        // Index requests formulas //
+
+request_i1() =>
+    
+    change_s = math.round((close - close[mu_c]) / close[mu_c] * 100, 2)
+    volume_s = math.sum(volume,mu_v) / (ta.sma(volume,le_v) * mu_v)
+
+    strength_s = ta.change(close,le_1) / ta.atr(le_1)[1]
+    
+    [change_s, volume_s ,strength_s]
+
+
+request_i2() =>
+
+    strength_s = ta.change(close,le_2) / ta.atr(le_2)[1]
+
+
+request_i3() =>
+
+    strength_s = ta.change(close,le_3) / ta.atr(le_3)[1]
+
+
+        // Make the index requests //
+
+// - - - - Change, relative volume and power index for first timeframe - - - - | - - - - - Power index for second timeframe - - - - - - | - - - - - - Power index for third timeframe - - - - - - //
+    
+[change_00, volume_00, strength1_00] = request.security(s00, tf_1, request_i1()), strength2_00 = request.security(s00, tf_2, request_i2()), strength3_00 = request.security(s00, tf_3, request_i3())
+
+
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+        // Sector requests formulas //
+
+request_s1() =>
+    
+    change_s = math.round((close - close[mu_c]) / close[mu_c] * 100, 2)
+    volume_s = math.sum(volume,mu_v) / (ta.sma(volume,le_v) * mu_v)
+    
+    change_1 = ta.change(close,le_1)
+    atr_1    = ta.atr(le_1)[1]
+    
+    [change_s, volume_s, change_1, atr_1]
+
+
+request_s2() =>
+
+    change_2 = ta.change(close,le_2)
+    atr_2    = ta.atr(le_2)[1]
+    
+    [change_2, atr_2]
+
+
+request_s3() =>
+
+    change_3 = ta.change(close,le_3)
+    atr_3    = ta.atr(le_3)[1]
+    
+    [change_3, atr_3]
+
+        // Make the sector requests //
+
+// - - Change, relative volume and relative strength for first timeframe - - - | - - - - Relative strength for second timeframe - - - - | - - - - Relative strength for third timeframe - - - - //
+
+[change_01, volume_01, change1_01, atr1_01] = request.security(s01, tf_1, request_s1()), [change2_01, atr2_01] = request.security(s01, tf_2, request_s2()), [change3_01, atr3_01] = request.security(s01, tf_3, request_s3())
+[change_02, volume_02, change1_02, atr1_02] = request.security(s02, tf_1, request_s1()), [change2_02, atr2_02] = request.security(s02, tf_2, request_s2()), [change3_02, atr3_02] = request.security(s02, tf_3, request_s3())
+[change_03, volume_03, change1_03, atr1_03] = request.security(s03, tf_1, request_s1()), [change2_03, atr2_03] = request.security(s03, tf_2, request_s2()), [change3_03, atr3_03] = request.security(s03, tf_3, request_s3())
+[change_04, volume_04, change1_04, atr1_04] = request.security(s04, tf_1, request_s1()), [change2_04, atr2_04] = request.security(s04, tf_2, request_s2()), [change3_04, atr3_04] = request.security(s04, tf_3, request_s3())
+[change_05, volume_05, change1_05, atr1_05] = request.security(s05, tf_1, request_s1()), [change2_05, atr2_05] = request.security(s05, tf_2, request_s2()), [change3_05, atr3_05] = request.security(s05, tf_3, request_s3())
+[change_06, volume_06, change1_06, atr1_06] = request.security(s06, tf_1, request_s1()), [change2_06, atr2_06] = request.security(s06, tf_2, request_s2()), [change3_06, atr3_06] = request.security(s06, tf_3, request_s3())
+[change_07, volume_07, change1_07, atr1_07] = request.security(s07, tf_1, request_s1()), [change2_07, atr2_07] = request.security(s07, tf_2, request_s2()), [change3_07, atr3_07] = request.security(s07, tf_3, request_s3())
+[change_08, volume_08, change1_08, atr1_08] = request.security(s08, tf_1, request_s1()), [change2_08, atr2_08] = request.security(s08, tf_2, request_s2()), [change3_08, atr3_08] = request.security(s08, tf_3, request_s3())
+[change_09, volume_09, change1_09, atr1_09] = request.security(s09, tf_1, request_s1()), [change2_09, atr2_09] = request.security(s09, tf_2, request_s2()), [change3_09, atr3_09] = request.security(s09, tf_3, request_s3())
+[change_10, volume_10, change1_10, atr1_10] = request.security(s10, tf_1, request_s1()), [change2_10, atr2_10] = request.security(s10, tf_2, request_s2()), [change3_10, atr3_10] = request.security(s10, tf_3, request_s3())
+[change_11, volume_11, change1_11, atr1_11] = request.security(s11, tf_1, request_s1()), [change2_11, atr2_11] = request.security(s11, tf_2, request_s2()), [change3_11, atr3_11] = request.security(s11, tf_3, request_s3())
+
+
+relative_strength (strength, change, atr) =>
+    
+    rs = (change - strength * atr) / atr
+
+strength1_01 = relative_strength(strength1_00, change1_01, atr1_01), strength2_01 = relative_strength(strength2_00, change2_01, atr2_01), strength3_01 = relative_strength(strength3_00, change3_01, atr3_01)
+strength1_02 = relative_strength(strength1_00, change1_02, atr1_02), strength2_02 = relative_strength(strength2_00, change2_02, atr2_02), strength3_02 = relative_strength(strength3_00, change3_02, atr3_02)
+strength1_03 = relative_strength(strength1_00, change1_03, atr1_03), strength2_03 = relative_strength(strength2_00, change2_03, atr2_03), strength3_03 = relative_strength(strength3_00, change3_03, atr3_03)
+strength1_04 = relative_strength(strength1_00, change1_04, atr1_04), strength2_04 = relative_strength(strength2_00, change2_04, atr2_04), strength3_04 = relative_strength(strength3_00, change3_04, atr3_04)
+strength1_05 = relative_strength(strength1_00, change1_05, atr1_05), strength2_05 = relative_strength(strength2_00, change2_05, atr2_05), strength3_05 = relative_strength(strength3_00, change3_05, atr3_05)
+strength1_06 = relative_strength(strength1_00, change1_06, atr1_06), strength2_06 = relative_strength(strength2_00, change2_06, atr2_06), strength3_06 = relative_strength(strength3_00, change3_06, atr3_06)
+strength1_07 = relative_strength(strength1_00, change1_07, atr1_07), strength2_07 = relative_strength(strength2_00, change2_07, atr2_07), strength3_07 = relative_strength(strength3_00, change3_07, atr3_07)
+strength1_08 = relative_strength(strength1_00, change1_08, atr1_08), strength2_08 = relative_strength(strength2_00, change2_08, atr2_08), strength3_08 = relative_strength(strength3_00, change3_08, atr3_08)
+strength1_09 = relative_strength(strength1_00, change1_09, atr1_09), strength2_09 = relative_strength(strength2_00, change2_09, atr2_09), strength3_09 = relative_strength(strength3_00, change3_09, atr3_09)
+strength1_10 = relative_strength(strength1_00, change1_10, atr1_10), strength2_10 = relative_strength(strength2_00, change2_10, atr2_10), strength3_10 = relative_strength(strength3_00, change3_10, atr3_10)
+strength1_11 = relative_strength(strength1_00, change1_11, atr1_11), strength2_11 = relative_strength(strength2_00, change2_11, atr2_11), strength3_11 = relative_strength(strength3_00, change3_11, atr3_11)
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+    // ARRAYS // ---------------------------------------------------------------
+
+        // Create arrays for each column //
+
+name_arr = array.new_string  (0),       change_arr = array.new_float (0),       volume_arr = array.new_float (0)
+strength1_arr = array.new_float (0),    strength2_arr = array.new_float (0),    strength3_arr = array.new_float (0)
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+        // Filling the arrays //
+
+// - - - - - Name of each sector - - - - - - | - - - - Change of each sector - - - | - Relative volume of each sector - | - - - - - First RS of each sector - - - - | - - - - Second RS of each sector - - - - | - - - - Third RS of each sector - - - - //
+
+array.push(name_arr, "XLC  - Communication"),  array.push(change_arr, change_01),    array.push(volume_arr, volume_01),    array.push(strength1_arr, strength1_01),    array.push(strength2_arr, strength2_01),    array.push(strength3_arr, strength3_01)
+array.push(name_arr, "XLY  - Cons Disctret"),  array.push(change_arr, change_02),    array.push(volume_arr, volume_02),    array.push(strength1_arr, strength1_02),    array.push(strength2_arr, strength2_02),    array.push(strength3_arr, strength3_02)
+array.push(name_arr, "XLP  - Cons Staples"),   array.push(change_arr, change_03),    array.push(volume_arr, volume_03),    array.push(strength1_arr, strength1_03),    array.push(strength2_arr, strength2_03),    array.push(strength3_arr, strength3_03)
+array.push(name_arr, "XLE  - Energy"),         array.push(change_arr, change_04),    array.push(volume_arr, volume_04),    array.push(strength1_arr, strength1_04),    array.push(strength2_arr, strength2_04),    array.push(strength3_arr, strength3_04)
+array.push(name_arr, "XLF  - Financial"),      array.push(change_arr, change_05),    array.push(volume_arr, volume_05),    array.push(strength1_arr, strength1_05),    array.push(strength2_arr, strength2_05),    array.push(strength3_arr, strength3_05)
+array.push(name_arr, "XLV  - Healthcare"),     array.push(change_arr, change_06),    array.push(volume_arr, volume_06),    array.push(strength1_arr, strength1_06),    array.push(strength2_arr, strength2_06),    array.push(strength3_arr, strength3_06)
+array.push(name_arr, "XLI  - Industrials"),    array.push(change_arr, change_07),    array.push(volume_arr, volume_07),    array.push(strength1_arr, strength1_07),    array.push(strength2_arr, strength2_07),    array.push(strength3_arr, strength3_07)
+array.push(name_arr, "XLB  - Materials"),      array.push(change_arr, change_08),    array.push(volume_arr, volume_08),    array.push(strength1_arr, strength1_08),    array.push(strength2_arr, strength2_08),    array.push(strength3_arr, strength3_08)
+array.push(name_arr, "XLRE - Real Estate"),    array.push(change_arr, change_09),    array.push(volume_arr, volume_09),    array.push(strength1_arr, strength1_09),    array.push(strength2_arr, strength2_09),    array.push(strength3_arr, strength3_09)
+array.push(name_arr, "XLK  - Technology"),     array.push(change_arr, change_10),    array.push(volume_arr, volume_10),    array.push(strength1_arr, strength1_10),    array.push(strength2_arr, strength2_10),    array.push(strength3_arr, strength3_10)
+array.push(name_arr, "XLU  - Utilities"),      array.push(change_arr, change_11),    array.push(volume_arr, volume_11),    array.push(strength1_arr, strength1_11),    array.push(strength2_arr, strength2_11),    array.push(strength3_arr, strength3_11)
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+        // Sorting the arrays //
+
+// The sorting system was inspired by LuxGecko an his Bubble Sort function
+// For more details see : https://www.tradingview.com/script/mMF7fVKO-Pinescript-Bubble-Sort-using-Arrays/
+
+if sorting != des
+    sorter = sorting == change1 ? change_arr : sorting == volume1 ? volume_arr : sorting == strength1 ? strength1_arr : sorting == strength2 ? strength2_arr : strength3_arr
+    n = array.size(sorter) - 1
+    for i = 0 to n - 1
+        for j = 0 to n - i - 1
+            if array.get(sorter , j) < array.get(sorter, j+1)
+            
+                name_temp = array.get(name_arr, j)
+                array.set(name_arr, j, array.get(name_arr, j + 1))
+                array.set(name_arr, j + 1, name_temp)
+                
+                change_temp = array.get(change_arr, j)
+                array.set(change_arr, j, array.get(change_arr, j + 1))
+                array.set(change_arr, j + 1, change_temp)
+                
+                volume_temp = array.get(volume_arr, j)
+                array.set(volume_arr, j, array.get(volume_arr, j + 1))
+                array.set(volume_arr, j + 1, volume_temp)
+                
+                strength1_temp = array.get(strength1_arr, j)
+                array.set(strength1_arr, j, array.get(strength1_arr, j + 1))
+                array.set(strength1_arr, j + 1, strength1_temp)
+                
+                strength2_temp = array.get(strength2_arr, j)
+                array.set(strength2_arr, j, array.get(strength2_arr, j + 1))
+                array.set(strength2_arr, j + 1, strength2_temp)
+                
+                strength3_temp = array.get(strength3_arr, j)
+                array.set(strength3_arr, j, array.get(strength3_arr, j + 1))
+                array.set(strength3_arr, j + 1, strength3_temp)
+
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+    // TABLE // ----------------------------------------------------------------
+
+        // Graphical variables //
+
+
+g_1 =        color.rgb(016, 158, 119),                               r_1 =        color.rgb(239, 083, 080)
+g_2 = cl_s ? color.rgb(017, 124, 098) : color.rgb(076, 182, 153),    r_2 = cl_s ? color.rgb(184, 068, 069) : color.rgb(245, 126, 124)
+g_3 = cl_s ? color.rgb(017, 090, 077) : color.rgb(135, 206, 187),    r_3 = cl_s ? color.rgb(129, 053, 057) : color.rgb(247, 169, 167)
+g_4 = cl_s ? color.rgb(018, 057, 055) : color.rgb(195, 231, 221),    r_4 = cl_s ? color.rgb(073, 037, 046) : color.rgb(249, 193, 192)
+bkg = cl_s ? color.rgb(019, 023, 034) : color.white,                 txt = cl_s ? color.white : color.black
+
+cl_f1 (val) => val > 0 ? g_1 : val < 0 ? r_1 : txt
+cl_f2 (val) => val > cl_1 ? g_1 : val > cl_2 ? g_2 : val > cl_3 ? g_3 : val > 0.0 ? g_4 : val > -cl_3 ? r_4 : val > -cl_2 ? r_3 : val > -cl_1 ? r_2 : r_1
+cl_f3 (val) => (val / volume_00) > cl_1 +1 ? g_1 : (val / volume_00) > cl_2 +1 ? g_2 : (val / volume_00) > cl_3 +1 ? g_3 : (val / volume_00) > 1 ? g_4 : (val / volume_00) > -cl_3 +1? r_4 : (val / volume_00) > -cl_2 +1? r_3 : (val / volume_00) > -cl_1 +1? r_2 : r_1
+
+brd_s = ta_s == s ? 2 : 3
+txt_s = ta_s == s ? size.small : size.normal
+
+ta_pl   = ta_p == r ? position.top_right : ta_p == c ? position.top_center : position.top_left
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+        // Columns calculator //
+
+ch1_pl = (ch_c == true ? 1 : 0)
+rs1_pl = (ch_1 == true ? 1 : 0) + ch1_pl
+rs2_pl = (ch_2 == true ? 1 : 0) + rs1_pl
+rs3_pl = (ch_3 == true ? 1 : 0) + rs2_pl
+rv1_pl = (ch_v == true ? 1 : 0) + rs3_pl
+
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+        // Filling the table //
+
+var tbl = table.new(ta_pl, rv1_pl + 1, 14, border_width = brd_s, border_color = bkg)
+
+if barstate.islast
+
+    table.cell(tbl, 0, 0, "Symbol",  text_halign = text.align_right,   bgcolor = bkg,   text_color = txt,   text_size = size.normal)
+    table.cell(tbl, 0, 1, "SPY",     text_halign = text.align_right,   bgcolor = bkg,   text_color = txt,   text_size = txt_s)
+    
+    for i = 0 to 10
+        table.cell(tbl, 0, i + 2, array.get(name_arr, i), text_halign = text.align_left,  bgcolor = bkg,   text_color = txt,  text_size = txt_s)
+    
+    if ch_c == true
+    
+        table.cell(tbl, ch1_pl, 0, "Change " + str.tostring(mu_1),   text_halign = text.align_center,    bgcolor = bkg,   text_color = txt,  text_size = size.normal)
+        table.cell(tbl, ch1_pl, 1, str.tostring(change_00, "#.##") + " %",  text_halign = text.align_center,    bgcolor = bkg,   text_color = cl_f1 (change_00),    text_size = txt_s)
+        
+        for i = 0 to 10
+            table.cell(tbl, ch1_pl, i + 2, str.tostring(array.get(change_arr, i), "#.##") + " %" ,   text_halign = text.align_center,    bgcolor = bkg,   text_color =  cl_f1 (array.get(change_arr, i)),    text_size = txt_s)
+    
+    if ch_1 == true
+    
+        table.cell(tbl, rs1_pl, 0, "  RS 5  ",   text_halign = text.align_center,    bgcolor = bkg,   text_color = txt,  text_size = size.normal)
+        table.cell(tbl, rs1_pl, 1, str.tostring(strength1_00, "#.##"),  text_halign = text.align_center,    bgcolor = cl_f2 (strength1_00),   text_color = txt,    text_size = txt_s)
+        
+        for i = 0 to 10
+            table.cell(tbl, rs1_pl, i + 2, str.tostring(array.get(strength1_arr, i), "#.##"),   text_halign = text.align_center,    bgcolor = cl_f2 (array.get(strength1_arr, i)),   text_color = txt,    text_size = txt_s)
+    
+    if ch_2 == true
+    
+        table.cell(tbl, rs2_pl, 0, "  RS " + tf_2 + "  ",   text_halign = text.align_center,    bgcolor = bkg,   text_color = txt,  text_size = size.normal)
+        table.cell(tbl, rs2_pl, 1, str.tostring(strength2_00, "#.##"),  text_halign = text.align_center,    bgcolor = cl_f2 (strength2_00),   text_color = txt,    text_size = txt_s)
+        
+        for i = 0 to 10
+            table.cell(tbl, rs2_pl, i + 2, str.tostring(array.get(strength2_arr, i), "#.##"),   text_halign = text.align_center,    bgcolor = cl_f2 (array.get(strength2_arr, i)),   text_color = txt,    text_size = txt_s)
+    
+    if ch_3 == true
+    
+        table.cell(tbl, rs3_pl, 0, "  RS " + tf_3 + "  ",   text_halign = text.align_center,    bgcolor = bkg,   text_color = txt,  text_size = size.normal)
+        table.cell(tbl, rs3_pl, 1, str.tostring(strength3_00, "#.##"),  text_halign = text.align_center,    bgcolor = cl_f2 (strength3_00),   text_color = txt,    text_size = txt_s)
+        
+        for i = 0 to 10
+            table.cell(tbl, rs3_pl, i + 2, str.tostring(array.get(strength3_arr, i), "#.##"),   text_halign = text.align_center,    bgcolor = cl_f2 (array.get(strength3_arr, i)),   text_color = txt,    text_size = txt_s)
+    
+    if ch_v == true
+    
+        table.cell(tbl, rv1_pl, 0, "  RV " + str.tostring(mu_2),   text_halign = text.align_center,    bgcolor = bkg,   text_color = txt,  text_size = size.normal)
+        table.cell(tbl, rv1_pl, 1, str.tostring(volume_00, "#.##"),  text_halign = text.align_center,    bgcolor = cl_f2 (volume_00 - 1),   text_color = txt,    text_size = txt_s)
+        
+        for i = 0 to 10
+            table.cell(tbl, rv1_pl, i + 2, str.tostring(array.get(volume_arr, i), "#.##"),   text_halign = text.align_center,    bgcolor = cl_f3(array.get(volume_arr, i)),   text_color = txt,    text_size = txt_s)

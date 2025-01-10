@@ -1,0 +1,71 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © RicardoSantos
+
+//@version=5
+indicator("Test - Symbiotic Exiton Measure Enthropic Nexus indicator")
+// reference:
+// https://azeemba.com/posts/boundaries-of-predictability.html
+
+// ﻿The Symbiotic Exiton Measure Enthropic Nexus (SEMEN) Indicator is a 
+// technical analysis tool used in trading and investing. It's name might 
+// sound complex, but its function is quite simple - to help traders make 
+// informed decisions about buying or selling stocks by predicting market 
+// trends.
+// The SEMEN indicator uses a combination of various factors such as volume,
+// price action, moving averages, and other indicators to generate a single
+// numerical value that represents the overall health of the market. A high
+// reading indicates a strong uptrend, while a low one suggests a downtrend.
+// Traders can use this information to enter or exit positions with 
+// confidence.
+// In essence, the SEMEN indicator provides a comprehensive view of the 
+// market's sentiment and direction, making it an essential tool for any 
+// trader or investor looking to make profitable decisions in today's 
+// volatile stock markets.
+// ~description generated with Airoboros7b
+
+d0 (G, m, r, d, l, v) =>
+    _1_1 = -fixnan(2.0 * G * m)
+    _1_2 = fixnan(r - math.pow(d, 3.0))
+    _2_1 = math.pow(nz(l / v, 0.0), 2.0)
+    (_1_1 / _1_2) * _2_1
+
+d1 (float src, float vol, int length) => 
+    float _src = math.log(src)
+    // G and m give the observed movement
+    float _G = ta.change(src, length) // gravity constant
+    float _m = math.log(ta.change(vol) / ta.highest(vol, length)) // mass
+    // 
+    float _r = length // radius
+    float _d = ta.change(_src, length) // distance
+    float _l = ta.highestbars(length) - ta.lowestbars(length) //length / 2.0//ta.highestbars(length) - ta.lowestbars(length) // mean free path
+    float _v = ta.atr(length) //ta.change(c) // thermal velocity
+    ta.rsi(d0(_G, _m, _r, _d, _l, _v), length)
+
+bool show_overlay = input.bool(true, 'Show Bar color overlay?')
+bool compensate = input.bool(true, 'Compensate for small numeric perturbations?', inline = '1')
+int power = input.int(3, 'Conpensation power:', inline = '1')
+float src = input.source(close, 'Source Series:')
+int length = input.int(14, 'Length')
+
+// calculate basis source, calculate the series and the power to conpensate the 
+// numeric output of perturbations too small to detect.
+float basis = compensate ? math.log(src * math.pow(power, 10)) : math.log(src)
+
+f0 = d1(basis, volume, length)
+f1 = d1(basis, volume, length*2)
+f2 = d1(basis, volume, length*3)
+
+col = switch
+    f0 > 80 => #d9dddc
+    f0 > 70 => #79c5c1
+    f0 > 50 => #98d163
+    f0 < 30 => #79c5c1
+    f0 < 20 => #d9dddc
+    => #f19058
+
+plot(f0, 'F0', #0050fc)
+plot(f0, 'F0', color.new(col, 70), 3, plot.style_histogram, histbase=50)
+plot(f1, 'F1', #c7c425)
+plot(f2, 'F2', #ff7c02)
+
+barcolor(col, display = show_overlay ? display.all : display.none)

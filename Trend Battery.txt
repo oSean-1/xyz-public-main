@@ -1,0 +1,107 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Phantom_x3x
+//@version=6
+indicator("Trend Battery [Phantom]", overlay=true)
+
+transparency = input.int(0, "Transparency", minval=0, maxval=100)
+show_emas = input.bool(false, "Show EMAs on Chart")
+
+ema_values = array.new_float()
+
+array.push(ema_values, ta.ema(close, 8))
+array.push(ema_values, ta.ema(close, 12))
+array.push(ema_values, ta.ema(close, 16))
+array.push(ema_values, ta.ema(close, 20))
+array.push(ema_values, ta.ema(close, 25))
+array.push(ema_values, ta.ema(close, 30))
+array.push(ema_values, ta.ema(close, 35))
+array.push(ema_values, ta.ema(close, 40))
+array.push(ema_values, ta.ema(close, 45))
+array.push(ema_values, ta.ema(close, 50))
+array.push(ema_values, ta.ema(close, 55))
+array.push(ema_values, ta.ema(close, 60))
+array.push(ema_values, ta.ema(close, 65))
+array.push(ema_values, ta.ema(close, 70))
+array.push(ema_values, ta.ema(close, 75))
+array.push(ema_values, ta.ema(close, 80))
+array.push(ema_values, ta.ema(close, 100))
+array.push(ema_values, ta.ema(close, 125))
+array.push(ema_values, ta.ema(close, 150))
+array.push(ema_values, ta.ema(close, 200))
+
+score = 0
+for i = 1 to array.size(ema_values) - 1
+    current_ema = array.get(ema_values, i)
+    previous_ema = array.get(ema_values, i - 1)
+    if current_ema < previous_ema
+        score += 1
+
+c1  = color.new(#00FF00, transparency)
+c2  = color.new(#33FF00, transparency)
+c3  = color.new(#66FF00, transparency)
+c4  = color.new(#99FF00, transparency)
+c5  = color.new(#CCFF00, transparency)
+c6  = color.new(#FFFF00, transparency)
+c7  = color.new(#FFCC00, transparency)
+c8  = color.new(#FF9900, transparency)
+c9  = color.new(#FF6600, transparency)
+c10 = color.new(#FF3300, transparency)
+c11 = color.new(#FF0000, transparency)
+c12 = color.new(#FF0033, transparency)
+c13 = color.new(#FF0066, transparency)
+c14 = color.new(#FF0099, transparency)
+c15 = color.new(#FF00CC, transparency)
+c16 = color.new(#FF00FF, transparency)
+c17 = color.new(#CC00FF, transparency)
+c18 = color.new(#9900FF, transparency)
+c19 = color.new(#6600FF, transparency)
+
+bar_color =
+     score == 19 ? c1 :
+     score == 18 ? c2 :
+     score == 17 ? c3 :
+     score == 16 ? c4 :
+     score == 15 ? c5 :
+     score == 14 ? c6 :
+     score == 13 ? c7 :
+     score == 12 ? c8 :
+     score == 11 ? c9 :
+     score == 10 ? c10 :
+     score == 9  ? c11 :
+     score == 8  ? c12 :
+     score == 7  ? c13 :
+     score == 6  ? c14 :
+     score == 5  ? c15 :
+     score == 4  ? c16 :
+     score == 3  ? c17 :
+     score == 2  ? c18 : c19
+
+barcolor(bar_color)
+
+var table batteryTable = table.new(position.bottom_right, 1, array.size(ema_values), bgcolor = color.gray, border_width = 1)
+
+colors = array.from(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19)
+
+for i = 0 to array.size(ema_values) - 2
+    cell_color = array.get(colors, i)
+    table.cell(batteryTable, 0, i, text = "", bgcolor = cell_color)
+
+plot(show_emas ? array.get(ema_values, 0) : na, color=color.new(color.red, 50), linewidth=1)
+plot(show_emas ? array.get(ema_values, 1) : na, color=color.new(color.orange, 50), linewidth=1)
+plot(show_emas ? array.get(ema_values, 2) : na, color=color.new(color.yellow, 50), linewidth=1)
+plot(show_emas ? array.get(ema_values, 3) : na, color=color.new(color.green, 50), linewidth=1)
+plot(show_emas ? array.get(ema_values, 4) : na, color=color.new(color.blue, 50), linewidth=1)
+plot(show_emas ? array.get(ema_values, 5) : na, color=color.new(color.purple, 50), linewidth=1)
+plot(show_emas ? array.get(ema_values, 6) : na, color=color.new(color.red, 50), linewidth=1)
+plot(show_emas ? array.get(ema_values, 7) : na, color=color.new(color.orange, 50), linewidth=1)
+plot(show_emas ? array.get(ema_values, 8) : na, color=color.new(color.yellow, 50), linewidth=1)
+plot(show_emas ? array.get(ema_values, 9) : na, color=color.new(color.green, 50), linewidth=1)
+plot(show_emas ? array.get(ema_values, 10) : na, color=color.new(color.blue, 50), linewidth=1)
+plot(show_emas ? array.get(ema_values, 11) : na, color=color.new(color.purple, 50), linewidth=1)
+plot(show_emas ? array.get(ema_values, 12) : na, color=color.new(color.red, 50), linewidth=1)
+plot(show_emas ? array.get(ema_values, 13) : na, color=color.new(color.orange, 50), linewidth=1)
+plot(show_emas ? array.get(ema_values, 14) : na, color=color.new(color.yellow, 50), linewidth=1)
+plot(show_emas ? array.get(ema_values, 15) : na, color=color.new(color.green, 50), linewidth=1)
+plot(show_emas ? array.get(ema_values, 16) : na, color=color.new(color.blue, 50), linewidth=1)
+plot(show_emas ? array.get(ema_values, 17) : na, color=color.new(color.purple, 50), linewidth=1)
+plot(show_emas ? array.get(ema_values, 18) : na, color=color.new(color.red, 50), linewidth=1)

@@ -1,0 +1,499 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © sabricat
+
+//@version=5
+indicator("Volume Stats", overlay=true)
+
+// Inputs
+tz_input = input.string("", "Timezone", tooltip="Leave blank to use exchange timezone, or match this value to the timezone value in the bottom right corner of your chart")
+mode = "Last"
+cell_data_mode = input.string("Volume", "Cell data", ["No", "Volume", "Percentage"], tooltip="What data will be displayed in the cells") 
+cell_data_highlight = input.bool(true, "Highlight min and max volume", tooltip="Highlight cells with highest and lowest volume")
+perc_data_mode = input.string("All data", "Cell stats mode", ["All data", "Column"], tooltip="Color of the cells as well as percentages displayed will depend on this (All data -> calculate color and % of the whole year; Column -> of the month)")
+show_prev_year = input.bool(false, "Display data from previous year", tooltip="Display data from previous year")
+header_color_mode = input.string("% of total", "Header color is calculated from", ["% of total", "Sentiment"], tooltip="Color of the header cells will depend on this")
+reverse_theme = input.bool(false, "Reverse theme", tooltip="Use darker colors when 'Dark' mode is off, and lighter colors when 'Dark' mode is on")
+hide_logo = input.bool(false, "Hide logo (PLEASE DO NOT HIDE THE CAT)")
+
+// Reverse bool value if cond is satisfied
+method reverse(bool val, bool cond) => cond ? not val : val
+
+// Check if the color is dark
+method is_dark(color col_) => color.r(col_) + color.g(col_) + color.b(col_) / 3 < 128
+
+// Prefix (first N characters) of the string
+method prefix(string val, int n) => str.substring(val, 0, n)
+
+// Add prefix and suffix to string based on a condition
+method add_prefix_suffix(string val, string prefix, string suffix, bool cond) => cond ? (prefix + val + suffix) : val
+
+// Element-wise operations for 2 arrays
+method _op(array<float> a, array<float> b, string op_) =>
+    array<float> res = array.new<float>(0, na)
+    int as_ = a.size()
+    int bs_ = b.size()
+    if as_ == bs_
+        if as_ > 0
+            for i = 0 to as_ - 1
+                if op_ == "+"
+                    res.push(a.get(i) + b.get(i))
+                if op_ == "-"
+                    res.push(a.get(i) - b.get(i))
+                if op_ == "*"
+                    res.push(a.get(i) * b.get(i))
+                if op_ == "/"
+                    res.push(a.get(i) / b.get(i))
+    res
+
+// Array with value operations
+method _op(array<float> a, float b, string op_) =>
+    array<float> res = array.new<float>(0, na)
+    int as_ = a.size()
+    if as_ > 0
+        for i = 0 to as_ - 1
+            if op_ == "+"
+                res.push(a.get(i) + b)
+            if op_ == "-"
+                res.push(a.get(i) - b)
+            if op_ == "*"
+                res.push(a.get(i) * b)
+            if op_ == "/"
+                res.push(a.get(i) / b)
+    res
+
+
+// Timezone
+string tz = tz_input == "" ? syminfo.timezone : tz_input
+
+
+// Check if "Dark" theme is enabled
+bool is_dark_theme = chart.bg_color.is_dark().reverse(reverse_theme)
+
+// Styling
+table_position = position.bottom_right
+table_cell_color = is_dark_theme ? color.rgb(21, 25, 36) : #ffffff
+table_cell_text_size = size.tiny
+table_cell_text_color = color.new(is_dark_theme ? #ffffff : #000000, 25)
+table_cell_na_symbol = "•"
+table_cell_vol_mm_symbol = "◼"
+table_frame_color = #623cea
+table_frame_width = 2
+table_border_color = is_dark_theme ? color.new(#ffffff, 65) : color.new(#000000, 65)
+header_cell_color = is_dark_theme ? #000000 : #bfbfbf
+header_cell_text_color = is_dark_theme ? #ffffff : #000000
+header_cell_text_size = size.small
+color_bear = color.rgb(242, 54, 69)
+color_bull = color.rgb(11, 153, 129)
+
+
+// Date / time values
+int now_ye = year(time_close, tz)
+int now_mo = month(time_close, tz)
+int now_da = dayofmonth(time_close, tz)
+int now_ho = hour(time_close, tz)
+int now_mi = minute(time_close, tz)
+int now_se = second(time_close, tz)
+
+//
+const float bigval = math.pow(10, 12)
+
+// Date / time arrays
+const array<string> months = array.from("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")
+
+
+// Index of row and column to insert new data
+[row_id, col_id] = switch timeframe.period
+    "D" => [now_da - 1, now_mo - 1]
+
+// Number of rows and columns in the matrix
+[n_rows, n_cols] = switch timeframe.period
+    "D" => [31, 12]
+
+// Which variable must change to insert new NA values
+now_value = switch timeframe.period
+    "D" => now_ye
+
+// Height of table cell
+float table_cell_height = 80 / (n_rows + 1)
+
+
+// Custom type to store one value (for one date) from one cell
+type DataPoint
+    float v  // volume
+    bool s   // side
+    int t    // time
+
+// Custom type to store values for multiple dates in one cell
+type CellData
+    array<DataPoint> data
+
+// Store a float and an int value and a string value
+type TypeFloatIntBool
+    float fv
+    int iv
+    bool s
+
+// Custom type to store YoY stats of a matrix
+type YOY
+    // Matrix with data
+    matrix<DataPoint> mat
+    // Stats by column
+    array<float> min_bull
+    array<float> min_bear
+    array<float> max_bull
+    array<float> max_bear
+    array<float> sum_bull
+    array<float> sum_bear
+    array<int> n
+    array<float> sentiment
+    array<TypeFloatIntBool> min_vol_col
+    array<TypeFloatIntBool> max_vol_col
+    
+// Get min from all data
+method min(YOY yoy_data) =>
+    array<float> arr = array.new<float>(0, na)
+    for i in yoy_data.min_vol_col
+        arr.push(i.fv)
+    arr.min()
+
+// Get max from all data
+method max(YOY yoy_data) =>
+    array<float> arr = array.new<float>(0, na)
+    for i in yoy_data.max_vol_col
+        arr.push(i.fv)
+    arr.max()
+
+// Array.get with 0 as the last element, 1 as the almost last, etc...
+method get_reversed(array<DataPoint> arr, int index) => arr.get(arr.size() - 1 - index)
+
+// Inserts new NA values into the matrix
+method ina(matrix<CellData> data, int n_rows, int n_cols) =>
+    for rid = 0 to n_rows - 1
+        for cid = 0 to n_cols - 1
+            CellData obj = data.get(rid, cid)
+            if not na(obj)
+                DataPoint data_point = DataPoint.new(na, na, timestamp(tz, now_ye, cid + 1, rid + 1, 0, 0, 0))
+                obj.data.push(data_point) 
+                data.set(rid, cid, obj)
+
+// Add new value to the cell
+method put(matrix<CellData> data, int row, int col, float vol, bool side) => 
+    CellData obj = data.get(row, col)
+    if na(obj)
+        obj := CellData.new(array.new<DataPoint>(1, na))
+        obj.data.push(DataPoint.new(na, na, timestamp(tz, now_ye, now_mo, now_da, 0, 0, 0)))
+    if not na(obj)
+        int index_ = obj.data.size() - 1
+        DataPoint data_point = obj.data.get(index_)
+        if not na(data_point)
+            data_point.v := vol
+            data_point.s := side
+            obj.data.set(index_, data_point)
+            data.set(row, col, obj)
+
+// Get usual matrix from type DataPointFloat matrix by index of value (where e.g. index = 0 would return data for current year; index = -1 will return the latest data (taking into account current month, returning data from last year if necessary))
+method _get(matrix<CellData> data_, int index) =>
+    int nr = data_.rows()
+    int nc = data_.columns()
+    matrix<DataPoint> res = matrix.new<DataPoint>(nr, nc, na)
+    bool mat_is_empty = false
+    for rid = 0 to nr - 1
+        for cid = 0 to nc - 1
+            CellData obj = data_.get(rid, cid)
+            if not na(obj)
+                int id_ = obj.data.size() - 1 - math.max(0, index)
+                // If index == -1
+                if index == -1 and cid > col_id
+                    id_ -= 1
+                //
+                if id_ >= 0
+                    res.set(rid, cid, obj.data.get(id_))
+                    mat_is_empty := false
+    // Return NA if the matrix is empty, or matrix otherwise
+    mat_is_empty ? na : res
+
+// Get matrices by year
+method yoy(matrix<CellData> data, int n_rows, int n_cols) =>
+    map<int, YOY> res = map.new<int, YOY>()
+    for yid = now_ye to 1970 
+        matrix<DataPoint> mat = data._get(now_ye - yid)
+        if not na(mat)
+            // Store data for each column (e.g. each month of the year)
+            array<float> res_min_bull = array.new<float>(n_cols, na)
+            array<float> res_min_bear = array.new<float>(n_cols, na)
+            array<float> res_max_bull = array.new<float>(n_cols, na)
+            array<float> res_max_bear = array.new<float>(n_cols, na)
+            array<float> res_sum_bull = array.new<float>(n_cols, na)
+            array<float> res_sum_bear = array.new<float>(n_cols, na)
+            array<int> res_n = array.new<int>(n_cols, na)
+            array<float> res_sentiment = array.new<float>(n_cols, na)
+            array<TypeFloatIntBool> res_min_vol = array.new<TypeFloatIntBool>(n_cols, na)
+            array<TypeFloatIntBool> res_max_vol = array.new<TypeFloatIntBool>(n_cols, na)
+
+            // Iterate over columns (months e.g.)
+            for cid = 0 to n_cols - 1
+                float min_bull = na
+                float min_bear = na
+                float max_bull = na
+                float max_bear = na
+                float sum_bull = 0.0
+                float sum_bear = 0.0
+                int min_bull_vol_rid = na
+                int min_bear_vol_rid = na
+                int max_bull_vol_rid = na
+                int max_bear_vol_rid = na
+                int n = 0
+                // Iterate over rows (days e.g.)
+                for rid = 0 to n_rows - 1
+                    DataPoint obj = mat.get(rid, cid)
+                    if not na(obj)
+                        if not na(obj.v)
+                            if obj.s
+                                if na(min_bull) or (obj.v < min_bull)
+                                    min_bull := obj.v
+                                    min_bull_vol_rid := rid                  
+                                if na(max_bull) or (obj.v > max_bull)
+                                    max_bull := obj.v
+                                    max_bull_vol_rid := rid
+                                sum_bull += obj.v
+                            if not obj.s
+                                if na(min_bear) or (obj.v < min_bear)
+                                    min_bear := obj.v
+                                    min_bear_vol_rid := rid
+                                if na(max_bear) or (obj.v > max_bear)
+                                    max_bear := obj.v
+                                    max_bear_vol_rid := rid
+                                sum_bear += obj.v
+                            n += 1
+                // Add data to the arrays
+                res_min_bull.set(cid, min_bull)
+                res_min_bear.set(cid, min_bear)
+                res_max_bull.set(cid, max_bull)
+                res_max_bear.set(cid, max_bear)
+                res_sum_bull.set(cid, sum_bull)
+                res_sum_bear.set(cid, sum_bear)
+                // Min and max volume of the column
+                float min_vol = math.min(nz(min_bull, bigval), nz(min_bear, bigval))
+                int min_vol_rid = min_bull == min_bear ? (min_bull_vol_rid < min_bear_vol_rid ? min_bull_vol_rid : min_bear_vol_rid) : (min_bull == min_vol ? min_bull_vol_rid : min_bear == min_vol ? min_bear_vol_rid : na)
+                float max_vol = math.max(nz(max_bull, 0.0), nz(max_bear, 0.0))
+                int max_vol_rid = max_bull == max_bear ? (max_bull_vol_rid < max_bear_vol_rid ? max_bull_vol_rid : max_bear_vol_rid) : (max_bull == max_vol ? max_bull_vol_rid : max_bear == max_vol ? max_bear_vol_rid : na)
+                //
+                res_min_vol.set(cid, TypeFloatIntBool.new(min_vol, min_vol_rid + 1, min_vol_rid == min_bull_vol_rid ? true : false))
+                res_max_vol.set(cid, TypeFloatIntBool.new(max_vol, max_vol_rid + 1, max_vol_rid == max_bull_vol_rid ? true : false))
+                res_n.set(cid, n)
+            // Sentiment
+            for cid = 0 to n_cols - 1
+                float bull_vol = res_sum_bull.get(cid)
+                float bear_vol = res_sum_bear.get(cid)
+                float total_vol = bull_vol + bear_vol
+                float sentiment = bull_vol > bear_vol ? math.round(bull_vol / total_vol * 100, 1) : bull_vol < bear_vol ? -math.round(bear_vol / total_vol * 100, 1) : 0.0
+                res_sentiment.set(cid, sentiment)
+            // Add data for each month of the year (e.g.) to the result
+            res.put(yid, YOY.new(mat, res_min_bull, res_max_bull, res_min_bear, res_max_bear, res_sum_bull, res_sum_bear, res_n, res_sentiment, res_min_vol, res_max_vol))
+    res
+
+// Get real column id (useful when mode == "Last")
+f_get_real_column_id(int cid) => 
+    res = cid - 1
+    if not show_prev_year
+        res := col_id - (12 - cid)
+        if res < 0
+            res += 12
+    res 
+    
+//
+f_check_cell_is_prev_year(int cid) =>
+    res = false
+    if show_prev_year
+        res := true
+    else
+        n_ = col_id - (12 - cid)
+        if n_ < 0
+            res := true
+    res 
+
+// Check if cell with row_id and col_id has data for any of the 3rd dimension indices (year, for example)
+f_check_cell_has_data_for_any_3d(CellData cell_data) =>
+    bool res = false
+    if not na(cell_data)
+        for i in cell_data.data
+            if not na(i)
+                if not na(i.v)
+                    res := true
+                    break
+    res
+
+// Matrix with data
+var matrix<CellData> data = matrix.new<CellData>(n_rows, n_cols, na)
+
+// Insert new NA values into matrix
+if now_value != now_value[1] or barstate.isfirst
+    data.ina(n_rows, n_cols) 
+
+// Insert new data into matrix
+data.put(row_id, col_id, volume, close >= open)
+
+// Draw table
+var table t = na
+
+if timeframe.period != "D"
+    t := table.new(position.bottom_right, 1, 1, table_cell_color, table_frame_color, table_frame_width)
+    t.cell(0, 0, "Please switch to 1D timeframe!", text_color=table_cell_text_color)
+
+if timeframe.period == "D" and barstate.islast
+    // Get YOY matrix data
+    map<int, YOY> yoy = data.yoy(n_rows, n_cols)
+
+    // Initialise table
+    if na(t)
+        // Table
+        t := table.new(table_position, n_cols + 1, n_rows + 1, table_cell_color, table_frame_color, table_frame_width, table_border_color, 1)
+        // Top left cell
+        t.cell(0, 0, "+", height=table_cell_height, bgcolor=header_cell_color, text_size=header_cell_text_size, text_color=header_cell_text_color)
+        
+        // Top header
+        for cid = 1 to n_cols
+            // Real column ID
+            int cid_real = f_get_real_column_id(cid)
+            // Is cell from prev year?
+            bool is_prev_year = f_check_cell_is_prev_year(cid)
+
+            //
+            YOY cell_yoy = yoy.get(is_prev_year ? (now_ye - 1) : now_ye)
+
+            // Current bull and bear volume
+            float col_bull_vol = nz(cell_yoy.sum_bull.get(cid_real), 0.0)
+            float col_bear_vol = nz(cell_yoy.sum_bear.get(cid_real), 0.0)
+            // Total volume of the column (month)
+            float col_vol = col_bull_vol + col_bear_vol
+            // Total volume (yearly)
+            float total_vol = nz(cell_yoy.sum_bull.sum(), 0.0) + nz(cell_yoy.sum_bear.sum(), 0.0)
+            // % of yearly volume
+            float perc_all = math.round(col_vol / total_vol * 100, 1)
+
+            // Sentiment (is current column more bullish or bearish?)
+            float sentiment = switch mode
+                "Last" => nz(cell_yoy.sentiment.get(cid_real), 0.0)
+            string sentiment_string = sentiment > 0 ? ("Bullish (" + str.tostring(sentiment) + "%)") : sentiment < 0 ? ("Bearish (" + str.tostring(math.abs(sentiment)) + "%)") : "Neutral"
+
+            // Min and max volumes (for column)
+            TypeFloatIntBool min_vol_col = cell_yoy.min_vol_col.get(cid_real)
+            TypeFloatIntBool max_vol_col = cell_yoy.max_vol_col.get(cid_real)
+
+            // Tooltip
+            string tooltip = ""
+            if timeframe.period == "D"
+                // Header's year as a string
+                string cur_year_string = str.tostring(is_prev_year ? (now_ye - 1) : now_ye)
+                //
+                string month_name = months.get(cid_real)
+                // Tooltip
+                tooltip := month_name + (mode == "Last" ? (" " + cur_year_string) : "")
+                tooltip += "\n" + (header_color_mode == "% of total" ? "[x] " : "") + "Monthly Volume: " + str.tostring(col_vol, format.volume) + " (" + str.tostring(perc_all) + "% of " + cur_year_string + ")"
+                tooltip += "\n" + (header_color_mode == "% of total" ? "" : "[x] ") + "Sentiment: " + sentiment_string
+                tooltip += "\nMin. Volume: " + str.tostring(min_vol_col.fv, format.volume) + " on " + month_name.prefix(3) + " " + str.tostring(min_vol_col.iv) 
+                tooltip += "\nMax. Volume: " + str.tostring(max_vol_col.fv, format.volume) + " on " + month_name.prefix(3) + " " + str.tostring(max_vol_col.iv) 
+
+            // Text
+            string cell_text = switch timeframe.period
+                "D" => months.get(cid_real).prefix(2)
+
+            // Cell color
+            color header_color = header_cell_color
+            if mode == "Last"
+                // Max sentiment across all columns
+                float max_sentiment = cell_yoy.sentiment.abs().max()
+                // Max % across all columns
+                float max_perc_all = array.max(cell_yoy.sum_bull._op(cell_yoy.sum_bear, "+")._op(total_vol, "/")) * 100
+                //
+                if header_color_mode == "% of total"
+                    color base_color = sentiment > 0 ? color_bull : sentiment < 0 ? color_bear : header_cell_color
+                    header_color := color.from_gradient(perc_all, 0, max_perc_all, color.new(base_color, 50), base_color)
+                if header_color_mode == "Sentiment"
+                    header_color := sentiment > 0 ? color.from_gradient(sentiment, 50, max_sentiment, color.new(color_bull, 50), color_bull) : sentiment < 0 ? color.from_gradient(-sentiment, 50, max_sentiment, color.new(color_bear, 50), color_bear) : header_cell_color
+
+            // Fill cell
+            t.cell(cid, 0, cell_text, height=table_cell_height, bgcolor=header_color, tooltip=tooltip, text_size=header_cell_text_size, text_color=header_cell_text_color)
+        
+        // Side header
+        for rid = 1 to n_rows
+            t.cell(0, rid, str.tostring(rid), height=table_cell_height, bgcolor=header_cell_color, text_size=header_cell_text_size, text_color=header_cell_text_color)
+
+    // Fill cells
+    for rid = 1 to n_rows
+        for cid = 1 to n_cols
+            // Get real column ID (taking into account the mode)
+            int cid_real = f_get_real_column_id(cid)
+            // Get real row ID
+            int rid_real = rid - 1
+            // Is cell from prev year?
+            bool is_prev_year = f_check_cell_is_prev_year(cid)
+
+            // Get data for cell (for all 3rd dimensions, like year)
+            CellData cell_data = data.get(rid_real, cid_real)
+
+            if not na(cell_data)
+                // Current cell has data for any of the years (or other 3rd dimension)?
+                bool has_any_data = f_check_cell_has_data_for_any_3d(cell_data)
+                // Get data for cell (depending on is_prev_year)
+                DataPoint data_point = cell_data.data.get_reversed(is_prev_year ? 1 : 0)
+                // Get YoY data
+                YOY cell_yoy = yoy.get(is_prev_year ? (now_ye - 1) : now_ye)
+
+                if not na(data_point)
+                    // Percentage of all data
+                    float perc_all = math.round(data_point.v / (nz(cell_yoy.sum_bull.sum(), 0.0) + nz(cell_yoy.sum_bear.sum(), 0.0)) * 100, 3)
+                    // Percentage of column
+                    float perc_col = math.round(data_point.v / (nz(cell_yoy.sum_bull.get(cid_real), 0.0) + nz(cell_yoy.sum_bear.get(cid_real), 0.0)) * 100, 3)
+
+                    // Min and max volumes (total)
+                    min_vol_total = cell_yoy.min()
+                    max_vol_total = cell_yoy.max()
+                    // Min and max volumes (for column)
+                    TypeFloatIntBool min_vol_col = cell_yoy.min_vol_col.get(cid_real)
+                    TypeFloatIntBool max_vol_col = cell_yoy.max_vol_col.get(cid_real)
+                    // Is volume of current cell min?
+                    bool is_vol_min = switch perc_data_mode
+                        "All data" => data_point.v == min_vol_total
+                        "Column" => data_point.v == min_vol_col.fv and rid == min_vol_col.iv
+                    // Is volume of current cell max?
+                    bool is_vol_max = switch perc_data_mode
+                        "All data" => data_point.v == max_vol_total
+                        "Column" => data_point.v == max_vol_col.fv and rid == max_vol_col.iv
+                    // M or m letter
+                    string is_vol_mm = is_vol_min ? "m" : is_vol_max ? "M" : ""
+
+                    // Cell text
+                    string cell_text = switch cell_data_mode
+                        "No" => na(data_point.v) ? "" : (cell_data_highlight ? is_vol_mm : "")
+                        "Volume" => na(data_point.v) ? "" : str.tostring(data_point.v, format.volume).add_prefix_suffix(table_cell_vol_mm_symbol + " ", " " + table_cell_vol_mm_symbol, cell_data_highlight ? (is_vol_mm != "") : false)
+                        "Percentage" => na(data_point.v) ? "" : (str.tostring(perc_data_mode == "All data" ? perc_all : perc_col) + "%").add_prefix_suffix(table_cell_vol_mm_symbol + " ", " " + table_cell_vol_mm_symbol, cell_data_highlight ? (is_vol_mm != "") : false)
+
+                    // Base color (bull or bear, depending on close >= open)
+                    color color_base = data_point.s ? color_bull : color_bear
+                    // Max yearly volume
+                    float max_total_vol = math.max(cell_yoy.max_bull.max(), cell_yoy.max_bear.max())
+
+                    // Cell color
+                    color cell_color = switch perc_data_mode
+                        "All data" => na(data_point.v) ? table_cell_color : color.from_gradient(data_point.v, 0, max_total_vol, color.new(color_base, 80), color_base)
+                        "Column" => na(data_point.v) ? table_cell_color : color.from_gradient(data_point.v, 0, max_vol_col.fv, color.new(color_base, 80), color_base)
+
+                    // Year
+                    string cell_year = str.format_time(data_point.t, "yyyy")
+                    // Month
+                    string cell_month = str.format_time(data_point.t, "MMM")
+
+                    // Cell tooltip
+                    string cell_tooltip = ""
+                    if timeframe.period == "D" and not na(data_point.v)
+                        string is_vol_mm_of = perc_data_mode == "All data" ? cell_year : cell_month
+                        cell_tooltip := str.format_time(data_point.t, "d MMM yyyy")
+                        cell_tooltip += "\nVolume: " + (na(data_point.v) ? "-" : (str.tostring(data_point.v, format.volume) + (is_vol_mm == "" ? "" : is_vol_mm == "M" ? (" (highest of " + is_vol_mm_of + ")") : (" (lowest of " + is_vol_mm_of + ")"))))
+                        cell_tooltip += "\n(% of " + cell_year + "): " + str.tostring(perc_all) + "%"
+                        cell_tooltip += "\n(% of " + cell_month + "): " + str.tostring(perc_col) + "%"
+
+                    // Fill cell
+                    t.cell(cid, rid, cell_text, height=table_cell_height, text_size=table_cell_text_size, bgcolor=cell_color, text_color=table_cell_text_color, tooltip=cell_tooltip)
+
+

@@ -1,0 +1,133 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © ILuvMarkets
+
+
+//@version=5
+//Author @ILuvMarkets
+indicator("ILM Seasonality - Session Performance", "Seasonality - Session Performance")
+
+if not timeframe.isintraday
+    runtime.error("Please switch timeframe to Intraday < 1D")
+
+i_session_1 = input.session("0930-1130", "Morning Session")
+i_session_2 = input.session("1130-1430", "Afternoon Session")
+i_session_3 = input.session("1430-1630", "Evening Session")
+i_year_start = input.int(2010, "Start Year")
+i_text_size = input.string(size.auto, "Text Size", [size.auto, size.tiny, size.small, size.normal, size.large, size.huge])
+
+//-----------------------Functions-----------------------------------------------------
+f_is_session_start(session_, session_tz_ = syminfo.timezone) =>
+    in_session_ = not na(time(timeframe.period, session_, session_tz_))
+    in_session_ and not in_session_[1]
+
+f_is_session_end(session_, session_tz_=syminfo.timezone) =>
+    var int last_bar_hour_   = na
+    var int last_bar_min_ = na
+    var int last_bar_sec_ = na
+    in_session_ = not na(time(timeframe.period, session_, session_tz_))
+
+    if not in_session_ and in_session_[1]
+        last_bar_hour_   := hour[1]
+        last_bar_min_ := minute[1]
+        last_bar_sec_ := second[1]
+    
+    hour == last_bar_hour_ and minute == last_bar_min_ and second == last_bar_sec_    
+//-------------------------------------------------------------------------------------
+
+var year_start_ = math.max(year, i_year_start)
+var no_years_ = year(timenow) - year_start_ + 1
+var matrix<float> data_  =  matrix.new<float>(no_years_,21,0.0)
+var matrix<string> tt_data_  =  matrix.new<string>(no_years_,21,"")
+var table table_ = na
+var text_color_ = color.white
+var bg_color_ = color.gray
+
+var float session_1_open_ = na 
+var float session_1_close_ = na 
+var float session_2_open_ = na 
+var float session_2_close_ = na 
+var float session_3_open_ = na 
+var float session_3_close_ = na 
+
+//Need these reset on every bar
+int session_active_ = 0
+float session_chg_pct_ = 0.0
+
+//Debug
+// plotchar(f_is_session_start(i_session_1),"S1_Start","", location.top)
+// plotchar(f_is_session_end(i_session_1),"S1_End","", location.top)
+// plotchar(f_is_session_start(i_session_2),"S2_Start","", location.top)
+// plotchar(f_is_session_end(i_session_2),"S2_End","", location.top)
+// plotchar(f_is_session_start(i_session_3),"S3_Start","", location.top)
+// plotchar(f_is_session_end(i_session_3),"S3_End","", location.top)
+
+if year >= year_start_ 
+// if year >= 2022 and month >= 10 and dayofmonth >= 1 
+    //Calculate Session performance
+    if f_is_session_start(i_session_1)
+        session_1_open_ := open
+    if f_is_session_end(i_session_1)
+        session_1_close_ := close
+        session_active_ := 1
+        session_chg_pct_ := session_1_close_/session_1_open_ - 1
+    if f_is_session_start(i_session_2)
+        session_2_open_ := open
+    if f_is_session_end(i_session_2)
+        session_2_close_ := close
+        session_active_ := 2
+        session_chg_pct_ := session_2_close_/session_2_open_ - 1
+    if f_is_session_start(i_session_3)
+        session_3_open_ := open
+    if f_is_session_end(i_session_3)
+        session_3_close_ := close
+        session_active_ := 3
+        session_chg_pct_ := session_3_close_/session_3_open_ - 1
+
+    if session_active_ > 0
+        cur_val_ = matrix.get(data_, year-year_start_, 3*(dayofweek-1)+(session_active_-1))
+        matrix.set(data_, year-year_start_, 3*(dayofweek-1)+(session_active_-1), cur_val_ + session_chg_pct_)
+        //Tooltip data
+        cur_str_ = matrix.get(tt_data_, year-year_start_, 3*(dayofweek-1)+(session_active_-1))
+        matrix.set(tt_data_, year-year_start_, 3*(dayofweek-1)+(session_active_-1), str.format("{0}{1,number,####}-{2,number,##}-{3,number,##} {4,number,#.##%}\t", cur_str_, year(time), month(time), dayofmonth(time), session_chg_pct_))
+
+if barstate.islast
+    table_ := table.new(position.middle_center, 22, year - year_start_ + 4, border_width = 1)
+    table.cell(table_, 1, 0, "Sun", text_color = text_color_, bgcolor = bg_color_, text_size = i_text_size)
+    table.cell(table_, 4, 0, "Mon", text_color = text_color_, bgcolor = bg_color_, text_size = i_text_size)
+    table.cell(table_, 7, 0, "Tue", text_color = text_color_, bgcolor = bg_color_, text_size = i_text_size)
+    table.cell(table_, 10, 0, "Wed", text_color = text_color_, bgcolor = bg_color_, text_size = i_text_size)
+    table.cell(table_, 13, 0, "Thu", text_color = text_color_, bgcolor = bg_color_, text_size = i_text_size)
+    table.cell(table_, 16, 0, "Fri", text_color = text_color_, bgcolor = bg_color_, text_size = i_text_size)
+    table.cell(table_, 19, 0, "Sat", text_color = text_color_, bgcolor = bg_color_, text_size = i_text_size)
+    table.merge_cells(table_,1,0,3,0)
+    table.merge_cells(table_,4,0,6,0)
+    table.merge_cells(table_,7,0,9,0)
+    table.merge_cells(table_,10,0,12,0)
+    table.merge_cells(table_,13,0,15,0)
+    table.merge_cells(table_,16,0,18,0)
+    table.merge_cells(table_,19,0,21,0)
+
+    for col_ = 0 to 6
+        table.cell(table_, 1+col_*3, 1, str.replace(i_session_1,"-","-\n"), text_color = text_color_, bgcolor = bg_color_, text_size = i_text_size, tooltip = i_session_1 +"\nclose/open-1")
+        table.cell(table_, 1+col_*3+1, 1, str.replace(i_session_2,"-","-\n"), text_color = text_color_, bgcolor = bg_color_, text_size = i_text_size, tooltip = i_session_2 +"\nclose/open-1")
+        table.cell(table_, 1+col_*3+2, 1, str.replace(i_session_3,"-","-\n"), text_color = text_color_, bgcolor = bg_color_, text_size = i_text_size, tooltip = i_session_3 +"\nclose/open-1")
+
+
+    for row_ = 0 to no_years_ - 1
+        table.cell(table_, 0, 2+row_, str.tostring(row_ + year_start_), text_color = text_color_, bgcolor = bg_color_, text_size = i_text_size)
+        for col_ = 0 to 20
+            val_ = matrix.get(data_, row_, col_) 
+            val_color_ = val_ > 0 ? color.green : val_ < 0 ? color.red : color.gray 
+            tt_str_ = matrix.get(tt_data_, row_, col_) 
+            table.cell(table_, 1+col_, 2+row_, str.format("{0,number,###.##%}", val_), bgcolor = color.new(val_color_,80), text_color = val_color_, text_size = i_text_size, tooltip = tt_str_)
+            true
+
+    //Aggregates
+    row_ = no_years_ + 1 + 1
+    table.cell(table_, 0, row_, "SUM", text_color = text_color_, bgcolor = bg_color_, text_size = i_text_size)
+    for col_ = 0 to 20
+        arr_ = matrix.col(data_, col_) 
+        val_ = array.sum(arr_)
+        val_color_ = val_ > 0 ? color.green : val_ < 0 ? color.red : color.gray 
+        table.cell(table_, 1+col_, row_, str.format("{0,number,###.##%}", val_), bgcolor = color.new(val_color_,50), text_color = val_color_, text_size = i_text_size)
+        true

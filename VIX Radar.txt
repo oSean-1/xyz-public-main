@@ -1,0 +1,40 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © QuantX_GmbH
+// https://www.youtube.com/watch?v=VA3dIAx5Pdk
+
+//@version=5
+indicator("QuantX VIX Radar")
+
+// Input Values
+
+vixdisplay = input.string(title="Display Type",  defval="Relative", options=["Relative", "Absolute"])
+thresholdrelativeupper = input.int(title="Relative Upper Level", defval=95)
+thresholdrelativelower = input.int(title="Relative Lower Level", defval=5)
+thresholdabsoluteupper = input.int(title="Absolute Upper Level", defval=12)
+thresholdabsolutelower = input.int(title="Absolute Lower Level", defval=0)
+bars = input.int(title="Bars",  minval = 1, maxval = 1000, defval = 52)
+
+vix9d = request.security("VIX9D", timeframe.period, close)
+vix = request.security("VIX", timeframe.period, close)
+vix3m = request.security("VIX3M", timeframe.period, close)
+vix6m = request.security("VIX6M", timeframe.period, close)
+
+vixdiff1 = vix - vix9d
+vixdiff2 = vix3m - vix
+vixdiff3 = vix6m - vix3m
+vixtotal = vixdiff1 + vixdiff2 + vixdiff3
+vixhighest = ta.highest(vixtotal, bars)
+vixlowest = ta.lowest(vixtotal, bars)
+vixrelative = 100 * (vixtotal - vixlowest) / (vixhighest - vixlowest)
+plotvalue = vixtotal
+
+
+if vixdisplay == "Relative"
+    plotvalue := vixrelative
+else
+    plotvalue := vixtotal
+    thresholdrelativeupper := thresholdabsoluteupper
+    thresholdrelativelower := thresholdabsolutelower
+plot(plotvalue)
+plot(thresholdrelativeupper, "Upper Level", color=color.lime)
+plot(thresholdrelativelower, "Lower Level", color=color.red)

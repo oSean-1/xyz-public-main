@@ -1,0 +1,108 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © TZack88
+
+//@version=5
+indicator("RSI-MFI Machine Learning [ Manhattan distance ]",shorttitle = "RSI-MFI [ Machine Learning ]" , overlay=true)
+
+string Core                                 = "➞ Core Settings 🔸"
+int ShortPriod                              = input.int   (26,        'Short Period', 1,group=Core)
+int LongPriod                               = input.int   (14,        'Long Period',  2,group=Core)
+int Neighbours                              = math.floor(math.sqrt(input.int   (8,'Neighbours Count', 5,group=Core)))
+float MAXZ                                  = ta.highest(high, 20)
+float MINZ                                  = ta.lowest(low,20)
+var int signal                              = 0
+var float prediction                        = 0.0
+var LLong                                   = false 
+var SShort                                  = false 
+int Class                                   = close[4] < close[0] ? -1 : close[4] > close[0] ? 1 : 0
+//-------- {
+var array<float> feature1   = array.new_float(0)  
+var array<float> feature2   = array.new_float(0) 
+var array<int>   directions = array.new_int(0) 
+var array<float> data = array.new_float()
+var array<int>   predictions = array.new_int(0)
+
+// Regression Line Calculation
+regline() =>
+    array.push(data , close)
+    if array.size(data) > 25
+        array.shift(data)
+    Size = array.size(data)
+
+    X = array.avg(data) - (ta.linreg(close,Size,0) -
+         ta.linreg(close,Size,1)) * math.floor(Size/ 2) + 0.5 *
+         (ta.linreg(close,Size,0) - ta.linreg(close,Size,1))
+
+    Y = (array.avg(data) - (ta.linreg(close,Size,0) -
+         ta.linreg(close,Size,1)) * math.floor(Size/ 2)) +
+         (ta.linreg(close,Size,0) - ta.linreg(close,Size,1)) * (Size - 1)
+         
+    [X , Y ]
+[ X , Y ] = regline()
+
+Regline = math.avg(X,Y)
+
+// RSI Data Calculation
+RSI_Data(float src , int dir) =>
+    math.avg(ta.mfi(ta.rsi(src,dir + 4 ), dir) , 
+         ta.mfi(ta.rsi(src,dir + 2 ), dir), 
+         ta.mfi(ta.rsi(src,dir + 4 ), dir), 
+         ta.mfi(ta.rsi(src,dir + 5 ), dir))
+
+LongData = RSI_Data(hlc3,LongPriod)
+ShortData = RSI_Data(hlc3,ShortPriod)
+
+array.push(feature1, LongData)
+array.push(feature2, ShortData)
+array.push(directions, Class)
+
+
+// Nearest Neighbor Calculation
+
+int size = array.size(directions)
+float dust = -999.0
+for i = 0 to size - 1
+    // Calculate the Manhattan distance of the current point to all historic points.
+    float ManD = math.abs(LongData - array.get(feature1, i)) + math.abs(ShortData - array.get(feature2, i))
+    if ManD > dust
+        dust := ManD
+        if array.size(predictions) >= Neighbours
+            array.shift(predictions)
+        array.push(predictions, array.get(directions, i))
+
+
+
+// Prediction and Trade Signals
+
+prediction := array.sum(predictions) * 5 
+LongColor = int(prediction) > 7  ? color.new(color.rgb(14, 232, 232),20): color.new(color.rgb(14, 232, 232),80)
+ShortColor = int(-prediction) > 7  ? color.new(#FF0080ff,20): color.new(#FF0080ff,80)
+C = not (prediction > 0)  and not (prediction < 0)
+signal := prediction > 0  ? 1 : prediction < 0  ? -1 : C ? 0 : nz(signal[1])
+
+
+// Long and Short Trade Conditions
+
+int  changed         = ta.change(signal)
+bool startLongTrade  = changed and signal==1 
+bool startShortTrade = changed and signal==-1 
+
+if startLongTrade and close > Regline
+    LLong:= true
+    SShort:= false
+
+if startShortTrade and close < Regline
+    LLong:= false
+    SShort:= true
+
+
+LongCon = (LLong and not LLong[1]) and close > open
+ShortCon = (SShort and not SShort[1]) and close < open
+
+// Plots
+plotshape(LongCon ? MINZ : na, 'Buy',      shape.labelup,   location.belowbar, LongColor,size=size.small,editable = false)
+plotshape(ShortCon? MAXZ: na , 'Sell',     shape.labeldown, location.abovebar, ShortColor, size=size.small,editable = false)
+plot(Regline,color = LLong ? color.new(color.from_gradient(prediction,-1,100,#1f4037,#99f2c8),30) : SShort ? color.new(color.from_gradient(-prediction,-1,100,#FF416C,#FF4B2B),30) : na   ,linewidth = 2)
+
+alertcondition(LongCon,"BUY Signal")
+alertcondition(ShortCon,"Sell Signal")

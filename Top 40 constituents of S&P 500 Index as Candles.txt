@@ -1,0 +1,158 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © iravan
+
+//@version=5
+indicator("Top 40 constituents of S&P 500 Index", shorttitle="S&P 500 Constituents", overlay=false, max_boxes_count=100, max_lines_count=100, max_labels_count=100)
+
+box_space = timeframe.isdwm ? 5 : 5
+box_width = timeframe.isdwm ? 2 : 2
+var sym_len = 40
+var sym_names = array.new<string>(sym_len)
+var sym_changes = array.new<float>(sym_len)
+var boxes1 = array.new<box>(sym_len)
+var boxes2 = array.new<box>(sym_len)
+var labels1 = array.new<label>(sym_len)
+var lowest = array.from(1000.0)
+
+setBox(id, l, t, r, b, c) =>
+    box.set_left(id, l)
+    box.set_top(id, t)
+    box.set_right(id, r)
+    box.set_bottom(id, b)
+    box.set_bgcolor(id, c)
+    box.set_border_color(id, c)
+    
+setLabel(id, x, y, t, c) =>
+    label.set_x(id, x)
+    label.set_y(id, y)
+    label.set_text(id, t)
+    label.set_textcolor(id, c)
+
+ohlc(s, i) =>
+    if not barstate.islast
+        [0, 0, 0, 0]
+
+    [s_open, s_high, s_low, s_close] = request.security(s, timeframe.period, [open, high, low, close])
+    o = (s_open[0] - s_close[1])/s_close[1] * 100
+    h = (s_high[0] - s_close[1])/s_close[1] * 100
+    l = (s_low[0] - s_close[1])/s_close[1] * 100
+    c = (s_close[0] - s_close[1])/s_close[1] * 100
+    
+    if barstate.islast
+    
+        _l = array.get(lowest, 0)
+        if(l < _l)
+            array.set(lowest, 0, l)
+    
+        box_index = bar_index - (sym_len - i) * box_space
+        setBox(array.get(boxes1, i - 1), box_index + box_width / 2, c, box_index - box_width / 2, o, c > o ? color.teal: color.red)
+        setBox(array.get(boxes2, i - 1), box_index, h, box_index, l, c > o ? color.teal: color.red)
+
+        ex_index = str.pos(s, ":")
+        name_index = ex_index >= 0? ex_index + 1: 0
+        name = str.substring(s, name_index, name_index + 3)        
+        array.set(sym_names, i - 1, name)
+        array.set(sym_changes, i - 1, c)
+        
+        if(i == sym_len)
+            __l = array.get(lowest, 0)
+            for j = 1 to sym_len
+                __name = array.get(sym_names, j - 1)
+                __change = math.round(array.get(sym_changes, j - 1), 2)
+                __change_text = __name + "\n" + str.tostring(__change) + "%"
+                lbl_index = bar_index - (sym_len - j) * box_space
+                setLabel(array.get(labels1, j - 1), lbl_index, __l - 1, __change_text, __change < 0? color.red: color.green)
+
+    [o, h, l, c]
+
+
+    
+if barstate.isfirst
+    for i = 0 to sym_len - 1
+        array.set(boxes1, i, box.new(0, 0, 0, 0, border_width=1))
+        array.set(boxes2, i, box.new(0, 0, 0, 0, border_width=0))
+        array.set(labels1, i, label.new(0, 0, "", style=label.style_none, size=size.small))
+
+
+hline(0)
+sym1 = input.symbol("NASDAQ:AAPL", "Symbol 1")
+sym2 = input.symbol("NASDAQ:MSFT", "Symbol 2")
+sym3 = input.symbol("NASDAQ:AMZN", "Symbol 3")
+sym4 = input.symbol("NASDAQ:TSLA", "Symbol 4")
+sym5 = input.symbol("NASDAQ:GOOGL", "Symbol 5")
+sym6 = input.symbol("NYSE:BRK.B", "Symbol 6")
+sym7 = input.symbol("NYSE:UNH", "Symbol 7")
+sym8 = input.symbol("NASDAQ:GOOG", "Symbol 8")
+sym9 = input.symbol("NYSE:XOM", "Symbol 9")
+sym10 = input.symbol("NYSE:JNJ", "Symbol 10")
+sym11 = input.symbol("NYSE:JPM", "Symbol 11")
+sym12 = input.symbol("NASDAQ:NVDA", "Symbol 12")
+sym13 = input.symbol("NYSE:V", "Symbol 13")
+sym14 = input.symbol("NYSE:CVX", "Symbol 14")
+sym15 = input.symbol("NYSE:PG", "Symbol 15")
+sym16 = input.symbol("NYSE:HD", "Symbol 16")
+sym17 = input.symbol("NYSE:MA", "Symbol 17")
+sym18 = input.symbol("NYSE:LLY", "Symbol 18")
+sym19 = input.symbol("NYSE:PFE", "Symbol 19")
+sym20 = input.symbol("NYSE:ABBV", "Symbol 20")
+sym21 = input.symbol("NYSE:BAC", "Symbol 21")
+sym22 = input.symbol("NYSE:MRK", "Symbol 22")
+sym23 = input.symbol("NASDAQ:PEP", "Symbol 23")
+sym24 = input.symbol("NYSE:KO", "Symbol 24")
+sym25 = input.symbol("NASDAQ:COST", "Symbol 25")
+sym26 = input.symbol("NASDAQ:META", "Symbol 26")
+sym27 = input.symbol("NYSE:TMO", "Symbol 27")
+sym28 = input.symbol("NYSE:WMT", "Symbol 28")
+sym29 = input.symbol("NYSE:MCD", "Symbol 29")
+sym30 = input.symbol("NYSE:DIS", "Symbol 30")
+sym31 = input.symbol("NASDAQ:AVGO", "Symbol 31")
+sym32 = input.symbol("NASDAQ:CSCO", "Symbol 32")
+sym33 = input.symbol("NYSE:WFC", "Symbol 33")
+sym34 = input.symbol("NYSE:ACN", "Symbol 34")
+sym35 = input.symbol("NYSE:ABT", "Symbol 35")
+sym36 = input.symbol("NYSE:DHR", "Symbol 36")
+sym37 = input.symbol("NYSE:BMY", "Symbol 37")
+sym38 = input.symbol("NYSE:COP", "Symbol 38")
+sym39 = input.symbol("NYSE:CRM", "Symbol 39")
+sym40 = input.symbol("NYSE:VZ", "Symbol 40")
+
+ohlc(sym1, 1)
+ohlc(sym2, 2)
+ohlc(sym3, 3)
+ohlc(sym4, 4)
+ohlc(sym5, 5)
+ohlc(sym6, 6)
+ohlc(sym7, 7)
+ohlc(sym8, 8)
+ohlc(sym9, 9)
+ohlc(sym10, 10)
+ohlc(sym11, 11)
+ohlc(sym12, 12)
+ohlc(sym13, 13)
+ohlc(sym14, 14)
+ohlc(sym15, 15)
+ohlc(sym16, 16)
+ohlc(sym17, 17)
+ohlc(sym18, 18)
+ohlc(sym19, 19)
+ohlc(sym20, 20)
+ohlc(sym21, 21)
+ohlc(sym22, 22)
+ohlc(sym23, 23)
+ohlc(sym24, 24)
+ohlc(sym25, 25)
+ohlc(sym26, 26)
+ohlc(sym27, 27)
+ohlc(sym28, 28)
+ohlc(sym29, 29)
+ohlc(sym30, 30)
+ohlc(sym31, 31)
+ohlc(sym32, 32)
+ohlc(sym33, 33)
+ohlc(sym34, 34)
+ohlc(sym35, 35)
+ohlc(sym36, 36)
+ohlc(sym37, 37)
+ohlc(sym38, 38)
+ohlc(sym39, 39)
+ohlc(sym40, 40)

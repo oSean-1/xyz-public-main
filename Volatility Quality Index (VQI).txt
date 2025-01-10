@@ -1,0 +1,87 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+//  © Loxx
+
+//@version=5
+indicator('VQI',
+     shorttitle = "V", 
+     overlay = false, 
+     timeframe="", 
+     timeframe_gaps = true)
+     
+greencolor = #2DD204
+redcolor = #D2042D 
+
+variant(type, src, len) =>
+    sig = 0.0
+    if type == "SMA"
+        sig := ta.sma(src, len) 
+    else if type == "EMA"
+        sig := ta.ema(src, len) 
+    else if type == "WMA"
+        sig := ta.wma(src, len)   
+    else if type == "RMA"
+        sig := ta.rma(src, len)  
+    sig
+    
+inpPriceSmoothing = input.int(151, "Source Smoothing Period", group = "Basic Settings")
+inpFilter = input.float(7.5, "ATR Percentage %", group = "Basic Settings")/100
+type = input.string("WMA", "Smoothing Type", options = ["EMA", "WMA", "RMA", "SMA"], group = "Basic Settings")
+
+colorbars = input.bool(false, "Color bars?", group = "UI Options")
+showSigs = input.bool(false, "Show signals?", group = "UI Options")
+
+chigh = variant(type, high, inpPriceSmoothing)
+clow = variant(type, low, inpPriceSmoothing)
+cclose = variant(type, close, inpPriceSmoothing)
+copen = variant(type, open, inpPriceSmoothing)
+pclose = variant(type, nz(close[1]), inpPriceSmoothing)
+
+trueRange = (chigh > pclose ? chigh : pclose) - (clow < pclose ? clow : pclose)
+rng = chigh - clow
+
+vqi = 0.
+vqi := (rng > 0 and trueRange > 0) ? ((cclose - pclose) / trueRange + (cclose - copen) / rng) * 0.5 : (bar_index > 0) ? nz(vqi[1]) : 0
+vqi := (bar_index > 0) ? (vqi > 0 ? vqi : -vqi) * (cclose - pclose + cclose - copen) * 0.5 : 0
+val = vqi
+
+atr = ta.atr(inpPriceSmoothing)
+if inpFilter > 0 and bar_index > 0
+    if (val > nz(val[1]) ? val - nz(val[1]) : nz(val[1]) - val) < inpFilter * atr
+        val := nz(val[1])
+
+valc = 0
+valc := (val > 0) ? 1 : (val < 0) ? 2 : (bar_index > 0) ? nz(valc[1]) : 0
+
+colorout = valc == 1 ? greencolor : valc == 2 ? redcolor : color.gray
+mid = 0.
+
+
+smoothedV2 = ta.hma(vqi, input(5))
+
+//plot(mid, "Middle", color = bar_index % 2 ? color.gray : na)
+
+[bbMiddle, bbUpper, bbLower] = ta.bb(vqi, input(1440), 2)
+
+plot(bbUpper, color=color.new(color.gray, 0))
+plot(bbLower, color=color.new(color.gray, 0))
+
+barcolorz1 = smoothedV2 > bbUpper  ? color.red : smoothedV2[1] > bbUpper and smoothedV2 < bbUpper ? color.white : na
+barcolorz2 = smoothedV2 < bbLower ? color.green : smoothedV2[1] < bbLower and smoothedV2 > bbLower ? color.white : barcolorz1
+
+barcolor(colorbars ? barcolorz2 : na)
+
+plot(vqi, "VQI", color = color.white, linewidth = 1)
+plot(val, "VQI", color = color.white, linewidth = 1)
+
+plot(smoothedV2, "sVQI", color = color.white, linewidth = 1)
+
+//goLong  = ta.crossover(val, mid)
+//goShort = ta.crossunder(val, mid)
+
+//plotshape(showSigs and goLong, title = "Long", color = color.yellow, textcolor = color.yellow, text = "L", style = shape.triangleup, location = location.bottom, size = size.auto)
+//plotshape(showSigs and goShort, title = "Short", color = color.fuchsia, textcolor = color.fuchsia, text = "S", style = shape.triangledown, location = location.top, size = size.auto)
+
+//alertcondition(goLong, title="Long", message="QQE of Parabolic-Weighted Velocity [Loxx]: Long\nSymbol: {{ticker}}\nPrice: {{close}}")
+//alertcondition(goShort, title="Short", message="QQE of Parabolic-Weighted Velocity [Loxx]: Short\nSymbol: {{ticker}}\nPrice: {{close}}")
+
+hline(0)

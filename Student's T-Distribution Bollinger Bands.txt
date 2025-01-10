@@ -1,0 +1,554 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+
+// Created By @above-c-level 2022-10-05
+// Creates a study showing student's t-distribution over n signals
+// @eylwithsteph @storma @Fractured @lejmer @AlexGrover @Montyjus @Jiehonglim @StephXAGs @peacefulLizard50262 @gorx1
+// There is what feels like *too much* math here, but here's some references:
+// https://online.stat.psu.edu/stat501/lesson/3/3.3
+// https://en.wikipedia.org/wiki/Student's_t-distribution
+// https://en.wikipedia.org/wiki/Hypergeometric_function
+// https://en.wikipedia.org/wiki/Falling_and_rising_factorials
+
+//@version=5
+indicator(title="Student's T-Distribution Bollinger Bands", shorttitle="T-dist BB", overlay=false)
+import RicardoSantos/MathSpecialFunctionsGamma/1
+
+norm(src, min, max, bool pass = true) => //{
+    //src is an input.source
+    //min is an input.float
+    //max is an input.float
+    //offset is an input.float
+    //scale is an input.int
+    //pass bypasses the normalization function
+    num  = src - min
+    den  = max - min
+    norm = num / den
+    out  = pass == true ? (norm - 0.5) * 2 : src
+
+diff(_src, _N) =>
+    float derivative = 0.0
+    if _N == 2
+        derivative := (_src - _src[2]) / 2
+        derivative
+    else if _N == 3
+        derivative := (_src + _src[1] - _src[2] - _src[3]) / 4
+        derivative
+    else if _N == 4
+        derivative := (_src + 2 * _src[1] - 2 * _src[3] - _src[4]) / 8
+        derivative
+    else if _N == 5
+        derivative := (_src + 3 * _src[1] + 2 * _src[2] - 2 * _src[3] - 3 * _src[4] - _src[5]) / 16
+        derivative
+    else if _N == 6
+        derivative := (_src + 4 * _src[1] + 5 * _src[2] - 5 * _src[4] - 4 * _src[5] - _src[6]) / 32
+        derivative
+    else if _N == 7
+        derivative := (_src + 5 * _src[1] + 9 * _src[2] + 5 * _src[3] - 5 * _src[4] - 9 * _src[5] - 5 * _src[6] - _src[7]) / 64
+        derivative
+    else if _N == 8
+        derivative := (_src + 6 * _src[1] + 14 * _src[2] + 14 * _src[3] - 14 * _src[5] - 14 * _src[6] - 6 * _src[7] - _src[8]) / 128
+        derivative
+    else if _N == 9
+        derivative := (_src + 7 * _src[1] + 20 * _src[2] + 28 * _src[3] + 14 * _src[4] - 14 * _src[5] - 28 * _src[6] - 20 * _src[7] - 7 * _src[8] - _src[9]) / 256
+        derivative
+    else if _N == 10
+        derivative := (_src + 8 * _src[1] + 27 * _src[2] + 48 * _src[3] + 42 * _src[4] - 42 * _src[6] - 48 * _src[7] - 27 * _src[8] - 8 * _src[9] - _src[10]) / 512
+        derivative
+    derivative
+
+// Inputs
+
+source = input.source(close, title="Source", tooltip="What data to use for the study")
+en_sm = input.bool(true, "", inline="Smooth")
+smoothed = input.string("SMA", "Smoothed Signal", ['TMA', 'EMA', 'DEMA', 'TEMA', 'WMA', 'VWMA', 'SMA', 'SMMA', 'HMA','RMA'], inline="Smooth")
+sm_len = input.int(10, "", 1, inline = "Smooth")
+candle = input.bool(true, "Enable Candle View", inline = "color")
+high_col = input.color(#26a69a, "", inline = "color")
+low_col = input.color(#ef5350, "", inline = "color")
+col = input.bool(false, "Color On Previous Close", inline = "color")
+len = input.int(200, title="Length", minval=2, tooltip="How long the rolling window for lookback calculations should be")
+confidence = input.float(0.999, title="Confidence", minval=0.01, maxval=1, tooltip="Confidence level for the bands. 0.99 means 99% confidence.")
+type = input.string(title='MA Mode', defval='QQE 1', options=['TMA', 'ALMA', 'EMA', 'DEMA', 'TEMA', 'WMA', 'VWMA', 'SMA', 'SMMA', 'HMA', 'LSMA', 'JMA', 'VAMA', 'FRAMA', 'ZLEMA', 'KAMA', 'IDWMA', 'FLMSA', 'PEMA', 'HCF', 'TIF', 'MF', 'ARMA', 'DAF', 'WRMA', 'RMA', 'RAF', 'A2RMA', 'QQE 1', 'QQE 2','Centroid'])
+cdf_iters = input.int(2, title="Cumulative Distribution Function Iterations", minval=1, tooltip="Number of iterations to use when calculating the cumulative distribution function. Higher values will be more accurate, but slower. Even small values should be fine")
+
+center_ena = input.bool(true, "Average Devivative", inline = "ad")
+center_col1 = input.color(color.new(color.red, 10), "", inline = "ad")
+center_col2 = input.color(color.new(color.green, 10), "", inline = "ad")
+center_col3 = input.color(color.new(color.gray, 10), "", inline = "ad")
+diff_n = input.int(2, "Diff Window", 2, 10)
+nt = input.float(0.08, "Neutural Tolerance", 0, 1, 0.01)
+geometric = input.bool(true, 'Log-space')
+normal = input.bool(true, "Normalize")
+qqe_smoothing = input.int(title='QQE Smoothing (when QQE is used as signal line)', defval=5, minval=1)
+qqe_factor = input.float(title='QQE Factor (when QQE is used as signal line)', defval=5, minval=1)
+lsma_offset = input.int(defval=0, title='* Least Squares (LSMA) Only - Offset Value', minval=0)
+alma_offset = input.float(defval=0.85, title='* Arnaud Legoux (ALMA) Only - Offset Value', minval=0, step=0.01)  //0.85
+alma_sigma = input.int(defval=6, title='* Arnaud Legoux (ALMA) Only - Sigma Value', minval=0)  //6
+jurik_phase = input(title='* Jurik (JMA) Only - Phase', defval=50)
+jurik_power = input(title='* Jurik (JMA) Only - Power', defval=2)
+volatility_lookback = input(51, title='* Volatility Adjusted (VAMA) Only - Volatility lookback length')
+frama_FC = input.int(defval=1, minval=1, title='* Fractal Adjusted (FRAMA) Only - FC')
+frama_SC = input.int(defval=200, minval=1, title='* Fractal Adjusted (FRAMA) Only - SC')
+kama_fast_len = input(title='* Kaufman (KAMA) Only - Fast EMA Length', defval=2)
+kama_slow_len = input(title='* Kaufman (KAMA) Only - Slow EMA Length', defval=30)
+center = input(defval=10, title='* Trend Impulse Filter Only - Center')
+
+
+
+_high = geometric ? math.log(high) : high
+_low = geometric ? math.log(low) : low
+_open = geometric ? math.log(open) : open
+_close = geometric ? math.log(close) : close
+
+// Moving Centroid
+// gorx1
+density(level, _low, _high, len) =>
+    d = 0
+    for i = 0 to len - 1 by 1
+        if _low[i] <= level and _high[i] >= level
+            d += 1
+            d
+        else
+            d += 0
+            d
+    d
+
+pine_centroid(src, len, _low, _high) =>
+    cw = 0
+    cd = 0.0
+    w_sum = 0.0
+    d_sum = 0.0
+    for i = 0 to len - 1 by 1
+        cd := src[i]
+        cw := density(src[i], _low, _high, len)
+        w_sum += cw
+        d_sum += cw * cd
+        d_sum
+    d_sum / w_sum
+
+qqe1(src, len, smoothing, qqe_factor) =>
+    wilders_period = len * 2 - 1
+
+    rsi_ma = ta.ema(src, smoothing)
+
+    atr_rsi = math.abs(nz(rsi_ma[1]) - rsi_ma)
+    ma_atr_rsi = ta.ema(atr_rsi, wilders_period)
+    delta_fast_atr_rsi = ta.ema(ma_atr_rsi, wilders_period) * qqe_factor
+
+    result = 0.0
+    result := rsi_ma > nz(result[1]) ? rsi_ma - delta_fast_atr_rsi < result[1] ? result[1] : rsi_ma - delta_fast_atr_rsi : rsi_ma + delta_fast_atr_rsi > result[1] ? result[1] : rsi_ma + delta_fast_atr_rsi
+
+    // Return
+    result
+
+// QQE Method 2
+// Credits to Glaz
+qqe2(src, len, smoothing, qqe_factor) =>
+    wilders_period = len * 2 - 1
+
+    rsi_ma = ta.ema(src, smoothing)
+
+    atr_rsi = math.abs(nz(rsi_ma[1]) - rsi_ma)
+    ma_atr_rsi = ta.ema(atr_rsi, wilders_period)
+    delta_fast_atr_rsi = ta.ema(ma_atr_rsi, wilders_period) * qqe_factor
+
+    long_band = 0.0
+    short_band = 0.0
+    trend = 0
+
+    new_short_band = rsi_ma + delta_fast_atr_rsi
+    new_long_band = rsi_ma - delta_fast_atr_rsi
+
+    long_band := rsi_ma[1] > long_band[1] and rsi_ma > long_band[1] ? math.max(long_band[1], new_long_band) : new_long_band
+    short_band := rsi_ma[1] < short_band[1] and rsi_ma < short_band[1] ? math.min(short_band[1], new_short_band) : new_short_band
+
+    trend := ta.cross(rsi_ma, short_band[1]) ? 1 : ta.cross(long_band[1], rsi_ma) ? -1 : nz(trend[1], 1)
+
+    // Return
+    trend == 1 ? long_band : short_band
+//MF
+beta = input.float(0.8, minval=0, maxval=1, title='Modular Filter, General Filter Only - Beta')
+feedback = input(false, title='Modular Filter Only - Feedback')
+z = input.float(0.5, title='Modular Filter Only - Feedback Weighting', minval=0, maxval=1)
+
+//ARMA
+gamma = input(3., title='ARMA, A2RMA, General Filter Gamma')
+zl = input(false, title='ARMA, DAF, WRMA, Zero-Lag')
+
+//EDSMA
+ssfLength = input.int(title='EDSMA - Super Smoother Filter Length', minval=1, defval=20)
+ssfPoles = input.int(title='EDSMA - Super Smoother Filter Poles', defval=2, options=[2, 3])
+
+//IDWMA
+calcWeight(src, length, i) =>
+    distanceSum = 0.0
+    for j = 0 to length - 1 by 1
+        distanceSum += math.abs(nz(src[i]) - nz(src[j]))
+        distanceSum
+    distanceSum
+
+//HCF
+//study("Hybrid Convolution Filter",overlay=true)
+//length = input(14)
+//----
+f(x) =>
+    .5 * (1 - math.cos(x * 3.14159))
+
+d(x, length) =>
+    f(x / length) - f((x - 1) / length)
+//----
+filter(a, b, length) =>
+    sum = 0.
+    for i = 1 to length by 1
+        sgn = f(i / length)
+        sum += (sgn * b + (1 - sgn) * a[i - 1]) * d(i, length)
+        sum
+    sum
+//----
+
+//A2RMA
+ama(er, x) =>
+    a = 0.
+    a := er * x + (1 - er) * nz(a[1], x)
+    a
+
+avg(src, len, type, _low, _high) =>
+    float result = 0
+    if type == 'TMA'
+        result := ta.sma(ta.sma(src, math.ceil(len / 2)), math.floor(len / 2) + 1)
+        result
+    if type == 'SMA'  // Simple
+        result := ta.sma(src, len)
+        result
+    if type == 'EMA'  // Exponential
+        result := ta.ema(src, len)
+        result
+    if type == 'DEMA'  // Double Exponential
+        e = ta.ema(src, len)
+        result := 2 * e - ta.ema(e, len)
+        result
+    if type == 'TEMA'  // Triple Exponential
+        e = ta.ema(src, len)
+        result := 3 * (e - ta.ema(e, len)) + ta.ema(ta.ema(e, len), len)
+        result
+    if type == 'WMA'  // Weighted
+        result := ta.wma(src, len)
+        result
+    if type == 'VWMA'  // Volume Weighted
+        result := ta.vwma(src, len)
+        result
+    if type == 'SMMA'  // Smoothed
+        w = ta.wma(src, len)
+        result := na(w[1]) ? ta.sma(src, len) : (w[1] * (len - 1) + src) / len
+        result
+    if type == 'HMA'  // Hull
+        result := ta.wma(2 * ta.wma(src, len / 2) - ta.wma(src, len), math.round(math.sqrt(len)))
+        result
+    if type == 'LSMA'  // Least Squares
+        result := ta.linreg(src, len, lsma_offset)
+        result
+    if type == 'ALMA'  // Arnaud Legoux
+        result := ta.alma(src, len, alma_offset, alma_sigma)
+        result
+    if type == 'JMA'  // Jurik
+        /// Copyright © 2018 Alex Orekhov (everget)
+        /// Copyright © 2017 Jurik Research and Consulting.
+        phaseRatio = jurik_phase < -100 ? 0.5 : jurik_phase > 100 ? 2.5 : jurik_phase / 100 + 1.5
+        beta = 0.45 * (len - 1) / (0.45 * (len - 1) + 2)
+        alpha = math.pow(beta, jurik_power)
+        jma = 0.0
+        e0 = 0.0
+        e0 := (1 - alpha) * src + alpha * nz(e0[1])
+        e1 = 0.0
+        e1 := (src - e0) * (1 - beta) + beta * nz(e1[1])
+        e2 = 0.0
+        e2 := (e0 + phaseRatio * e1 - nz(jma[1])) * math.pow(1 - alpha, 2) + math.pow(alpha, 2) * nz(e2[1])
+        jma := e2 + nz(jma[1])
+        result := jma
+        result
+    if type == 'VAMA'  // Volatility Adjusted
+        /// Copyright © 2019 to present, Joris Duyck (JD)
+        mid = ta.ema(src, len)
+        dev = src - mid
+        vol_up = ta.highest(dev, volatility_lookback)
+        vol_down = ta.lowest(dev, volatility_lookback)
+        result := mid + math.avg(vol_up, vol_down)
+        result
+    if type == 'FRAMA'  // Fractal Adaptive
+        int len1 = len / 2
+        e = 2.7182818284590452353602874713527
+        w = math.log(2 / (frama_SC + 1)) / math.log(e)  // Natural logarithm (ln(2/(SC+1))) workaround
+        H1 = ta.highest(high, len1)
+        L1 = ta.lowest(low, len1)
+        N1 = (H1 - L1) / len1
+        H2_ = ta.highest(high, len1)
+        H2 = H2_[len1]
+        L2_ = ta.lowest(low, len1)
+        L2 = L2_[len1]
+        N2 = (H2 - L2) / len1
+        H3 = ta.highest(high, len)
+        L3 = ta.lowest(low, len)
+        N3 = (H3 - L3) / len
+        dimen1 = (math.log(N1 + N2) - math.log(N3)) / math.log(2)
+        dimen = N1 > 0 and N2 > 0 and N3 > 0 ? dimen1 : nz(dimen1[1])
+        alpha1 = math.exp(w * (dimen - 1))
+        oldalpha = alpha1 > 1 ? 1 : alpha1 < 0.01 ? 0.01 : alpha1
+        oldN = (2 - oldalpha) / oldalpha
+        NN = (frama_SC - frama_FC) * (oldN - 1) / (frama_SC - 1) + frama_FC
+        alpha_ = 2 / (NN + 1)
+        alpha = alpha_ < 2 / (frama_SC + 1) ? 2 / (frama_SC + 1) : alpha_ > 1 ? 1 : alpha_
+        frama = 0.0
+        frama := (1 - alpha) * nz(frama[1]) + alpha * src
+        result := frama
+        result
+    if type == 'ZLEMA'  // Zero-Lag EMA
+        f_lag = (len - 1) / 2
+        f_data = src + src - src[f_lag]
+        result := ta.ema(f_data, len)
+        result
+    if type == 'KAMA'  // Kaufman Adaptive
+        mom = math.abs(ta.change(src, len))
+        volatility = math.sum(math.abs(ta.change(src)), len)
+        er = volatility != 0 ? mom / volatility : 0
+        fastAlpha = 2 / (kama_fast_len + 1)
+        slowAlpha = 2 / (kama_slow_len + 1)
+        sc = math.pow(er * (fastAlpha - slowAlpha) + slowAlpha, 2)
+        kama = 0.0
+        kama := sc * src + (1 - sc) * nz(kama[1])
+        result := kama
+        result
+    if type == 'IDWMA'
+        sum = 0.0
+        weightSum = 0.0
+        for i = 0 to len - 1 by 1
+            weight = calcWeight(src, len, i)
+            sum += nz(src[i]) * weight
+            weightSum += weight
+            weightSum
+        idwma = sum / weightSum
+        result := idwma
+        result
+    if type == 'FLMSA'
+        n = bar_index
+        b = 0.
+        e = ta.sma(math.abs(src - nz(b[1])), len)
+        z = ta.sma(src - nz(b[1], src), len) / e
+        r = (math.exp(2 * z) - 1) / (math.exp(2 * z) + 1)
+        a = (n - ta.sma(n, len)) / ta.stdev(n, len) * r
+        b := ta.sma(src, len) + a * ta.stdev(src, len)
+        result := b
+        result
+    if type == 'PEMA'
+        // Copyright (c) 2010-present, Bruno Pio
+        // Copyright (c) 2019-present, Alex Orekhov (everget)
+        // Pentuple Exponential Moving Average script may be freely distributed under the MIT license.
+        ema1 = ta.ema(src, len)
+        ema2 = ta.ema(ema1, len)
+        ema3 = ta.ema(ema2, len)
+        ema4 = ta.ema(ema3, len)
+        ema5 = ta.ema(ema4, len)
+        ema6 = ta.ema(ema5, len)
+        ema7 = ta.ema(ema6, len)
+        ema8 = ta.ema(ema7, len)
+        pema = 8 * ema1 - 28 * ema2 + 56 * ema3 - 70 * ema4 + 56 * ema5 - 28 * ema6 + 8 * ema7 - ema8
+        result := pema
+        result
+    if type == 'HCF'
+        output = 0.
+        output := filter(src, nz(output[1], src), len)
+        result := output
+        result
+    if type == 'TIF'
+        b = 0.0
+        a = ta.rising(src, len) or ta.falling(src, len) ? 1 : 0
+        b := ta.ema(a * src + (1 - a) * nz(b[1], src), center)
+        result := b
+        result
+    if type == 'MF'
+        ts = 0.
+        b = 0.
+        c = 0.
+        os = 0.
+        //----
+        alpha = 2 / (len + 1)
+        a = feedback ? z * src + (1 - z) * nz(ts[1], src) : src
+        //----
+        b := a > alpha * a + (1 - alpha) * nz(b[1], a) ? a : alpha * a + (1 - alpha) * nz(b[1], a)
+        c := a < alpha * a + (1 - alpha) * nz(c[1], a) ? a : alpha * a + (1 - alpha) * nz(c[1], a)
+        os := a == b ? 1 : a == c ? 0 : os[1]
+        //----
+        upper = beta * b + (1 - beta) * c
+        lower = beta * c + (1 - beta) * b
+        ts := os * upper + (1 - os) * lower
+        result := ts
+        result
+    if type == 'ARMA'
+    //----
+        ma = 0.
+        mad = 0.
+        //----
+        src2 = zl ? src + ta.change(src, len / 2) : src
+        ma := nz(mad[1], src2)
+        d = ta.cum(math.abs(src2[len] - ma)) / bar_index * gamma
+        mad := ta.sma(ta.sma(src2 > nz(mad[1], src2) + d ? src2 + d : src2 < nz(mad[1], src) - d ? src2 - d : nz(mad[1], src2), len), len)
+        result := mad
+        result
+    if type == 'DAF'
+        AC = zl ? 1 : 0
+        out = 0.
+        K = 0.
+        //----
+        src2 = src + src - nz(out[1], src)
+        out := nz(out[1], src2) + nz(K[1]) * (src2 - nz(out[1], src2)) + AC * nz(K[1]) * (src2 - ta.sma(src2, len))
+        K := math.abs(src2 - out) / (math.abs(src2 - out) + ta.stdev(src2, len) * len)
+        result := out
+        result
+    if type == 'WRMA'
+        //----
+        alpha = 2 / (len + 1)
+        p1 = zl ? len / 4 : 1
+        p2 = zl ? len / 4 : len / 2
+        //----
+        a = 0.0
+        b = 0.0
+        A = 0.0
+        B = 0.0
+        a := nz(a[1]) + alpha * nz(A[1])
+        b := nz(b[1]) + alpha * nz(B[1])
+        y = ta.ema(a + b, p1)
+        A := src - y
+        B := src - ta.ema(y, p2)
+        result := y
+        result
+        //----
+    if type == 'RMA'
+        ma = ta.sma(src, len * 3) + ta.sma(src, len * 2) - ta.sma(src, len)
+        result := ma
+        result
+    if type == 'RAF'
+        altma = 0.0
+        AR = 2 * (ta.highest(len) - ta.lowest(len))
+        BR = 2 * (ta.highest(len * 2) - ta.lowest(len * 2))
+        k1 = (1 - AR) / AR
+        k2 = (1 - BR) / BR
+        //
+        alpha = k2 / k1
+        R1 = math.sqrt(ta.highest(len)) / 4 * ((alpha - 1) / alpha) * (k2 / (k2 + 1))
+        R2 = math.sqrt(ta.highest(len * 2)) / 4 * (alpha - 1) * (k1 / (k1 + 1))
+        Factor = R2 / R1
+        //
+        AltK = fixnan(math.pow(Factor >= 1 ? 1 : Factor, math.sqrt(len))) * (1 / len)
+        altma := AltK * src + (1 - AltK) * nz(altma[1], src)
+        result := altma
+        result
+    if type == 'A2RMA'
+        er = math.abs(ta.change(src, len)) / math.sum(math.abs(ta.change(src)), len)
+        //----
+        ma = 0.
+        d = ta.cum(math.abs(src - nz(ma[1], src))) / bar_index * gamma
+        ma := ama(er, ama(er, src > nz(ma[1], src) + d ? src + d : src < nz(ma[1], src) - d ? src - d : nz(ma[1], src)))
+        //----
+        result := ma
+        result
+    if type == 'QQE 1'
+        result := qqe1(src, len, qqe_smoothing, qqe_factor)
+        result
+    if type == 'QQE 2'
+        result := qqe2(src, len, qqe_smoothing, qqe_factor)
+        result
+    if type == 'Centroid'
+        result := pine_centroid(src, len, _low, _high)
+    result
+
+gamma(float x) =>
+    MathSpecialFunctionsGamma.Gamma(x)
+
+t_dist_pdf(float x, int v) =>
+    gamma((v + 1) / 2) / (math.sqrt(v * math.pi) * gamma(v / 2)) * math.pow(1 + x * x / v, -(v + 1) / 2)
+
+rising_factorial(float c, int n) =>
+    float product = 1.0
+    if n > 0
+        for i = 0 to n - 1
+            product *= (c + i)
+    product
+
+hypergeometric(float a, float b, float c, float z) =>
+    float sum = 0.0
+    for i = 0 to cdf_iters
+        sum += rising_factorial(a, i) * rising_factorial(b, i) * math.pow(z, i) / (rising_factorial(c, i) * rising_factorial(i, i))
+    sum
+
+t_dist_cdf(float x, int v) =>
+    // I hate myself for doing this
+    1/2 + x * gamma((v+1)/2) * (hypergeometric(1/2, (v+1)/2, 3/2, x*x/v) / (math.sqrt(v * math.pi)* gamma(v/2)))
+
+// Calculate p-value given the confidence
+p = (1 - confidence) / 2
+// We need to find the value of x such that t_dist_cdf(x, length - 1) = p
+// We do this by using a binary search
+src = geometric ? math.log(source) : source
+float lower = -100
+float upper = 100
+float mid = (lower + upper) / 2
+while math.abs(t_dist_cdf(mid, len - 1) - p) > 0.000001
+    if t_dist_cdf(mid, len - 1) > p
+        upper := mid
+    else
+        lower := mid
+    mid := (lower + upper) / 2
+float t_value = mid
+// t-value for the p-value
+if t_value < 0
+    t_value := -t_value
+
+x_bar = avg(src, len, type, _low, _high)
+squared_diff = math.pow(src-x_bar, 2)
+summed_squares = math.sum(squared_diff, len)
+// length - 1 because we're using a sample rather than whole population
+mean_squared_error = summed_squares / (len-1)
+rmse = math.sqrt(mean_squared_error)
+root_standard_error = math.sqrt(1 + 1/len + squared_diff/summed_squares)
+offset = t_value * rmse * root_standard_error
+// yesterday's value
+
+// The midline
+mid_line = x_bar
+// Calculate the upper and lower bounds
+upper_bound = x_bar + offset
+lower_bound = x_bar - offset
+
+geo3 = geometric ? math.exp(x_bar) : x_bar
+geo1 = geometric ? math.exp(lower_bound) - geo3 : lower_bound - geo3
+geo2 = geometric ? math.exp(upper_bound) - geo3 : upper_bound - geo3
+geo4 = geometric ? math.exp(src) - geo3 : src - geo3
+geo5 = geometric ? math.exp(_open) - geo3 : _open - geo3 
+geo6 = geometric ? math.exp(_close) - geo3 : _close - geo3
+geo7 = geometric ? math.exp(_high) - geo3 : _high - geo3 
+geo8 = geometric ? math.exp(_low) - geo3 : _low - geo3   
+
+diff = diff(geo3, diff_n)
+__open = norm(geo5, geo1, geo2, normal)
+__close = norm(geo6, geo1, geo2, normal)
+__high = norm(geo7, geo1, geo2, normal)
+__low = norm(geo8, geo1, geo2, normal)
+plot1 = norm(geo1, geo1, geo2, normal)
+plot2 = norm(geo2, geo1, geo2, normal)
+plot3 = 0
+plot4 = norm(geo4, geo1, geo2, normal)
+
+plot5 = candle ? avg(plot4, sm_len, smoothed, __low, __high) : avg(__close, sm_len, smoothed, __low, __high)
+
+_color = col ? __close[1] < __close ? high_col : low_col : _open < _close ? high_col : low_col
+_colour = center_ena ? diff < -nt ? center_col1 : diff > nt ? center_col2 : center_col3 : color.new(color.gray, 10)
+// Draw the bollinger bands
+plotcandle(candle ? __open : na, candle ? __high : na, candle ? __low : na, candle ? __close : na, "Signal", _color, _color, true, bordercolor = _color)
+p5 = plot(candle ? na : plot4, "Signal", color.new(color.blue, 0), 2)
+p1 = plot(plot1, color=color.red, title="Lower Bound")
+p2 = plot(plot2, color=color.green, title="Upper Bound")
+plot(plot3, color=_colour, title="Average")
+plot(plot1-((plot1-plot3)/2), color=color.new(color.red, 50), title="Lower Bound 50%")
+plot(plot2-((plot2-plot3)/2), color=color.new(color.green, 50), title="Upper Bound 50%")
+plot(en_sm ? plot5 : na, "Average", color.new(color.orange, 0))
+// Fill the area between the bands
+fill(p1, p2, color=color.rgb(0, 51, 255, 94), title="Confidence Interval")

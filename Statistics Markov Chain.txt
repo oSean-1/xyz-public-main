@@ -1,0 +1,119 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Sigaud
+
+//@version=5
+indicator("[SGM Markov Chain]", shorttitle="MarkovChain", overlay=false)
+
+////////////
+// Inputs //
+////////////
+
+color_up_after_up = input.color(color.green, title="color Up after Up")
+color_down_after_down = input.color(color.red, title="color Down after Down")
+color_up_after_down = input.color(color.blue, title="color Up after Down")
+color_down_after_up = input.color(color.orange, title="color Down after Up")
+table_position = input.string("top_right", title="table position", options=["top_left", "top_right", "bottom_left", "bottom_right"])
+significance_level = input.string("95%", title="Level of significance", options=["90%", "95%", "99%"])
+color_bg = input.color(color.gray, title="table color")
+
+////////////////////////////////////////
+// Variables for counting transitions //
+////////////////////////////////////////
+
+var float up_after_up_count = 0
+var float down_after_down_count = 0
+var float up_after_down_count = 0
+var float down_after_up_count = 0
+
+//////////////////////////////////////////////
+// Variables for total possible transitions //
+//////////////////////////////////////////////
+
+var float total_up = 0
+var float total_down = 0
+
+float close_1 = na(close[1]) ? close : close[1]
+float close_2 = na(close[2]) ? close : close[2]
+
+////////////////////////////////
+// Calculation of transitions //
+////////////////////////////////
+
+if not na(close_1) and not na(close_2)
+    if close_1 > close_2
+        total_up += 1
+        if close > close_1
+            up_after_up_count += 1
+        else
+            down_after_up_count += 1
+    if close_1 < close_2
+        total_down += 1
+        if close > close_1
+            up_after_down_count += 1
+        else
+            down_after_down_count += 1
+
+//////////////////////////////////
+// Calculation of probabilities //
+//////////////////////////////////
+
+prob_up_after_up = (total_up != 0) ? (up_after_up_count / total_up) : na
+prob_down_after_down = (total_down != 0) ? (down_after_down_count / total_down) : na
+prob_up_after_down = (total_down != 0) ? (up_after_down_count / total_down) : na
+prob_down_after_up = (total_up != 0) ? (down_after_up_count / total_up) : na
+
+///////////////////////////////////////////////////
+// Calculate expected frequencies and chi-square //
+///////////////////////////////////////////////////
+
+expected_frequency_up = total_up * 0.5
+expected_frequency_down = total_down * 0.5
+
+chi2_up_after_up = math.pow((up_after_up_count - expected_frequency_up), 2) / expected_frequency_up
+chi2_down_after_down = math.pow((down_after_down_count - expected_frequency_down), 2) / expected_frequency_down
+chi2_up_after_down = math.pow((up_after_down_count - expected_frequency_down), 2) / expected_frequency_down
+chi2_down_after_up = math.pow((down_after_up_count - expected_frequency_up), 2) / expected_frequency_up
+
+chi2_total = chi2_up_after_up + chi2_down_after_down + chi2_up_after_down + chi2_down_after_up
+
+// Critical values for chi-square with 1 degree of freedom (since each row is independent)
+var float chi2_critical_90 = 2.706
+var float chi2_critical_95 = 3.841
+var float chi2_critical_99 = 6.635
+
+float chi2_critical = na
+if (significance_level == "90%")
+    chi2_critical := chi2_critical_90
+else if (significance_level == "95%")
+    chi2_critical := chi2_critical_95
+else if (significance_level == "99%")
+    chi2_critical := chi2_critical_99
+
+is_significant = chi2_total > chi2_critical
+
+///////////////////////////////////////////////////
+// Create the table to display the probabilities //
+///////////////////////////////////////////////////
+
+var table prob_table = table.new(table_position, 3, 5, border_width=1, border_color=color_bg, force_overlay = true)
+
+if bar_index == 0
+    table.cell(prob_table, 0, 0, "", bgcolor=color_bg)
+    table.cell(prob_table, 1, 0, "Up", bgcolor=color_bg)
+    table.cell(prob_table, 2, 0, "Down", bgcolor=color_bg)
+    table.cell(prob_table, 0, 1, "Up", bgcolor=color_up_after_up)
+    table.cell(prob_table, 0, 2, "Down", bgcolor=color_down_after_down)
+    table.cell(prob_table, 0, 3, "Chi^2", bgcolor=color_bg)
+    table.cell(prob_table, 0, 4, "Significant", bgcolor=color_bg)
+
+table.cell(prob_table, 1, 1, str.tostring(prob_up_after_up * 100, format.percent), bgcolor=color_up_after_up)
+table.cell(prob_table, 2, 1, str.tostring(prob_down_after_up * 100, format.percent), bgcolor=color_down_after_up)
+table.cell(prob_table, 1, 2, str.tostring(prob_up_after_down * 100, format.percent), bgcolor=color_up_after_down)
+table.cell(prob_table, 2, 2, str.tostring(prob_down_after_down * 100, format.percent), bgcolor=color_down_after_down)
+table.cell(prob_table, 1, 3, str.tostring(chi2_total), bgcolor=color_bg)
+table.cell(prob_table, 1, 4, is_significant ? "Yes" : "No", bgcolor=is_significant ? color.green : color.red)
+
+plot(prob_up_after_up, title="Probabilité de Up après Up", color=color_up_after_up, linewidth=2)
+plot(prob_down_after_down, title="Probabilité de Down après Down", color=color_down_after_down, linewidth=2)
+plot(prob_up_after_down, title="Probabilité de Up après Down", color=color_up_after_down, linewidth=2)
+plot(prob_down_after_up, title="Probabilité de Down après Up", color=color_down_after_up, linewidth=2)

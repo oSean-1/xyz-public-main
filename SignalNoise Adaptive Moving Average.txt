@@ -1,0 +1,61 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © jwammo12
+
+//@version=4
+
+//shout out to cryptostatistical for the starting point for this script 
+//https://www.tradingview.com/u/CryptoStatistical/
+
+study(title="Signal/Noise Adaptive Moving Average", shorttitle="_trend", overlay=true)
+
+
+price = input(title='Price Source:', type=input.source, defval=close)
+alphamin = input(title="alpha Min", defval=5)
+alphamax = input(title="alpha Max", defval=75)
+ama = price
+hb = price
+lb = price
+
+// Static model parameters
+minfactor = 2.0/(alphamax+1.0)
+maxfactor = 2.0/(alphamin+1.0)
+deviation_max = 1.
+deviation_min = 1.
+beta_hb = 1.
+beta_lb = 1.
+snr = 1.
+
+normalized_atan= 0.
+alpha = (minfactor+maxfactor)/2.0
+
+beta = 5
+
+
+pi = 3.141592654
+
+
+ama := alpha[1]*price + (1-alpha[1])*nz(ama[1])
+deviation_max := alpha[1]*max((price[0] - price[1])/price[1],0) + (1-alpha[1])*nz(deviation_max[1])
+deviation_min := -alpha[1]*min((price[0] - price[1])/price[1],0) + (1-alpha[1])*nz(deviation_min[1])
+
+beta_hb := beta*deviation_max
+beta_lb := beta*deviation_min
+hb := (1 + beta_hb[1])*ama
+lb := (1 - beta_lb[1])*ama
+
+snr := if price > hb
+    ((price - ama[1])/ama[1])/beta_lb
+else
+    if price < lb
+        -((price - ama[1])/ama[1])/beta_hb
+    else
+        0
+
+normalized_atan := (atan(snr) + pi/2.0)/(pi)
+alpha := minfactor + (maxfactor - minfactor)*normalized_atan
+
+xcolor = ama > ama[1] ? color.green : ama < ama[1] ? color.red : color.blue
+plot(ama, color=xcolor, linewidth=2)
+
+//plotshape(title='Buy', series=bc ? price * (1 - offsetlabel) : na, text='A1B', style=shape.labelup, location=location.absolute, color=d, textcolor=color.white, offset=0)
+//plotshape(title='Sell', series=sc ? price  * (1 + offsetlabel) : na, text='A1S', style=shape.labeldown, location=location.absolute, color=d, textcolor=color.white, offset=0)

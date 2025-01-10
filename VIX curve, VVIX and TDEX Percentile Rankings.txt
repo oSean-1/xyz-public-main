@@ -1,0 +1,64 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © andr3w321
+
+//@version=5
+indicator("VIX curve, VVIX and TDEX percentile rankings", overlay=false, max_bars_back=800)
+vix9d = request.security("VIX9d","D",close)
+vix = request.security("VIX","D",close)
+vix3m = request.security("VIX3m","D",close)
+vix6m = request.security("VIX6m","D",close)
+vvix = request.security("VVIX","D",close)
+tdex = request.security("TDEX","D",close)
+sdex = request.security("SDEX","D",close)
+
+vix9d_bar_index = request.security("VIX9d", "D", bar_index)
+vix_bar_index = request.security("VIX", "D", bar_index)
+vix3m_bar_index = request.security("VIX3m", "D", bar_index)
+vix6m_bar_index = request.security("VIX6m", "D", bar_index)
+vvix_bar_index = request.security("VVIX", "D", bar_index)
+tdex_bar_index = request.security("TDEX", "D", bar_index)
+sdex_bar_index = request.security("SDEX", "D", bar_index)
+
+lookbackInput = input.int(52, "Lookback in bars including today", minval = 1, maxval = 800)
+
+// for length use smaller of lookbackInput or bar_index (VIX9d data only goes back to June 2018)
+
+//plot(ta.percentrank(vix9d, vix9d_bar_index > lookbackInput ? lookbackInput : nz(vix9d_bar_index) + 1), title="VIX9d rank", color=color.red)
+//plot(ta.percentrank(vix, vix_bar_index > lookbackInput ? lookbackInput : nz(vix_bar_index) + 1), title="VIX rank", color=color.blue)
+//plot(ta.percentrank(vix3m, vix3m_bar_index > lookbackInput ? lookbackInput : nz(vix3m_bar_index) + 1), title="VIX3m rank", color=color.orange)
+//plot(ta.percentrank(vix6m, vix6m_bar_index > lookbackInput ? lookbackInput : nz(vix6m_bar_index) + 1), title="VIX6m rank", color=color.green)
+//plot(ta.percentrank(vvix, vvix_bar_index > lookbackInput ? lookbackInput : nz(vvix_bar_index) + 1), title="VVIX rank", color=color.purple)
+//plot(ta.percentrank(tdex, tdex_bar_index > lookbackInput ? lookbackInput : nz(tdex_bar_index) + 1), title="TDEX rank", color=color.teal)
+//plot(ta.percentrank(sdex, tdex_bar_index > lookbackInput ? lookbackInput : nz(tdex_bar_index) + 1), title="TDEX rank", color=color.teal)
+
+highthresh = input(95)
+
+top = ta.percentrank(vix9d, vix9d_bar_index > lookbackInput ? lookbackInput : nz(vix9d_bar_index) + 1) >= highthresh ? 1 : 0
+top1 = ta.percentrank(vix, vix_bar_index > lookbackInput ? lookbackInput : nz(vix_bar_index) + 1) >= highthresh ? 1 : 0
+top11 = ta.percentrank(vix3m, vix3m_bar_index > lookbackInput ? lookbackInput : nz(vix3m_bar_index) + 1) >= highthresh ? 1 : 0
+top111 = ta.percentrank(vix6m, vix6m_bar_index > lookbackInput ? lookbackInput : nz(vix6m_bar_index) + 1) >= highthresh ? 1 : 0
+top1111 = ta.percentrank(vvix, vvix_bar_index > lookbackInput ? lookbackInput : nz(vvix_bar_index) + 1) >= highthresh ? 1 : 0
+top11111 = ta.percentrank(tdex, tdex_bar_index > lookbackInput ? lookbackInput : nz(tdex_bar_index) + 1) >= highthresh ? 1 : 0
+top111111 = ta.percentrank(sdex, sdex_bar_index > lookbackInput ? lookbackInput : nz(tdex_bar_index) + 1) >= highthresh ? 1 : 0
+
+Trust = (top + top1 + top11 + top111 + top1111 + top11111+ top111111)
+
+lowthresh = input(5)
+
+bottom = ta.percentrank(vix9d, vix9d_bar_index > lookbackInput ? lookbackInput : nz(vix9d_bar_index) + 1) <= lowthresh ? 1 : 0
+bottom1 = ta.percentrank(vix, vix_bar_index > lookbackInput ? lookbackInput : nz(vix_bar_index) + 1) <= lowthresh ? 1 : 0
+bottom11 = ta.percentrank(vix3m, vix3m_bar_index > lookbackInput ? lookbackInput : nz(vix3m_bar_index) + 1) <= lowthresh ? 1 : 0
+bottom111 = ta.percentrank(vix6m, vix6m_bar_index > lookbackInput ? lookbackInput : nz(vix6m_bar_index) + 1) <= lowthresh ? 1 : 0
+bottom1111 = ta.percentrank(vvix, vvix_bar_index > lookbackInput ? lookbackInput : nz(vvix_bar_index) + 1) <= lowthresh ? 1 : 0
+bottom11111 = ta.percentrank(tdex, tdex_bar_index > lookbackInput ? lookbackInput : nz(tdex_bar_index) + 1) <= lowthresh ? 1 : 0
+bottom111111 = ta.percentrank(sdex, sdex_bar_index > lookbackInput ? lookbackInput : nz(tdex_bar_index) + 1) <= lowthresh ? 1 : 0
+
+Issues = (bottom + bottom1 + bottom11 + bottom111 + bottom1111 + bottom11111+ bottom111111) * -1
+
+plot(series=Trust, title="Bull Power Level", style=plot.style_columns, color=color.green)
+//plot(series=Trust, title="Bull Power Level", style=plot.style_cross, color=color.white)
+
+plot(series=Issues, title="Bear Power Level", style=plot.style_columns, color=color.red)
+//plot(series=Issues, title="Bear Power Level", style=plot.style_cross, color=color.white)
+
+barcolor(Trust >= 4 ? color.red : Trust[2] >= 4 and Trust[1] >=4 and Trust < 4 ? color.white : na)

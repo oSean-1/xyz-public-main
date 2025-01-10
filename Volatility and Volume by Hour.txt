@@ -1,0 +1,168 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © FutuRInvest
+
+//@version=5
+
+indicator("Volatility and Volume by Hour", overlay = true, shorttitle="Vol(at)/Hour")
+
+if timeframe.period == ("60")
+
+    // Input for lookback period
+    lookback = input(200, title="Lookback Period")
+    timezone = input("UTC+2", title = "Your TimeZone")
+    leverage = input(10, title = "Leverage multiplier")
+
+    // Create a new table
+    t = table.new(position = position.top_right, columns = 6, rows = 27, bgcolor = color.new(color.gray, 100))
+
+    // Calculate total volume over the lookback period
+    totalVolume = 0.0
+    hourVolume = array.new_float(24, 0.0)
+    hourPercentage = array.new_float(24, 0.0)
+
+    //Volatility declaration
+    totalVolat = 0.0
+    hourVolat = array.new_float(24, 0.0)
+    VolatPercentage = array.new_float(24, 0.0)
+
+    //Movement declaration
+    totalPoints = 0.0
+    hourPoint = array.new_float(24, 0.0)
+    hourPointPercent = array.new_float(24, 0.0)
+
+
+    testPercent = 0.0
+    CurPoint = 0.0
+    CurPointPercent = 0.0
+
+    for i = 0 to lookback
+        currentHour = hour(time[i], timezone)
+        CurVolat = high[i]-low[i]
+        CurPoint :=(open[i]-close[i])*-1
+        CurPointPercent :=((open[i]-close[i])*-1)/close[i+1]*100
+        
+        if array.get(hourVolume, currentHour) == 0
+            array.set(hourVolume, currentHour, volume[i])
+        else
+            array.set(hourVolume, currentHour, array.get(hourVolume, currentHour) + volume[i])
+        
+        if array.get(hourVolat, currentHour) == 0
+            array.set(hourVolat, currentHour, CurVolat)
+        else
+            array.set(hourVolat, currentHour, array.get(hourVolat, currentHour) + CurVolat)
+
+        if array.get(hourPoint, currentHour) == 0
+            array.set(hourPoint, currentHour, CurPoint)
+            array.set(hourPointPercent, currentHour, CurPointPercent)
+
+        else
+            array.set(hourPoint, currentHour, array.get(hourPoint, currentHour) + CurPoint)
+            array.set(hourPointPercent, currentHour, array.get(hourPointPercent, currentHour) + CurPointPercent)
+
+    for i = 0 to 23
+        totalVolume := totalVolume + array.get(hourVolume, i)
+        totalVolat := totalVolat + array.get(hourVolat, i)
+
+    for i = 0 to 23
+        array.set(hourPercentage, i, array.get(hourVolume, i) / totalVolume * 100)
+        array.set(VolatPercentage, i, array.get(hourVolat, i) / totalVolat * 100)
+        
+        
+    // Find the minimum and maximum percentage values
+    minPercentage = array.min(hourPercentage)
+    maxPercentage = array.max(hourPercentage)
+
+    // Find the minimum and maximum percentage values
+    minVolatPercentage = array.min(VolatPercentage)
+    maxVolatPercentage = array.max(VolatPercentage)
+
+    hourtoRed = 0
+
+    // Add cells to the table
+    for i = 0 to 23
+        //Hours
+        table.cell(t, row = i+2, column = 0, text = str.tostring(i) + ":00", bgcolor = color.new(color.blue, 90), text_size = size.small)
+        timeact = timestamp(year(timenow), month(timenow), dayofmonth(timenow), hour(timenow), minute(timenow), second(timenow))
+        hourtoRed := hour(timeact,timezone)  
+        if i == hourtoRed
+            table.cell_set_bgcolor(t, row = i+2, column = 0, bgcolor = color.new(color.fuchsia, 80))
+        
+        percentage = array.get(hourPercentage, i)
+        ratio = (percentage - minPercentage) / (maxPercentage - minPercentage)
+        tcolor = color.new(color.black,0)
+        if ratio < 0.2
+            tcolor := color.new(color.rgb(211,211,211), 0)
+        else if ratio < 0.4
+            tcolor := color.new(color.rgb(128,128,128), 0)
+        else if ratio < 0.6
+            tcolor := color.new(color.rgb(105,105,105), 0)
+        else if ratio < 0.8
+            tcolor := color.new(color.rgb(56,56,56), 0)
+        else
+            tcolor := color.new(color.rgb(0,0,0), 0)
+
+        //VOLUME PERCENTAGE
+        table.cell(t, row = i+2, column = 3, text = str.tostring(math.round(percentage)) + "%", bgcolor = color.new(color.aqua, 90),  text_size = size.small, text_color = tcolor)
+
+        percentage := array.get(VolatPercentage, i)
+        ratio := (percentage - minVolatPercentage) / (maxVolatPercentage - minVolatPercentage)
+        if ratio < 0.2
+            tcolor := color.new(color.rgb(211,211,211), 0)
+        else if ratio < 0.4
+            tcolor := color.new(color.rgb(128,128,128), 0)
+        else if ratio < 0.6
+            tcolor := color.new(color.rgb(105,105,105), 0)
+        else if ratio < 0.8
+            tcolor := color.new(color.rgb(56,56,56), 0)
+        else
+            tcolor := color.new(color.rgb(0,0,0), 0)
+
+        //VOLATILITY PERCENTAGE
+        table.cell(t, row = i+2, column = 4, text = str.tostring(math.round(percentage)) + "%", bgcolor = color.new(color.aqua, 90),  text_size = size.small, text_color = tcolor)
+
+        if array.get(hourPoint,i)>=0
+            tcolor := color.green
+        else
+            tcolor := color.red
+        table.cell(t, row = i+2, column = 2, text = str.tostring(array.get(hourPoint,i)), bgcolor = color.new(color.aqua, 90),  text_size = size.small, text_color = tcolor)
+
+        if array.get(hourPointPercent,i)>=0
+            tcolor := color.green
+        else
+            tcolor := color.red
+        
+        //POINTS CHANGE PERCENTAGE
+        table.cell(t, row = i+2, column = 1, text = str.tostring(array.get(hourPointPercent,i)*leverage, format="#.##") + "%", bgcolor = color.new(color.aqua, 90),  text_size = size.small, text_color = tcolor)
+
+//Check if the statistic pattern is relevant for the current dayofmonth
+    lastHoursCandleDir = array.new_int(24,0)
+    for i=0 to 23
+        currentHour = hour(time[i], timezone)
+        CurPointPercent :=((open[i]-close[i])*-1)/close[i+1]*100
+        //table.cell(t, row = currentHour+2, column = 5, text = str.tostring(CurPointPercent*leverage, format="#.##") + "%", text_size = size.small)
+        if CurPointPercent>=0
+            array.set(lastHoursCandleDir, currentHour, 1)
+        else
+            array.set(lastHoursCandleDir, currentHour, -1)
+
+    for i = 0 to 23
+        if i != hourtoRed
+            if array.get(hourPoint,i)>=0 and array.get(lastHoursCandleDir,i)==1
+                table.cell_set_bgcolor(t, row = i+2, column = 1, bgcolor = color.new(color.green, 70))
+
+            if array.get(hourPoint,i)<0 and array.get(lastHoursCandleDir,i)==-1
+                table.cell_set_bgcolor(t, row = i+2, column = 1, bgcolor = color.new(color.green, 70))
+        else
+            table.cell_set_bgcolor(t, row = i+2, column = 1, bgcolor = color.new(color.fuchsia, 80))
+            table.cell_set_bgcolor(t, row = i+2, column = 2, bgcolor = color.new(color.fuchsia, 80))
+            table.cell_set_bgcolor(t, row = i+2, column = 3, bgcolor = color.new(color.fuchsia, 80))
+            table.cell_set_bgcolor(t, row = i+2, column = 4, bgcolor = color.new(color.fuchsia, 80))
+            //table.cell_set_bgcolor(t, row = i+2, column = 5, bgcolor = color.new(color.fuchsia, 80))
+            
+    table.cell(t, row = 0, column = 0, text = " ", text_size = size.large)
+    table.cell(t, row = 1, column = 0, text = "Hour", bgcolor = color.new(color.blue, 90),  text_size = size.small)
+    table.cell(t, row = 1, column = 1, text = "PrCh% ("+str.tostring(leverage)+"X)", bgcolor = color.new(color.blue, 90),  text_size = size.small)
+    table.cell(t, row = 1, column = 2, text = "PointCh", bgcolor = color.new(color.blue, 90),  text_size = size.small)
+    table.cell(t, row = 1, column = 3, text = "TrVol", bgcolor = color.new(color.blue, 90),  text_size = size.small)
+    table.cell(t, row = 1, column = 4, text = "Volat", bgcolor = color.new(color.blue, 90),  text_size = size.small)
+    table.cell(t, row = 1, column = 5, text = " ", bgcolor = color.new(color.blue, 100), text_size = size.small)

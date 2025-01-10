@@ -1,0 +1,159 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Steversteves
+
+//@version=5
+
+indicator("Z Score with Signals", max_labels_count = 500, timeframe="")
+
+//Custom Colors
+///////////////////
+
+eight_col = #FBFDA8
+seven_col = #F2E398
+six_col = #E7C688
+five_col = #DDA879
+four_col = #D2886B
+three_col = #C8685E
+two_col = #BD525B
+one_col = #B34664
+zero_col = #A83B6E
+
+negzero_col = #9E3178
+negone_col = #932881
+negtwo_col = #872089
+negthree_col = #C8685E
+negfour_col = #D2886B
+negfive_col = #DDA879
+negsix_col = #E7C688
+negseven_col = #F2E398
+negeight_col = #FBFDA8
+
+positive_switch = true
+negative_switch = true
+//Color
+color_fun(src) =>
+    pos_col = positive_switch ? src >= 4 ? eight_col : src >= 3.5 and src <= 4 ? seven_col : src >= 3 and src <= 3.5 ? six_col : src >= 2.5 and src <= 3 ? five_col : src >= 2 and src <= 2.5 ? four_col : src >= 1.5 and src <= 2 ? three_col : src >= 1 and src <= 1.5 ? two_col : src >= .5 and src <= 1 ? one_col : src >= 0 and src <= .5 ? zero_col : na : na
+
+    neg_col = negative_switch ? src <= -4 ? negeight_col : src >= -4 and src <= -3.5 ? negseven_col : src >= -3.5 and src <= -3 ? negsix_col : src >= -3 and src <= -2.5 ? negfive_col : src >= -2.5 and src <= -2 ? negfour_col : src >= -2 and src <= -1.5 ? negthree_col : src >= -1.5 and src <= -1 ? negtwo_col : src >= -1 and src <= -.5 ? negone_col : src >= -.5 and src <= 0 ? negzero_col : na : na
+    col = src >= 0 ? pos_col : neg_col
+    col 
+
+
+// Calculating High Z Score
+
+z_score(_window) =>
+    a = ta.sma(high, _window)
+    b = ta.stdev(high, _window)
+    c = (high - a) / b 
+    d = ta.sma(low, _window)
+    e = ta.stdev(low, _window)
+    f = (low - d) / e 
+    z = (c + f) / 2 
+
+z1 = z_score(input(5))
+z2 = z_score(input(10))
+z3 = z_score(input(15))
+z4 = z_score(input(20))
+z5 = z_score(input(25))
+z6 = z_score(input(30))
+z7 = z_score(input(35))
+z8 = z_score(input(40))
+z9 = z_score(input(45))
+
+z10 = z_score(input(50))
+z11 = z_score(input(55))
+z12 = z_score(input(60))
+z13 = z_score(input(65))
+z14 = z_score(input(70))
+z15 = z_score(input(75))
+z16 = z_score(input(80))
+z17 = z_score(input(85))
+z18 = z_score(input(90))
+z19 = z_score(input(95))
+
+z20 = z_score(input(100))
+z21 = z_score(input(105))
+z22 = z_score(input(110))
+z23 = z_score(input(115))
+z24 = z_score(input(120))
+z25 = z_score(input(125))
+z26 = z_score(input(130))
+z27 = z_score(input(135))
+z28 = z_score(input(140))
+z29 = z_score(input(145))
+
+z30 = z_score(input(155))
+z31 = z_score(input(256))
+z32 = z_score(input(355))
+z33 = z_score(input(455))
+z34 = z_score(input(555))
+z35 = z_score(input(655))
+z36 = z_score(input(720))
+z37 = z_score(input(889))
+z38 = z_score(input(1080))
+z39 = z_score(input(1234))
+z40 = z_score(input(2560))
+
+//plot (z1, color=color_fun(z1))
+//plot (z2, color=color_fun(z2))
+//plot (z3, color=color_fun(z3))
+//plot (z4, color=color_fun(z4))
+//plot (z5, color=color_fun(z5))
+//plot (z6, color=color_fun(z6))
+//plot (z7, color=color_fun(z7))
+//plot (z8, color=color_fun(z8))
+plot (z9, color=color_fun(z9))
+
+plot (z10, color=color_fun(z10))
+plot (z11, color=color_fun(z11))
+plot (z12, color=color_fun(z12))
+plot (z13, color=color_fun(z13))
+plot (z14, color=color_fun(z14))
+plot (z15, color=color_fun(z15))
+plot (z16, color=color_fun(z16))
+plot (z17, color=color_fun(z17))
+plot (z18, color=color_fun(z18))
+plot (z19, color=color_fun(z19))
+
+plot (z20, color=color_fun(z20))
+plot (z21, color=color_fun(z21))
+plot (z22, color=color_fun(z22))
+plot (z23, color=color_fun(z23))
+plot (z24, color=color_fun(z24))
+plot (z25, color=color_fun(z25))
+plot (z26, color=color_fun(z26))
+plot (z27, color=color_fun(z27))
+plot (z28, color=color_fun(z28))
+plot (z29, color=color_fun(z29))
+
+plot (z30, color=color_fun(z30))
+plot (z31, color=color_fun(z31))
+plot (z32, color=color_fun(z32))
+plot (z33, color=color_fun(z33))
+plot (z34, color=color_fun(z34))
+plot (z35, color=color_fun(z35))
+plot (z36, color=color_fun(z36))
+plot (z37, color=color_fun(z37))
+plot (z38, color=color_fun(z38))
+plot (z39, color=color_fun(z39))
+
+plot (z40, color=color_fun(z40))
+
+// Condition Alerts
+
+//var wait = 0
+
+//wait := wait + 1
+
+//if (z < -2.50) and (wait > 12)
+//    wait := 0
+//    label.new(x=bar_index, y=z, text="Buy", size = size.tiny, color=color.green)
+//   alert("Buy The Dip "+syminfo.ticker, alert.freq_once_per_bar)
+    
+
+//if (z > 2.50) and (wait > 12)
+//    wait := 0
+//    label.new(x=bar_index, y=z, text="Sell", size = size.tiny, color=color.red)
+//    alert("Sell The Rally "+syminfo.ticker, alert.freq_once_per_bar)
+
+

@@ -1,0 +1,555 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © InvestorUnknown | TRW: @Andrej S.
+//                                                                                  {||}                   
+//                                                       ,                          {||}          
+//                                                  ,,,,,                           {||}
+//                                                ,,,,,       ,       ,,            {||}       
+//                                    ,         ,,,, ,       ,,     ,,,             {||}       
+//             .                   , ,         ,,,,  ,     ,,,,   .,,               {||}            ╔╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╗
+//             ,,                 ,       ,,   ,,,,,,,  ,  ,      ,                 {||}            ╠╬╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╬╣  
+//             ,,                 ,,   ,  ,,  ,,,,,, ,,,,    , ,                    {||}            ╠╣  /$$$$$$                                           /$$                         ╠╣
+//              .,         ,      ,,,  ,,,,,,,,,,,,,, ,,  ,,  , ,         ,,        {||}            ╠╣ |_  $$_/                                          | $$                         ╠╣
+//                           ,  .  ,, ,,,,,,,,,,,,, ,    ,,, , ,,    ,   ,          {||}            ╠╣   | $$   /$$$$$$$  /$$    /$$ /$$$$$$   /$$$$$$$ /$$$$$$    /$$$$$$   /$$$$$$  ╠╣
+//                   ,,           ,,, ,,,,,,,,,,,,,,,,,,,,,,  ,,,   ,,              {||}            ╠╣   | $$  | $$__  $$|  $$  /$$//$$__  $$ /$$_____/|_  $$_/   /$$__  $$ /$$__  $$ ╠╣
+//               , ,   ,,,     .,,,,,,,,,,,, ,,,  ,,,,,,,,   ,,,    ,,              {||}            ╠╣   | $$  | $$  \ $$ \  $$/$$/| $$$$$$$$|  $$$$$$   | $$    | $$  \ $$| $$  \__/ ╠╣      
+//         .,     , ,,  ,,    ,,, ,,,,,,, ,,  ,,, ,,,,, ,,, ,  ,,   ,,              {||}            ╠╣   | $$  | $$  | $$  \  $$$/ | $$_____/ \____  $$  | $$ /$$| $$  | $$| $$       ╠╣     
+//            ,   ,,,,,  ,    ,,,, ,, , ,,,,,,,,,,,,,,,,,,,,,, ,,  ,,               {||}            ╠╣  /$$$$$$| $$  | $$   \  $/  |  $$$$$$$ /$$$$$$$/  |  $$$$/|  $$$$$$/| $$       ╠╣   
+//               .    //./ /// ,,,,,,,,,,,,,,,. ,,,,,,,,,,,,,,,,,,                  {||}            ╠╣ |______/|__/  |__/    \_/    \_______/|_______/    \___/   \______/ |__/       ╠╣
+//                ,  /         ,., ,,,,,,,,,,, ,,,,,,,   ,,,,,,,                    {||}            ╠╣                                                                                ╠╣
+//            .  ,,,  ,/ ///./   ,,,.,,,,,,,,,,,,,,,      ,, , ,                    {||}            ╠╣                                                                                ╠╣
+//             ,,,,,,  //./ , /    .,,.,,, ,,,,,, ,.     ,,,,,,,                    {||}            ╠╣                                                                                ╠╣
+//              ,,,,   //  *, / / ,,,,,,,,,,,,          ,, ,,,,,                    {||}            ╠╣    /$$   /$$           /$$                                                     ╠╣
+//               ,,  // ////.*/// / ,.,,,,,.,, ,,  ,,,, ,,,,,,                      {||}            ╠╣   | $$  | $$          | $$                                                     ╠╣
+//                   ,  /////    //  , ,,,,,, ,,,, ,,,,,  ,,, / /.                  {||}            ╠╣   | $$  | $$ /$$$$$$$ | $$   /$$ /$$$$$$$   /$$$$$$  /$$  /$$  /$$ /$$$$$$$    ╠╣
+//              ,,   ,         ////// ,,,,,,,,,  ,,,,,,,,/ ///  / //                {||}            ╠╣   | $$  | $$| $$__  $$| $$  /$$/| $$__  $$ /$$__  $$| $$ | $$ | $$| $$__  $$   ╠╣
+//                         ///// .// ,,,,,,  ,, ,,,, ,,, ///*  //*///               {||}            ╠╣   | $$  | $$| $$  \ $$| $$$$$$/ | $$  \ $$| $$  \ $$| $$ | $$ | $$| $$  \ $$   ╠╣
+//                           //  .           ,, .// ,,      ///, ///                {||}            ╠╣   | $$  | $$| $$  | $$| $$_  $$ | $$  | $$| $$  | $$| $$ | $$ | $$| $$  | $$   ╠╣
+//                        //////        ,,,,    ///// ,.        ,                   {||}            ╠╣   |  $$$$$$/| $$  | $$| $$ \  $$| $$  | $$|  $$$$$$/|  $$$$$/$$$$/| $$  | $$   ╠╣
+//                   *///////. //              /  */////*                           {||}            ╠╣    \______/ |__/  |__/|__/  \__/|__/  |__/ \______/  \_____/\___/ |__/  |__/   ╠╣ 
+//                         .,,  // ,,,,,,,,,, //* ,,,  //////                       {||}            ╠╬╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╬╣
+//                           ,,,,,   ,,,,,, ,.,,,,,,,                               {||}            ╚╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╝
+//                               ,,,,,,,,,,,, ,,                                    {||}          
+//                                  ,,,,,,,,,                                       {||}                                                                                                                                  
+//                                                                                  {||} 
+//                                                                                  {||} 
+
+//@version=5
+indicator("Universal Ratio Trend Matrix [InvestorUnknown]", "Universal Ratio Trend Matrix", overlay = false)
+import TradingView/ta/8
+
+// - - - - - INDICATORS - - - - - //{
+RSI_raw(source, int_1) =>
+    rsi = ta.rsi(source, int_1)
+
+RSI_sma(source, int_1, int_2) =>
+    rsi = RSI_raw(source, int_1)
+    sma = ta.sma(rsi, int_2)
+
+RSI_ema(source, int_1, int_2) =>
+    rsi = RSI_raw(source, int_1)
+    ema = ta.ema(rsi, int_2)
+
+CCI(source, int_1) =>
+    cci = ta.cci(source, int_1)
+
+round_(val) => val > .99 ? .999 : val < -.99 ? -.999 : val
+
+Fisher(source, int_1) =>
+    high_ = ta.highest(source, int_1)
+    low_ = ta.lowest(source, int_1)
+    value = 0.0
+    value := round_(.66 * ((source - low_) / (high_ - low_) - .5) + .67 * nz(value[1]))
+    fish1 = 0.0
+    fish1 := .5 * math.log((1 + value) / (1 - value)) + .5 * nz(fish1[1])
+//}
+
+// - - - - - FUNCTIONS [1] - - - - - //{
+f_remove_exchange_name(simple string name) =>
+    string[] parts      = str.split(name, ":")
+    string result       = array.size(parts) > 1 ? array.get(parts, 1) : name
+    result
+
+f_get_price(simple string ticker) =>
+    request.security(ticker, "", close)
+
+f_constant_src(series float source) =>
+    bool constant       = false
+    if (source == 1.0000) and (source[1] == 1.0000) and (source[2] == 1.0000)
+        constant        := true
+    constant
+//}
+
+// - - - - - STRINGS - - - - - //{
+var string G1                   = "General Settings"
+var string G2                   = "Table Settings"
+var string G3                   = "Tickers"
+//}
+
+// - - - - - INPUTS - - - - - //{
+
+// General & Indicator settings
+simple int    used_assets       = input.int(10, "Number of Tickers for Analysis", minval = 5, maxval = 40, group = G1)
+simple string trend_indicator   = input.string("RSI (Raw)", "Indicator for Trend Analysis", options = ["RSI (Raw)", "RSI (SMA)", "RSI (EMA)", "CCI", "Fisher"], group = G1)
+
+simple int    int_1             = input.int(14, "Int 1", group = G1, inline = "I")
+simple int    int_2             = input.int(14, "Int 2", group = G1, inline = "I")
+
+// Table Settings
+simple string table_mode        = input.string("FULL", "Table Mode", options = ["FULL", "Summary"], group = G2)
+simple string textsize          = input.string("medium", title="Text Size", options=["tiny", "small", "medium", "large"], group = G2)
+simple bool   hide_head         = input.bool(false, "Hide Header", group = G2)
+simple bool   hide_inps         = input.bool(false, "Hide Inputs", group = G2)
+simple bool   hlight            = input.bool(true, "highlight Trend Scores", group = G2, inline = "H")
+simple string hl_type           = input.string("Background", "", options = ["Text", "Background"], group = G2, inline = "H")
+simple string hl_sr             = input.string("Gradient", "Highlight Outperforming Assets", options = ["Gradient", "Top (Highlight Top Assets) Assets", "Off"], group = G2)
+simple int    hl_assets         = input.int(4, "Highlight Top Assets", group = G2)
+
+// User inputs for asset selection
+simple string asset1            = input.symbol("INDEX:BTCUSD",      "Asset 1",  group = G3)
+simple string asset2            = input.symbol("INDEX:ETHUSD",      "Asset 2",  group = G3)
+simple string asset3            = input.symbol("CRYPTO:SOLUSD",     "Asset 3",  group = G3)
+simple string asset4            = input.symbol("CRYPTO:BNBUSD",     "Asset 4",  group = G3)
+simple string asset5            = input.symbol("CRYPTO:XRPUSD",     "Asset 5",  group = G3)
+simple string asset6            = input.symbol("CRYPTO:DOGEUSD",    "Asset 6",  group = G3)
+simple string asset7            = input.symbol("CRYPTO:TRXUSD",     "Asset 7",  group = G3)
+simple string asset8            = input.symbol("CRYPTO:TONUSD",     "Asset 8",  group = G3)
+simple string asset9            = input.symbol("CRYPTO:ADAUSD",     "Asset 9",  group = G3)
+simple string asset10           = input.symbol("CRYPTO:AVAXUSD",    "Asset 10", group = G3)
+simple string asset11           = input.symbol("CRYPTO:SHIBUSD",    "Asset 11", group = G3)
+simple string asset12           = input.symbol("CRYPTO:LINKUSD",    "Asset 12", group = G3)
+simple string asset13           = input.symbol("CRYPTO:BCHUSD",     "Asset 13", group = G3)
+simple string asset14           = input.symbol("CRYPTO:DOTUSD",     "Asset 14", group = G3)
+simple string asset15           = input.symbol("CRYPTO:NEARUSD",    "Asset 15", group = G3)
+simple string asset16           = input.symbol("CRYPTO:LEOUSD",     "Asset 16", group = G3)
+simple string asset17           = input.symbol("CRYPTO:SUIUSD",     "Asset 17", group = G3)
+simple string asset18           = input.symbol("CRYPTO:LTCUSD",     "Asset 18", group = G3)
+simple string asset19           = input.symbol("COINBASE:APTUSD",   "Asset 19", group = G3)
+simple string asset20           = input.symbol("CRYPTO:UNIUSD",     "Asset 20", group = G3)
+simple string asset21           = input.symbol("CRYPTO:ICPUSD",     "Asset 21", group = G3)
+simple string asset22           = input.symbol("BINANCE:TAOUSD",    "Asset 22", group = G3)
+simple string asset23           = input.symbol("CRYPTO:PEPEUSD",    "Asset 23", group = G3)
+simple string asset24           = input.symbol("CRYPTO:KASUSD",     "Asset 24", group = G3)
+simple string asset25           = input.symbol("CRYPTO:FETUSD",     "Asset 25", group = G3)
+simple string asset26           = input.symbol("COINBASE:POLUSD",   "Asset 26", group = G3)
+simple string asset27           = input.symbol("CRYPTO:RENDERUSD",  "Asset 27", group = G3)
+simple string asset28           = input.symbol("COINBASE:STXUSD",   "Asset 28", group = G3)
+simple string asset29           = input.symbol("CRYPTO:ETCUSD",     "Asset 29", group = G3)
+simple string asset30           = input.symbol("CRYPTO:XMRUSD",     "Asset 30", group = G3)
+simple string asset31           = input.symbol("CRYPTO:XLMUSD",     "Asset 31", group = G3)
+simple string asset32           = input.symbol("CRYPTO:OKBUSD",     "Asset 32", group = G3)
+simple string asset33           = input.symbol("CRYPTO:IMXUSD",     "Asset 33", group = G3)
+simple string asset34           = input.symbol("CRYPTO:AAVEUSD",    "Asset 34", group = G3)
+simple string asset35           = input.symbol("CRYPTO:WIFUSD",     "Asset 35", group = G3)
+simple string asset36           = input.symbol("CRYPTO:FILUSD",     "Asset 36", group = G3)
+simple string asset37           = input.symbol("CRYPTO:CROUSD",     "Asset 37", group = G3)
+simple string asset38           = input.symbol("COINBASE:ARBUSD",   "Asset 38", group = G3)
+simple string asset39           = input.symbol("CRYPTO:HBARUSD",    "Asset 39", group = G3)
+simple string asset40           = input.symbol("CRYPTO:OPUSD",      "Asset 40", group = G3)
+//}
+
+// - - - - - TICKER ARRAY - - - - - //{
+
+// Store all asset names in an array
+var assets = array.new_string(40)
+
+array.set(assets, 0,  f_remove_exchange_name(asset1)),      array.set(assets, 1,  f_remove_exchange_name(asset2))
+array.set(assets, 2,  f_remove_exchange_name(asset3)),      array.set(assets, 3,  f_remove_exchange_name(asset4))
+array.set(assets, 4,  f_remove_exchange_name(asset5)),      array.set(assets, 5,  f_remove_exchange_name(asset6))
+array.set(assets, 6,  f_remove_exchange_name(asset7)),      array.set(assets, 7,  f_remove_exchange_name(asset8))
+array.set(assets, 8,  f_remove_exchange_name(asset9)),      array.set(assets, 9,  f_remove_exchange_name(asset10))
+array.set(assets, 10, f_remove_exchange_name(asset11)),     array.set(assets, 11, f_remove_exchange_name(asset12))
+array.set(assets, 12, f_remove_exchange_name(asset13)),     array.set(assets, 13, f_remove_exchange_name(asset14))
+array.set(assets, 14, f_remove_exchange_name(asset15)),     array.set(assets, 15, f_remove_exchange_name(asset16))
+array.set(assets, 16, f_remove_exchange_name(asset17)),     array.set(assets, 17, f_remove_exchange_name(asset18))
+array.set(assets, 18, f_remove_exchange_name(asset19)),     array.set(assets, 19, f_remove_exchange_name(asset20))
+array.set(assets, 20, f_remove_exchange_name(asset21)),     array.set(assets, 21, f_remove_exchange_name(asset22))
+array.set(assets, 22, f_remove_exchange_name(asset23)),     array.set(assets, 23, f_remove_exchange_name(asset24))
+array.set(assets, 24, f_remove_exchange_name(asset25)),     array.set(assets, 25, f_remove_exchange_name(asset26))
+array.set(assets, 26, f_remove_exchange_name(asset27)),     array.set(assets, 27, f_remove_exchange_name(asset28))
+array.set(assets, 28, f_remove_exchange_name(asset29)),     array.set(assets, 29, f_remove_exchange_name(asset30))
+array.set(assets, 30, f_remove_exchange_name(asset31)),     array.set(assets, 31, f_remove_exchange_name(asset32))
+array.set(assets, 32, f_remove_exchange_name(asset33)),     array.set(assets, 33, f_remove_exchange_name(asset34))
+array.set(assets, 34, f_remove_exchange_name(asset35)),     array.set(assets, 35, f_remove_exchange_name(asset36))
+array.set(assets, 36, f_remove_exchange_name(asset37)),     array.set(assets, 37, f_remove_exchange_name(asset38))
+array.set(assets, 38, f_remove_exchange_name(asset39)),     array.set(assets, 39, f_remove_exchange_name(asset40))
+//}
+
+// - - - - - MAIN PART [1] - - - - - //{
+
+// declare price variables as "na"
+var float price_a1  = na,   var float price_a2  = na,   var float price_a3  = na,   var float price_a4  = na,   var float price_a5  = na
+var float price_a6  = na,   var float price_a7  = na,   var float price_a8  = na,   var float price_a9  = na,   var float price_a10 = na
+var float price_a11 = na,   var float price_a12 = na,   var float price_a13 = na,   var float price_a14 = na,   var float price_a15 = na
+var float price_a16 = na,   var float price_a17 = na,   var float price_a18 = na,   var float price_a19 = na,   var float price_a20 = na
+var float price_a21 = na,   var float price_a22 = na,   var float price_a23 = na,   var float price_a24 = na,   var float price_a25 = na
+var float price_a26 = na,   var float price_a27 = na,   var float price_a28 = na,   var float price_a29 = na,   var float price_a30 = na
+var float price_a31 = na,   var float price_a32 = na,   var float price_a33 = na,   var float price_a34 = na,   var float price_a35 = na
+var float price_a36 = na,   var float price_a37 = na,   var float price_a38 = na,   var float price_a39 = na,   var float price_a40 = na
+
+// create "empty" arrays to store trend scores
+var a1_array  = array.new_int(40, 0),      var a2_array  = array.new_int(40, 0),    var a3_array  = array.new_int(40, 0),      var a4_array  = array.new_int(40, 0)
+var a5_array  = array.new_int(40, 0),      var a6_array  = array.new_int(40, 0),    var a7_array  = array.new_int(40, 0),      var a8_array  = array.new_int(40, 0)
+var a9_array  = array.new_int(40, 0),      var a10_array = array.new_int(40, 0),    var a11_array = array.new_int(40, 0),      var a12_array = array.new_int(40, 0)
+var a13_array = array.new_int(40, 0),      var a14_array = array.new_int(40, 0),    var a15_array = array.new_int(40, 0),      var a16_array = array.new_int(40, 0)
+var a17_array = array.new_int(40, 0),      var a18_array = array.new_int(40, 0),    var a19_array = array.new_int(40, 0),      var a20_array = array.new_int(40, 0)
+var a21_array = array.new_int(40, 0),      var a22_array = array.new_int(40, 0),    var a23_array = array.new_int(40, 0),      var a24_array = array.new_int(40, 0)
+var a25_array = array.new_int(40, 0),      var a26_array = array.new_int(40, 0),    var a27_array = array.new_int(40, 0),      var a28_array = array.new_int(40, 0)
+var a29_array = array.new_int(40, 0),      var a30_array = array.new_int(40, 0),    var a31_array = array.new_int(40, 0),      var a32_array = array.new_int(40, 0)
+var a33_array = array.new_int(40, 0),      var a34_array = array.new_int(40, 0),    var a35_array = array.new_int(40, 0),      var a36_array = array.new_int(40, 0)
+var a37_array = array.new_int(40, 0),      var a38_array = array.new_int(40, 0),    var a39_array = array.new_int(40, 0),      var a40_array = array.new_int(40, 0)
+
+// Prices for each USED asset
+f_get_asset_price(asset_number, ticker) =>
+    if (used_assets >= asset_number)
+        f_get_price(ticker)
+    else
+        na
+
+// overwrite empty variables with the prices if "used_assets" is greater or equal to the asset number
+if barstate.isconfirmed // use barstate.isconfirmed to avoid "na prices" and calculation errors that result in empty cells in the table
+    price_a1  := f_get_asset_price(1,  asset1),   price_a2  := f_get_asset_price(2,  asset2),   price_a3  := f_get_asset_price(3,  asset3),   price_a4  := f_get_asset_price(4,  asset4)
+    price_a5  := f_get_asset_price(5,  asset5),   price_a6  := f_get_asset_price(6,  asset6),   price_a7  := f_get_asset_price(7,  asset7),   price_a8  := f_get_asset_price(8,  asset8)
+    price_a9  := f_get_asset_price(9,  asset9),   price_a10 := f_get_asset_price(10, asset10),  price_a11 := f_get_asset_price(11, asset11),  price_a12 := f_get_asset_price(12, asset12)
+    price_a13 := f_get_asset_price(13, asset13),  price_a14 := f_get_asset_price(14, asset14),  price_a15 := f_get_asset_price(15, asset15),  price_a16 := f_get_asset_price(16, asset16)
+    price_a17 := f_get_asset_price(17, asset17),  price_a18 := f_get_asset_price(18, asset18),  price_a19 := f_get_asset_price(19, asset19),  price_a20 := f_get_asset_price(20, asset20)
+    price_a21 := f_get_asset_price(21, asset21),  price_a22 := f_get_asset_price(22, asset22),  price_a23 := f_get_asset_price(23, asset23),  price_a24 := f_get_asset_price(24, asset24)
+    price_a25 := f_get_asset_price(25, asset25),  price_a26 := f_get_asset_price(26, asset26),  price_a27 := f_get_asset_price(27, asset27),  price_a28 := f_get_asset_price(28, asset28)
+    price_a29 := f_get_asset_price(29, asset29),  price_a30 := f_get_asset_price(30, asset30),  price_a31 := f_get_asset_price(31, asset31),  price_a32 := f_get_asset_price(32, asset32)
+    price_a33 := f_get_asset_price(33, asset33),  price_a34 := f_get_asset_price(34, asset34),  price_a35 := f_get_asset_price(35, asset35),  price_a36 := f_get_asset_price(36, asset36)
+    price_a37 := f_get_asset_price(37, asset37),  price_a38 := f_get_asset_price(38, asset38),  price_a39 := f_get_asset_price(39, asset39),  price_a40 := f_get_asset_price(40, asset40)
+//}
+
+// - - - - - FUNCTIONS [2] - - - - - //{
+
+// use switch to allow "universality" in indicator selection
+f_calc_score(source, trend_indicator, int_1, int_2) =>
+    int score = na
+
+    if (not f_constant_src(source)) and source > 0.0 // Skip if you are using the same assets for ratio (for example BTC/BTC)
+        x = switch trend_indicator
+            "RSI (Raw)" => RSI_raw(source, int_1)
+            "RSI (SMA)" => RSI_sma(source, int_1, int_2)
+            "RSI (EMA)" => RSI_ema(source, int_1, int_2)
+            "CCI"       => CCI(source, int_1)
+            "Fisher"    => Fisher(source, int_1)
+
+        y = switch trend_indicator
+            "RSI (Raw)" => x > 50 ? 1 : 0
+            "RSI (SMA)" => x > 50 ? 1 : 0
+            "RSI (EMA)" => x > 50 ? 1 : 0
+            "CCI"       => x > 0 ? 1 : 0
+            "Fisher"    => x > x[1] ? 1 : 0
+
+        score := y
+    else
+        score := 0
+
+    score
+
+// function to set values into the arrays
+f_array_set(a_array, p_base) =>
+
+    array.set(a_array,  0, f_calc_score(p_base / price_a1,  trend_indicator, int_1, int_2))
+    array.set(a_array,  1, f_calc_score(p_base / price_a2,  trend_indicator, int_1, int_2))
+    array.set(a_array,  2, f_calc_score(p_base / price_a3,  trend_indicator, int_1, int_2))
+    array.set(a_array,  3, f_calc_score(p_base / price_a4,  trend_indicator, int_1, int_2))
+    array.set(a_array,  4, f_calc_score(p_base / price_a5,  trend_indicator, int_1, int_2))
+    array.set(a_array,  5, f_calc_score(p_base / price_a6,  trend_indicator, int_1, int_2))
+    array.set(a_array,  6, f_calc_score(p_base / price_a7,  trend_indicator, int_1, int_2))
+    array.set(a_array,  7, f_calc_score(p_base / price_a8,  trend_indicator, int_1, int_2))
+    array.set(a_array,  8, f_calc_score(p_base / price_a9,  trend_indicator, int_1, int_2))
+    array.set(a_array,  9, f_calc_score(p_base / price_a10, trend_indicator, int_1, int_2))
+    array.set(a_array, 10, f_calc_score(p_base / price_a11, trend_indicator, int_1, int_2))
+    array.set(a_array, 11, f_calc_score(p_base / price_a12, trend_indicator, int_1, int_2))
+    array.set(a_array, 12, f_calc_score(p_base / price_a13, trend_indicator, int_1, int_2))
+    array.set(a_array, 13, f_calc_score(p_base / price_a14, trend_indicator, int_1, int_2))
+    array.set(a_array, 14, f_calc_score(p_base / price_a15, trend_indicator, int_1, int_2))
+    array.set(a_array, 15, f_calc_score(p_base / price_a16, trend_indicator, int_1, int_2))
+    array.set(a_array, 16, f_calc_score(p_base / price_a17, trend_indicator, int_1, int_2))
+    array.set(a_array, 17, f_calc_score(p_base / price_a18, trend_indicator, int_1, int_2))
+    array.set(a_array, 18, f_calc_score(p_base / price_a19, trend_indicator, int_1, int_2))
+    array.set(a_array, 19, f_calc_score(p_base / price_a20, trend_indicator, int_1, int_2))
+    array.set(a_array, 20, f_calc_score(p_base / price_a21, trend_indicator, int_1, int_2))
+    array.set(a_array, 21, f_calc_score(p_base / price_a22, trend_indicator, int_1, int_2))
+    array.set(a_array, 22, f_calc_score(p_base / price_a23, trend_indicator, int_1, int_2))
+    array.set(a_array, 23, f_calc_score(p_base / price_a24, trend_indicator, int_1, int_2))
+    array.set(a_array, 24, f_calc_score(p_base / price_a25, trend_indicator, int_1, int_2))
+    array.set(a_array, 25, f_calc_score(p_base / price_a26, trend_indicator, int_1, int_2))
+    array.set(a_array, 26, f_calc_score(p_base / price_a27, trend_indicator, int_1, int_2))
+    array.set(a_array, 27, f_calc_score(p_base / price_a28, trend_indicator, int_1, int_2))
+    array.set(a_array, 28, f_calc_score(p_base / price_a29, trend_indicator, int_1, int_2))
+    array.set(a_array, 29, f_calc_score(p_base / price_a30, trend_indicator, int_1, int_2))
+    array.set(a_array, 30, f_calc_score(p_base / price_a31, trend_indicator, int_1, int_2))
+    array.set(a_array, 31, f_calc_score(p_base / price_a32, trend_indicator, int_1, int_2))
+    array.set(a_array, 32, f_calc_score(p_base / price_a33, trend_indicator, int_1, int_2))
+    array.set(a_array, 33, f_calc_score(p_base / price_a34, trend_indicator, int_1, int_2))
+    array.set(a_array, 34, f_calc_score(p_base / price_a35, trend_indicator, int_1, int_2))
+    array.set(a_array, 35, f_calc_score(p_base / price_a36, trend_indicator, int_1, int_2))
+    array.set(a_array, 36, f_calc_score(p_base / price_a37, trend_indicator, int_1, int_2))
+    array.set(a_array, 37, f_calc_score(p_base / price_a38, trend_indicator, int_1, int_2))
+    array.set(a_array, 38, f_calc_score(p_base / price_a39, trend_indicator, int_1, int_2))
+    array.set(a_array, 39, f_calc_score(p_base / price_a40, trend_indicator, int_1, int_2))
+
+    a_array
+
+// only set values into arrays for USED assets
+f_arrayset(asset_number, a_array, p_base) =>
+    if (used_assets >= asset_number)
+        f_array_set(a_array, p_base)
+    else
+        na
+//}
+
+// - - - - - MAIN PART [2] - - - - - //{
+
+// set trend values into the arrays
+f_arrayset(1, a1_array, price_a1),     f_arrayset(2, a2_array, price_a2),     f_arrayset(3, a3_array, price_a3),     f_arrayset(4, a4_array, price_a4)
+f_arrayset(5, a5_array, price_a5),     f_arrayset(6, a6_array, price_a6),     f_arrayset(7, a7_array, price_a7),     f_arrayset(8, a8_array, price_a8)
+f_arrayset(9, a9_array, price_a9),     f_arrayset(10, a10_array, price_a10),  f_arrayset(11, a11_array, price_a11),  f_arrayset(12, a12_array, price_a12)
+f_arrayset(13, a13_array, price_a13),  f_arrayset(14, a14_array, price_a14),  f_arrayset(15, a15_array, price_a15),  f_arrayset(16, a16_array, price_a16)
+f_arrayset(17, a17_array, price_a17),  f_arrayset(18, a18_array, price_a18),  f_arrayset(19, a19_array, price_a19),  f_arrayset(20, a20_array, price_a20)
+f_arrayset(21, a21_array, price_a21),  f_arrayset(22, a22_array, price_a22),  f_arrayset(23, a23_array, price_a23),  f_arrayset(24, a24_array, price_a24)
+f_arrayset(25, a25_array, price_a25),  f_arrayset(26, a26_array, price_a26),  f_arrayset(27, a27_array, price_a27),  f_arrayset(28, a28_array, price_a28)
+f_arrayset(29, a29_array, price_a29),  f_arrayset(30, a30_array, price_a30),  f_arrayset(31, a31_array, price_a31),  f_arrayset(32, a32_array, price_a32)
+f_arrayset(33, a33_array, price_a33),  f_arrayset(34, a34_array, price_a34),  f_arrayset(35, a35_array, price_a35),  f_arrayset(36, a36_array, price_a36)
+f_arrayset(37, a37_array, price_a37),  f_arrayset(38, a38_array, price_a38),  f_arrayset(39, a39_array, price_a39),  f_arrayset(40, a40_array, price_a40)
+
+// create a combined array (work-around since pinescript doesn't support having array of arrays)
+var combined_array = array.new_int(40 * 40, 0)
+
+if barstate.islast
+    for i = 0 to 39
+        array.set(combined_array, i,             array.get(a1_array,  i))
+        array.set(combined_array, i + (40 * 1),  array.get(a2_array,  i))
+        array.set(combined_array, i + (40 * 2),  array.get(a3_array,  i))
+        array.set(combined_array, i + (40 * 3),  array.get(a4_array,  i))
+        array.set(combined_array, i + (40 * 4),  array.get(a5_array,  i))
+        array.set(combined_array, i + (40 * 5),  array.get(a6_array,  i))
+        array.set(combined_array, i + (40 * 6),  array.get(a7_array,  i))
+        array.set(combined_array, i + (40 * 7),  array.get(a8_array,  i))
+        array.set(combined_array, i + (40 * 8),  array.get(a9_array,  i))
+        array.set(combined_array, i + (40 * 9),  array.get(a10_array, i))
+        array.set(combined_array, i + (40 * 10), array.get(a11_array, i))
+        array.set(combined_array, i + (40 * 11), array.get(a12_array, i))
+        array.set(combined_array, i + (40 * 12), array.get(a13_array, i))
+        array.set(combined_array, i + (40 * 13), array.get(a14_array, i))
+        array.set(combined_array, i + (40 * 14), array.get(a15_array, i))
+        array.set(combined_array, i + (40 * 15), array.get(a16_array, i))
+        array.set(combined_array, i + (40 * 16), array.get(a17_array, i))
+        array.set(combined_array, i + (40 * 17), array.get(a18_array, i))
+        array.set(combined_array, i + (40 * 18), array.get(a19_array, i))
+        array.set(combined_array, i + (40 * 19), array.get(a20_array, i))
+        array.set(combined_array, i + (40 * 20), array.get(a21_array, i))
+        array.set(combined_array, i + (40 * 21), array.get(a22_array, i))
+        array.set(combined_array, i + (40 * 22), array.get(a23_array, i))
+        array.set(combined_array, i + (40 * 23), array.get(a24_array, i))
+        array.set(combined_array, i + (40 * 24), array.get(a25_array, i))
+        array.set(combined_array, i + (40 * 25), array.get(a26_array, i))
+        array.set(combined_array, i + (40 * 26), array.get(a27_array, i))
+        array.set(combined_array, i + (40 * 27), array.get(a28_array, i))
+        array.set(combined_array, i + (40 * 28), array.get(a29_array, i))
+        array.set(combined_array, i + (40 * 29), array.get(a30_array, i))
+        array.set(combined_array, i + (40 * 30), array.get(a31_array, i))
+        array.set(combined_array, i + (40 * 31), array.get(a32_array, i))
+        array.set(combined_array, i + (40 * 32), array.get(a33_array, i))
+        array.set(combined_array, i + (40 * 33), array.get(a34_array, i))
+        array.set(combined_array, i + (40 * 34), array.get(a35_array, i))
+        array.set(combined_array, i + (40 * 35), array.get(a36_array, i))
+        array.set(combined_array, i + (40 * 36), array.get(a37_array, i))
+        array.set(combined_array, i + (40 * 37), array.get(a38_array, i))
+        array.set(combined_array, i + (40 * 38), array.get(a39_array, i))
+        array.set(combined_array, i + (40 * 39), array.get(a40_array, i))
+
+// create array for array.sums - this is necessary to find the assets that outperforms the most of the assets
+var array_sums = array.new_int(40, 0)
+
+if barstate.islast
+    array.set(array_sums, 0,   array.sum(a1_array)),   array.set(array_sums, 1,   array.sum(a2_array))
+    array.set(array_sums, 2,   array.sum(a3_array)),   array.set(array_sums, 3,   array.sum(a4_array))
+    array.set(array_sums, 4,   array.sum(a5_array)),   array.set(array_sums, 5,   array.sum(a6_array))
+    array.set(array_sums, 6,   array.sum(a7_array)),   array.set(array_sums, 7,   array.sum(a8_array))
+    array.set(array_sums, 8,   array.sum(a9_array)),   array.set(array_sums, 9,   array.sum(a10_array))
+    array.set(array_sums, 10,  array.sum(a11_array)),  array.set(array_sums, 11,  array.sum(a12_array))
+    array.set(array_sums, 12,  array.sum(a13_array)),  array.set(array_sums, 13,  array.sum(a14_array))
+    array.set(array_sums, 14,  array.sum(a15_array)),  array.set(array_sums, 15,  array.sum(a16_array))
+    array.set(array_sums, 16,  array.sum(a17_array)),  array.set(array_sums, 17,  array.sum(a18_array))
+    array.set(array_sums, 18,  array.sum(a19_array)),  array.set(array_sums, 19,  array.sum(a20_array))
+    array.set(array_sums, 20,  array.sum(a21_array)),  array.set(array_sums, 21,  array.sum(a22_array))
+    array.set(array_sums, 22,  array.sum(a23_array)),  array.set(array_sums, 23,  array.sum(a24_array))
+    array.set(array_sums, 24,  array.sum(a25_array)),  array.set(array_sums, 25,  array.sum(a26_array))
+    array.set(array_sums, 26,  array.sum(a27_array)),  array.set(array_sums, 27,  array.sum(a28_array))
+    array.set(array_sums, 28,  array.sum(a29_array)),  array.set(array_sums, 29,  array.sum(a30_array))
+    array.set(array_sums, 30,  array.sum(a31_array)),  array.set(array_sums, 31,  array.sum(a32_array))
+    array.set(array_sums, 32,  array.sum(a33_array)),  array.set(array_sums, 33,  array.sum(a34_array))
+    array.set(array_sums, 34,  array.sum(a35_array)),  array.set(array_sums, 35,  array.sum(a36_array))
+    array.set(array_sums, 36,  array.sum(a37_array)),  array.set(array_sums, 37,  array.sum(a38_array))
+    array.set(array_sums, 38,  array.sum(a39_array)),  array.set(array_sums, 39,  array.sum(a40_array))
+
+// create array for asset RANK based on array.sum
+var ranks = array.new_int(used_assets, 0)
+
+// for loop that calculates the rank of each asset
+if barstate.islast
+    for i = 0 to (used_assets - 1)
+        int rank = 1
+        for x = 0 to (used_assets - 1)
+            if i != x
+                if array.get(array_sums, i) < array.get(array_sums, x)
+                    rank := rank + 1
+        array.set(ranks, i, rank)
+//}
+
+// - - - - - FUNCTIONS [3] - - - - - //{
+f_get_col(signal) =>
+    hlight ? (signal == 1 ? color.green : color.red) : na
+
+f_asset_col(rank) => 
+    color col           = switch hl_sr
+        "Gradient"                              => #010c3b // not using Gradient colors for Asset cells
+        "Top (Highlight Top Assets) Assets"     => rank <= hl_assets ? #0db534 : na
+        "Off"                                   => #010c3b
+
+f_highlight_sum(x, rank) =>
+    color col           = switch hl_sr
+        "Gradient"                              => color.from_gradient(x, 0, used_assets - 1, #750000, #0db534)
+        "Top (Highlight Top Assets) Assets"     => rank <= hl_assets ? #0db534 : na
+        "Off"                                   => na
+
+f_highlight_rank(rank) =>
+    color col           = switch hl_sr
+        "Gradient"                              => color.from_gradient(rank, 1, used_assets, #0db534, #750000)
+        "Top (Highlight Top Assets) Assets"     => rank <= hl_assets ? #0db534 : na
+        "Off"                                   => na
+
+f_get_input(trend_indicator) =>
+    string out = switch trend_indicator
+        "RSI (Raw)"                             => "Int 1 for RSI length"
+        "RSI (SMA)"                             => "Int 1 for RSI length and Int 2 for SMA length"
+        "RSI (EMA)"                             => "Int 1 for RSI length and Int 2 for EMA length"
+        "CCI"                                   => "Int 1 for CCI length"
+        "Fisher"                                => "Int 1 for Fisher length"
+
+// Function to find top N assets based on rank, including ties
+f_top_assets_with_ties(ranks, assets, num_max) =>
+    var string[] top_assets = array.new_string(40)  // Array to store assets with ranks (max 40)
+    int asset_count = 0  // To keep track of how many assets are added
+    
+    for rank_num = 1 to 40  // Loop over possible ranks, starting from 1
+        for j = 0 to (used_assets - 1)  // Loop through assets
+            if array.get(ranks, j) == rank_num
+                array.set(top_assets, asset_count, array.get(assets, j))  // Add asset with current rank
+                asset_count := asset_count + 1
+                if asset_count >= num_max
+                    break
+        if asset_count >= num_max
+            break
+    array.slice(top_assets, 0, asset_count)  // Return only the used part of the array
+//}
+
+// - - - - - TABLE - - - - - //{
+var string fontSize         = switch textsize
+    "tiny"              => size.tiny
+    "small"             => size.small
+    "medium"            => size.normal
+    "large"             => size.large
+
+// Automatically extending table based on the number of used assets
+var table table = table.new(
+ table_mode == "FULL" ? position.bottom_center : position.bottom_left,
+ 50, 50, color.new(color.black, 100), color.white, 3, color.white, 1)
+
+var table top_table = table.new(
+ position.bottom_right, 50, 50, color.new(color.black, 100), color.white, 3, color.white, 1)
+
+if barstate.islast
+
+    if table_mode == "FULL"
+        // Header
+        if not hide_head
+            table.cell(table, 0, 0, "Universal Ratio Trend Matrix", text_color = color.white, bgcolor = #010c3b, text_size = fontSize)
+            table.merge_cells(table, 0, 0, used_assets + 3, 0)
+
+        // Inputs
+        if not hide_inps
+            table.cell(table, 0, 1, 
+                 text = "Inputs: You are using " + str.tostring(trend_indicator) + ", which takes: " + str.tostring(f_get_input(trend_indicator)), 
+                 text_color = color.white, text_size = fontSize), table.merge_cells(table, 0, 1, used_assets + 3, 1)
+
+    // Assets Cell
+    table.cell(table, 0, 2, "Assets", text_color = color.white, text_size = fontSize, bgcolor = #010c3b)
+
+    // Asset Lists
+    for x = 0 to (used_assets - 1)
+        // Horizontal
+        if table_mode == "FULL"
+            table.cell(table, x + 1, 2, text = str.tostring(array.get(assets, x)), text_color = color.white, bgcolor = #010c3b, text_size = fontSize)
+        // Vertical    
+        table.cell(table, 0, x + 3, text = str.tostring(array.get(assets, x)), text_color = color.white, bgcolor = f_asset_col(array.get(ranks, x)), text_size = fontSize)
+
+    // Trend Scores
+    if table_mode == "FULL"
+        for r = 0 to (used_assets - 1)
+            for c = 0 to (used_assets - 1)
+                table.cell(table, c + 1, r + 3, text = str.tostring(array.get(combined_array, c + (r * 40))), 
+                     text_color = hl_type == "Text" ? f_get_col(array.get(combined_array, c + (r * 40))) : color.white, text_size = fontSize,
+                     bgcolor = hl_type == "Background" ? f_get_col(array.get(combined_array, c + (r * 40))) : na)
+
+    // Separators
+    if table_mode == "FULL"
+        for x = 0 to (used_assets - 1)
+            table.cell(table, x + 1, x + 3, "", bgcolor = #010c3b)
+
+    table.cell(table, used_assets + 1, 2, "", bgcolor = #010c3b)
+
+    for x = 0 to (used_assets - 1)
+        table.cell(table, used_assets + 1, x + 3, "==>", text_color = color.white)
+
+
+    // SUM and RANK cells
+    table.cell(table, used_assets + 2, 2, "SUM", text_color = color.white, text_size = fontSize, bgcolor = #010c3b)
+    table.cell(table, used_assets + 3, 2, "RANK", text_color = color.white, text_size = fontSize, bgcolor = #010c3b)
+
+    // SUM and RANK values
+    for x = 0 to (used_assets - 1)
+        table.cell(table, used_assets + 2, x + 3, 
+             text = str.tostring(array.get(array_sums, x)), 
+             text_color = color.white, text_size = fontSize, 
+             bgcolor = f_highlight_sum(array.get(array_sums, x), array.get(ranks, x)))
+        table.cell(table, used_assets + 3, x + 3, 
+             text = str.tostring(array.get(ranks, x)), 
+             text_color = color.white, text_size = fontSize, 
+             bgcolor = f_highlight_rank(array.get(ranks, x)))
+
+    // Second Table
+    if table_mode == "Summary"
+
+        var string[] top_assets = f_top_assets_with_ties(ranks, assets, hl_assets)
+    
+        // Title row with the total number of assets
+        table.cell(top_table, 0, 0, "Top Assets by Rank (" + str.tostring(used_assets) + ")", text_color = color.white, bgcolor = #010c3b, text_size = fontSize)
+        table.merge_cells(top_table, 0, 0, 2, 0)  // Adjusted to span 3 columns
+
+        // Headers for Rank, Asset, and Sum columns
+        table.cell(top_table, 0, 1, "RANK", text_color = color.white, text_size = fontSize, bgcolor = #010c3b)
+        table.cell(top_table, 1, 1, "Asset", text_color = color.white, text_size = fontSize, bgcolor = #010c3b)
+        table.cell(top_table, 2, 1, "SUM", text_color = color.white, text_size = fontSize, bgcolor = #010c3b)  // New column for Sum
+
+        // Populate the table with top assets, their ranks, and their corresponding SUM values
+        int current_rank = 1
+        for i = 0 to (array.size(top_assets) - 1)
+            table.cell(top_table, 0, i + 2, text = str.tostring(current_rank), text_color = color.white, bgcolor = #010c3b, text_size = fontSize)
+            table.cell(top_table, 1, i + 2, text = array.get(top_assets, i), text_color = color.white, bgcolor = #106603, text_size = fontSize)
+
+            // Fetch the SUM corresponding to the asset's index and display it
+            int asset_index = array.indexof(assets, array.get(top_assets, i))  // Get the index of the asset in the original assets array
+            if asset_index != -1  // Ensure the asset exists in the array
+                table.cell(top_table, 2, i + 2, text = str.tostring(array.get(array_sums, asset_index)), text_color = color.white, bgcolor = #010c3b, text_size = fontSize)
+
+            // Increment rank only if the next asset exists and has a different rank (to handle ties)
+            if (i + 1) < array.size(top_assets) and array.get(ranks, i) != array.get(ranks, i + 1)
+                current_rank := current_rank + 1
+
+
+//}
+
+

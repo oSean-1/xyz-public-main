@@ -1,0 +1,229 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © a.tesla2018
+
+//@version=5
+indicator('Statistical Histogram', shorttitle='Stats Hist v1.0', overlay=false, max_bars_back=5000)
+//GLOBALS//////////////////////////////////// 
+_lcolor = color.new(color.silver, 90)
+_ltcolor = color.new(color.lime, 0)
+_ltcolorm = color.new(color.silver, 0)
+_ltcolorn = color.new(color.red, 0)
+txtc = color.new(color.blue, 10)
+_lstyle = label.style_label_up
+_lnone = label.style_none
+
+//initialize labels
+f_lab(_col, _style, _txtCol) =>
+    label.new(na, na, na, xloc.bar_index, yloc.price, _col, _style, _txtCol, size.normal, text.align_center)
+
+var label la00 = f_lab(_lcolor, _lstyle, _ltcolor)
+var label la01 = f_lab(_lcolor, _lstyle, _ltcolor)
+var label la02 = f_lab(_lcolor, _lstyle, _ltcolor)
+var label la03 = f_lab(_lcolor, _lstyle, _ltcolor)
+var label la04 = f_lab(_lcolor, _lstyle, _ltcolor)
+var label la05 = f_lab(_lcolor, _lstyle, _ltcolor)
+var label la06 = f_lab(_lcolor, _lstyle, _ltcolor)
+var label la07 = f_lab(_lcolor, _lstyle, _ltcolor)
+var label la08 = f_lab(_lcolor, _lstyle, _ltcolor)
+var label la09 = f_lab(_lcolor, _lstyle, _ltcolor)
+var label la10 = f_lab(_lcolor, _lstyle, _ltcolor)
+var label la11 = f_lab(_lcolor, _lstyle, _ltcolor)
+var label la12 = f_lab(_lcolor, _lstyle, _ltcolor)
+var label la13 = f_lab(_lcolor, _lstyle, _ltcolor)
+var label la14 = f_lab(_lcolor, _lstyle, _ltcolor)
+var label la15 = f_lab(_lcolor, _lstyle, _ltcolor)
+var label la16 = f_lab(_lcolor, _lstyle, _ltcolor)
+var label la17 = f_lab(_lcolor, _lstyle, _ltcolor)
+var label la18 = f_lab(_lcolor, _lstyle, _ltcolor)
+var label la19 = f_lab(_lcolor, _lstyle, _ltcolor)
+var label la20 = f_lab(_lcolor, _lstyle, _ltcolor)
+var label la21 = f_lab(_lcolor, _lstyle, _ltcolor)
+var label la22 = f_lab(_lcolor, _lstyle, _ltcolor)
+var label la23 = f_lab(_lcolor, _lstyle, _ltcolor)
+var label la24 = f_lab(_lcolor, _lstyle, _ltcolor)
+
+var label la25 = f_lab(txtc, _lnone, txtc)
+var label la26 = f_lab(txtc, _lnone, txtc)
+var label la27 = f_lab(txtc, _lnone, txtc)
+var label la28 = f_lab(txtc, _lnone, txtc)
+var label la29 = f_lab(txtc, _lnone, txtc)
+var label la30 = f_lab(txtc, _lnone, txtc)
+var label la31 = f_lab(txtc, _lnone, txtc)
+var label la32 = f_lab(txtc, _lnone, txtc)
+var label la33 = f_lab(txtc, _lnone, txtc)
+var label la34 = f_lab(txtc, _lnone, txtc)
+var label la35 = f_lab(txtc, _lnone, txtc)
+var label la36 = f_lab(txtc, _lnone, txtc)
+var label la37 = f_lab(txtc, _lnone, txtc)
+var label la38 = f_lab(txtc, _lnone, txtc)
+var label la39 = f_lab(txtc, _lnone, txtc)
+var label la40 = f_lab(txtc, _lnone, txtc)
+var label la41 = f_lab(txtc, _lnone, txtc)
+var label la42 = f_lab(txtc, _lnone, txtc)
+var label la43 = f_lab(txtc, _lnone, txtc)
+var label la44 = f_lab(txtc, _lnone, txtc)
+var label la45 = f_lab(txtc, _lnone, txtc)
+var label la46 = f_lab(txtc, _lnone, txtc)
+var label la47 = f_lab(txtc, _lnone, txtc)
+var label la48 = f_lab(txtc, _lnone, txtc)
+var label la49 = f_lab(txtc, _lnone, txtc)
+
+//initialize lines
+
+f_line() =>
+    line.new(x1=na, y1=na, x2=na, y2=na, color=na, width=10)
+
+var line li00 = f_line()
+var line li01 = f_line()
+var line li02 = f_line()
+var line li03 = f_line()
+var line li04 = f_line()
+var line li05 = f_line()
+var line li06 = f_line()
+var line li07 = f_line()
+var line li08 = f_line()
+var line li09 = f_line()
+var line li10 = f_line()
+var line li11 = f_line()
+var line li12 = f_line()
+var line li13 = f_line()
+var line li14 = f_line()
+var line li15 = f_line()
+var line li16 = f_line()
+var line li17 = f_line()
+var line li18 = f_line()
+var line li19 = f_line()
+var line li20 = f_line()
+var line li21 = f_line()
+var line li22 = f_line()
+var line li23 = f_line()
+var line li24 = f_line()
+
+f_highest_dataset(_in) =>
+    var float _highest = na
+    _highest := _in > _highest or na(_highest[1]) ? _in : _highest
+    _highest
+
+f_lowest_dataset(_in) =>
+    var float _lowest = na
+    _lowest := _in < _lowest or na(_lowest[1]) ? _in : _lowest
+    _lowest
+
+f_sum(_src, _len, _b) =>
+    _out = _b ? ta.cum(_src) : math.sum(_src, _len)
+    _out
+
+f_intToLabelid(_int) =>
+    _out = _int == 0 ? la00 : _int == 1 ? la01 : _int == 2 ? la02 : _int == 3 ? la03 : _int == 4 ? la04 : _int == 5 ? la05 : _int == 6 ? la06 : _int == 7 ? la07 : _int == 8 ? la08 : _int == 9 ? la09 : _int == 10 ? la10 : _int == 11 ? la11 : _int == 12 ? la12 : _int == 13 ? la13 : _int == 14 ? la14 : _int == 15 ? la15 : _int == 16 ? la16 : _int == 17 ? la17 : _int == 18 ? la18 : _int == 19 ? la19 : _int == 20 ? la20 : _int == 21 ? la21 : _int == 22 ? la22 : _int == 23 ? la23 : _int == 24 ? la24 : _int == 25 ? la25 : _int == 26 ? la26 : _int == 27 ? la27 : _int == 28 ? la28 : _int == 29 ? la29 : _int == 30 ? la30 : _int == 31 ? la31 : _int == 32 ? la32 : _int == 33 ? la33 : _int == 34 ? la34 : _int == 35 ? la35 : _int == 36 ? la36 : _int == 37 ? la37 : _int == 38 ? la38 : _int == 39 ? la39 : _int == 40 ? la40 : _int == 41 ? la41 : _int == 42 ? la42 : _int == 43 ? la43 : _int == 44 ? la44 : _int == 45 ? la45 : _int == 46 ? la46 : _int == 47 ? la47 : _int == 48 ? la48 : _int == 49 ? la49 : na
+    _out
+
+f_intToLineid(_int) =>
+    _out = _int == 0 ? li00 : _int == 1 ? li01 : _int == 2 ? li02 : _int == 3 ? li03 : _int == 4 ? li04 : _int == 5 ? li05 : _int == 6 ? li06 : _int == 7 ? li07 : _int == 8 ? li08 : _int == 9 ? li09 : _int == 10 ? li10 : _int == 11 ? li11 : _int == 12 ? li12 : _int == 13 ? li13 : _int == 14 ? li14 : _int == 15 ? li15 : _int == 16 ? li16 : _int == 17 ? li17 : _int == 18 ? li18 : _int == 19 ? li19 : _int == 20 ? li20 : _int == 21 ? li21 : _int == 22 ? li22 : _int == 23 ? li23 : _int == 24 ? li24 : na
+    _out
+
+f_drawlabel(_mult, _int, _max, _min, _tot, _ltcolor) =>
+    _lid = f_intToLabelid(_int)
+    label.set_xy(_lid, bar_index - _int * _mult, 0.0)
+    label.set_textcolor(_lid, _ltcolor)
+    label.set_text(_lid, text=str.tostring(_max, '0.0') + 'σ\n' + str.tostring(_min) + 'σ\n' + str.tostring(_tot))
+
+f_updateLine(_lineID, _x1, _y1, _x2, _y2, _color) =>
+    line.set_xy1(_lineID, _x1, _y1)
+    line.set_xy2(_lineID, _x2, _y2)
+    line.set_color(_lineID, _color)
+
+f_updateLabel(_labelID, _txt, _x1, _y1, _color) =>
+    label.set_xy(_labelID, _x1, _y1)
+    label.set_text(_labelID, _txt)
+    label.set_textcolor(_labelID, _color)
+
+f_label(_txt, _y, _color) =>
+    _t = int(time)
+    var _lbl = label.new(_t, _y, _txt, xloc.bar_time, yloc.price, _lcolor, label.style_label_left, _color, size.large, text.align_left)
+    if barstate.islast
+        label.set_xy(_lbl, _t, _y)
+        label.set_text(_lbl, _txt)
+
+//INPUTS
+source = input(defval=close, title='Sample Source')
+sN = input.int(defval=100, title='Sample Period', minval=2)
+b_cm = input(defval=true, title='Enable Cumaltive Mode, (Window is default)')
+wN = input.int(defval=100, title='Window Period', minval=2)
+//Bin Specific
+mult = input.int(defval=6, title='Bin Label Spacing', minval=1)
+bin_center = input(defval=0.0, title='Center Bin')
+bin_width = input(defval=0.5, title='Bin Width')
+
+//MAIN
+bin_max = bin_center + 12. * bin_width
+sample_mean = ta.sma(source[1], sN)
+sample_stdev = ta.stdev(source[1], sN)
+z_score = (source[1] - sample_mean) / sample_stdev
+
+//Create Bins
+f_sum_zScore(_x) =>
+    f_sum(z_score <= bin_max - bin_width * _x and z_score > bin_max - bin_width * (_x + 1) ? 1.0 : 0.0, wN, b_cm)
+
+s00 = f_sum_zScore(0)
+s01 = f_sum_zScore(1)
+s02 = f_sum_zScore(2)
+s03 = f_sum_zScore(3)
+s04 = f_sum_zScore(4)
+s05 = f_sum_zScore(5)
+s06 = f_sum_zScore(6)
+s07 = f_sum_zScore(7)
+s08 = f_sum_zScore(8)
+s09 = f_sum_zScore(9)
+s10 = f_sum_zScore(10)
+s11 = f_sum_zScore(11)
+s12 = f_sum_zScore(12)
+s13 = f_sum_zScore(13)
+s14 = f_sum_zScore(14)
+s15 = f_sum_zScore(15)
+s16 = f_sum_zScore(16)
+s17 = f_sum_zScore(17)
+s18 = f_sum_zScore(18)
+s19 = f_sum_zScore(19)
+s20 = f_sum_zScore(20)
+s21 = f_sum_zScore(21)
+s22 = f_sum_zScore(22)
+s23 = f_sum_zScore(23)
+s24 = f_sum_zScore(24)
+
+f_intToSumid(_int) =>
+    _out = _int == 0 ? s00 : _int == 1 ? s01 : _int == 2 ? s02 : _int == 3 ? s03 : _int == 4 ? s04 : _int == 5 ? s05 : _int == 6 ? s06 : _int == 7 ? s07 : _int == 8 ? s08 : _int == 9 ? s09 : _int == 10 ? s10 : _int == 11 ? s11 : _int == 12 ? s12 : _int == 13 ? s13 : _int == 14 ? s14 : _int == 15 ? s15 : _int == 16 ? s16 : _int == 17 ? s17 : _int == 18 ? s18 : _int == 19 ? s19 : _int == 20 ? s20 : _int == 21 ? s21 : _int == 22 ? s22 : _int == 23 ? s23 : _int == 24 ? s24 : na
+    _out
+
+float freq_total = 0.0
+float freq_mode = 0.0
+for _i = 0 to 24 by 1
+    _sumid = f_intToSumid(_i)
+    _lineid = f_intToLineid(_i)
+    _labelid = f_intToLabelid(_i + 24 + 1)
+    _hibin = bin_max - bin_width * _i
+    _lobin = bin_max - bin_width * (_i + 1)
+
+    freq_mode := freq_mode > _sumid ? freq_mode : _sumid
+    freq_total += _sumid
+    _setcolor = _i > 12 ? _ltcolorn : _i == 12 ? _ltcolorm : _ltcolor
+
+    f_drawlabel(mult, _i, _hibin, _lobin, _sumid, _setcolor)
+    f_updateLine(_lineid, bar_index - _i * mult, 0, bar_index - _i * mult, _sumid, _setcolor)
+    f_updateLabel(_labelid, str.tostring(_sumid), bar_index - _i * mult, _sumid, _setcolor)
+
+mean_hcm = f_highest_dataset(sample_mean)
+mean_lcm = f_lowest_dataset(sample_mean)
+mean_max = b_cm ? mean_hcm : ta.highest(sample_mean, wN)
+mean_min = b_cm ? mean_lcm : ta.lowest(sample_mean, wN)
+
+std_hcm = f_highest_dataset(sample_stdev)
+std_lcm = f_lowest_dataset(sample_stdev)
+std_max = b_cm ? std_hcm : ta.highest(sample_stdev, wN)
+std_min = b_cm ? std_lcm : ta.lowest(sample_stdev, wN)
+
+tot_samples = b_cm ? bar_index - (sN - 1) : wN
+str_header = '---------------------\n' + 'Statistical Data Window\n' + '---------------------'
+str_statistics = '\nSample Mean μ: ' + str.tostring(sample_mean, '#.0000') + '\nSample StDev σ: ' + str.tostring(sample_stdev, '#.0000') + '\nMean min: ' + str.tostring(mean_min, '#.0000') + '\nMean max: ' + str.tostring(mean_max, '#.0000') + '\nStDev min: ' + str.tostring(std_min, '#.0000') + '\nStDev max: ' + str.tostring(std_max, '#.0000') + '\nmax[frequency(Mode)]: ' + str.tostring(freq_mode) + '\nΣ(frequency): ' + str.tostring(freq_total) + '\nTotal Samples: ' + str.tostring(tot_samples) + '\nDataset Samples: ' + str.tostring(bar_index + 1)
+f_label(str_header + str_statistics, freq_mode, txtc)
+
+

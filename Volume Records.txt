@@ -1,0 +1,332 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © BobRivera990
+
+// @version = 4
+// Auther : BobRivera990, V01, 2021.08.05
+study(title="Volume Records||", precision=0, max_bars_back=500)
+
+
+// ——————————[Constants and inputs] ======================================================================================================================= {
+// ————— constants used in inputs.
+var string  GP_01   = "Percentage Volume Oscillator Parameters"
+var string  GP_02   = "Visual Parameters"
+var string  GP_03   = "Alert Conditions Part 01: Highest Records ⏰ "
+var string  GP_04   = "Alert Conditions Part 02: Lowest  Records ⏰ "
+
+var color   c_high  = color.rgb(0,      77,     64,     0)
+var color   c_low   = color.rgb(128,    234,    225,    0)
+
+// ————— Inputs
+i_pvoShortlen       = input(5,      "Short Length",         inline = "01",  group = GP_01,  minval=1)
+i_pvoLonglen        = input(10,     "Long Length",          inline = "02",  group = GP_01,  minval=1)
+
+i_highColor         = input(c_high, "High Volume Color",    inline = "03",  group = GP_02) 
+i_lowColor          = input(c_low,  "Low Volume Color",     inline = "04",  group = GP_02)
+    
+i_alert1YearH       = input(true,   "One Year High",        inline = "05",  group = GP_03)
+i_alert6MonthH      = input(true,   "Six Month High",       inline = "05",  group = GP_03)
+i_alert3MonthH      = input(true,   "Three Month High",     inline = "06",  group = GP_03)
+i_alert1MonthH      = input(true,   "One Month High",       inline = "06",  group = GP_03)
+i_alert1WeekH       = input(true,   "One Week High",        inline = "07",  group = GP_03)
+  
+i_alert1YearL       = input(true,   "One Year Low",         inline = "08",  group = GP_04)
+i_alert6MonthL      = input(true,   "Six Month Low",        inline = "08",  group = GP_04)
+i_alert3MonthL      = input(true,   "Three Month Low",      inline = "09",  group = GP_04)
+i_alert1MonthL      = input(true,   "One Month Low",        inline = "09",  group = GP_04)
+i_alert1WeekL       = input(true,   "One Week Low",         inline = "10",  group = GP_04)
+
+// ————— Constants used in calculations
+
+// One day in milliseconds
+var int DAY_IN_MILLI_SEC = 24 * 3600 * 1000 
+//}
+
+// ——————————[functions] ================================================================================================================================== {
+
+// Converts current chart timeframe into an integer seconds value.
+f_resInSeconds() => 
+      timeframe.multiplier  *   int(
+      timeframe.isseconds   ?   1                               :
+      timeframe.isminutes   ?   60                              :
+      timeframe.isdaily     ?   60  * 60    * 24                :   
+      timeframe.isweekly    ?   60  * 60    * 24    * 7         :
+      timeframe.ismonthly   ?   60  * 60    * 24    * 30.4375   : na)
+
+//This function takes a parameter of type "time" and returns the corresponding bar index.
+f_timeToBarIndex(_time, _barTimes, _INTERVAL) =>
+    int _start      = bar_index - (time - _time) / _INTERVAL
+    int _barIndex   = na
+    for i = max(0, _start) to bar_index
+        int _barTime = array.get(_barTimes, i)
+        if  _barTime    <=  _time
+            _barIndex   :=  i
+        if  _barTime    >=  _time
+            break
+    _barIndex
+
+// This function takes the index of a bar and returns the index of the highest volume recorded after it.
+f_barGetHighestBar(_fromBar, _vols) =>
+    int _toBar      = bar_index + (barstate.isconfirmed ? 1 : 0)
+    _inRangeVols    = array.slice(_vols, _fromBar, _toBar)
+    float _maxVol   = array.max(_inRangeVols)
+    array.lastindexof(_vols, _maxVol)
+    
+// This function takes a parameter of type "time" and returns the index of the highest volume recorded after it.
+f_timeGetHighestBar(_fromTime, _barTimes, _vols, _INTERVAL) =>
+    int _fromBar = f_timeToBarIndex(_fromTime, _barTimes, _INTERVAL)
+    if not na(_fromBar)
+        f_barGetHighestBar(_fromBar, _vols)
+    else
+        na
+
+// This function takes the index of a bar and returns the index of the lowest volume recorded after it.
+f_barGetLowestBar(_fromBar, _vols) =>
+    int _toBar      = bar_index + (barstate.isconfirmed ? 1 : 0)
+    _inRangeVols    = array.slice(_vols, _fromBar, _toBar)
+    float _minVol   = array.min(_inRangeVols)
+    array.lastindexof(_vols, _minVol)
+
+// This function takes a parameter of type "time" and returns the index of the lowest volume recorded after it.    
+f_timeGetLowestBar(_fromTime, _barTimes, _vols, _INTERVAL) =>
+    int _fromBar = f_timeToBarIndex(_fromTime, _barTimes, _INTERVAL)
+    if not na(_fromBar)
+        f_barGetLowestBar(_fromBar, _vols)
+    else
+        na
+
+// This function displays the labels related to the highest volume records.
+f_labelHighest(_barIndex, _clause, _highVolIndexs, _highVolDescs, _highVolLbls) =>
+    if  not array.includes(_highVolIndexs, _barIndex)
+        string _desc = "Highest Volume in\n" + _clause
+        _lbl = label.new(_barIndex, -0.5, color = color.white, style = label.style_triangleup, size = size.tiny)
+        label.set_tooltip(_lbl, _desc)
+        array.push(_highVolIndexs,  _barIndex)
+        array.push(_highVolDescs,   _desc)
+        array.push(_highVolLbls,    _lbl)
+    else 
+        int     _index  = array.lastindexof(_highVolIndexs, _barIndex)
+        string  _desc   = array.get(_highVolDescs, _index)
+        _desc += "\n" + _clause
+        _lbl = array.get(_highVolLbls, _index)
+        label.set_tooltip(_lbl, _desc)
+        array.set(_highVolDescs, _index, _desc)
+
+// This function displays the labels related to the lowest volume records.
+f_labelLowest(_barIndex, _clause, _lowVolIndexs, _lowVolDescs, _lowVolLbls) =>
+    if  not array.includes(_lowVolIndexs, _barIndex)
+        string _desc = "Lowest Volume in\n" + _clause
+        _lbl = label.new(_barIndex, -0.5, color = color.white, style = label.style_triangleup, size = size.tiny)
+        label.set_tooltip(_lbl, _desc)
+        array.push(_lowVolIndexs,   _barIndex)
+        array.push(_lowVolDescs,    _desc)
+        array.push(_lowVolLbls,     _lbl)
+    else 
+        int     _index  = array.lastindexof(_lowVolIndexs, _barIndex)
+        string  _desc   = array.get(_lowVolDescs, _index)
+        _desc += "\n" + _clause
+        _lbl = array.get(_lowVolLbls, _index)
+        label.set_tooltip(_lbl, _desc)
+        array.set(_lowVolDescs, _index, _desc)
+//}
+
+// ——————————[Calculations] =============================================================================================================================== {
+
+// ————— Percentage Volume Oscillator
+
+pvoShort    = ema(volume, i_pvoShortlen)
+pvoLong     = ema(volume, i_pvoLonglen)
+pvo = 100 * (pvoShort - pvoLong) / pvoLong
+
+// ————— initial Parameters
+
+// The opening time of each candle is recorded in this array.
+var int[]   barTimes = array.new_int()
+array.push(barTimes, time)
+
+// The trading volume of each candle is recorded in this array.
+var float[] vols     = array.new_float()
+array.push(vols, volume)
+
+// Declaration of the arrays that holding the labels together.
+var label[]  highVolLbls    = array.new_label()
+var label[]  lowVolLbls     = array.new_label()
+
+// Declaration of arrays that holding the bar index of the label positions.
+var int[]    highVolIndexs  = array.new_int()
+var int[]    lowVolIndexs   = array.new_int()
+
+// Declaration of arrays that holding some descriptions on trading volume records
+var string[] highVolDescs   = array.new_string()
+var string[] lowVolDescs    = array.new_string()
+
+// Remove any existing labels
+int arraySize = 0
+arraySize := array.size(highVolLbls)
+if arraySize > 0
+    for i = arraySize - 1 to 0
+        array.remove(highVolLbls, i)
+        
+arraySize := array.size(lowVolLbls)
+if arraySize > 0
+    for i = arraySize - 1 to 0
+        array.remove(lowVolLbls, i)
+
+// Delete all existing labels position
+array.clear(highVolIndexs)
+array.clear(lowVolIndexs)
+
+// Delete all existing label descriptions
+array.clear(highVolDescs)
+array.clear(lowVolDescs)
+
+// Resolution in milliseconds
+var int INTERVAL = f_resInSeconds() * 1000
+
+// ————— Main
+
+// The start time of each base period
+time1yearAgo  = time - 365 * 1     * DAY_IN_MILLI_SEC + DAY_IN_MILLI_SEC
+time6monthAgo = time - 6   * 30    * DAY_IN_MILLI_SEC + DAY_IN_MILLI_SEC
+time3monthAgo = time - 3   * 30    * DAY_IN_MILLI_SEC + DAY_IN_MILLI_SEC
+time1monthAgo = time - 1   * 30    * DAY_IN_MILLI_SEC + DAY_IN_MILLI_SEC
+time1weekAgo  = time - 7   * 1     * DAY_IN_MILLI_SEC + DAY_IN_MILLI_SEC
+
+// Bar index of high volume records
+var int bar1YearHigh   = na
+var int bar6MonthHigh  = na
+var int bar3MonthHigh  = na
+var int bar1MonthHigh  = na
+var int bar1WeekHigh   = na
+
+// Bar index of low volume records
+var int bar1YearLow    = na
+var int bar6MonthLow   = na
+var int bar3MonthLow   = na
+var int bar1MonthLow   = na
+var int bar1WeekLow    = na
+
+//Calculate the bar index of the volume records
+if barstate.islast
+    bar1YearHigh   := f_timeGetHighestBar(time1yearAgo,   barTimes, vols, INTERVAL)
+    bar6MonthHigh  := f_timeGetHighestBar(time6monthAgo,  barTimes, vols, INTERVAL)
+    bar3MonthHigh  := f_timeGetHighestBar(time3monthAgo,  barTimes, vols, INTERVAL)
+    bar1MonthHigh  := f_timeGetHighestBar(time1monthAgo,  barTimes, vols, INTERVAL)
+    bar1WeekHigh   := f_timeGetHighestBar(time1weekAgo,   barTimes, vols, INTERVAL)
+    
+    bar1YearLow    := f_timeGetLowestBar(time1yearAgo,    barTimes, vols, INTERVAL)
+    bar6MonthLow   := f_timeGetLowestBar(time6monthAgo,   barTimes, vols, INTERVAL)
+    bar3MonthLow   := f_timeGetLowestBar(time3monthAgo,   barTimes, vols, INTERVAL)
+    bar1MonthLow   := f_timeGetLowestBar(time1monthAgo,   barTimes, vols, INTERVAL)
+    bar1WeekLow    := f_timeGetLowestBar(time1weekAgo,    barTimes, vols, INTERVAL)
+// }
+
+// ——————————[Plots and drawing] ========================================================================================================================== {
+
+// Calculations to determine the color used in the plot
+var float highPvo   = 0
+var float lowPvo    = 0
+
+highPvo := highPvo  < pvo ? pvo : highPvo
+lowPvo  := lowPvo   > pvo ? pvo : lowPvo
+
+float highPvo200    = highest(pvo, 200)
+float lowest200     = lowest(pvo, 200)
+
+gradHigh    = bar_index < 199 ? ( 45 * (200 - (bar_index + 1)) + highPvo    * (bar_index + 1)) / 200 : highPvo200
+gradLow     = bar_index < 199 ? (-45 * (200 - (bar_index + 1)) + lowPvo     * (bar_index + 1)) / 200 : lowest200
+
+// Color used in the plot
+color c_pvoGrad = color.from_gradient(pvo, gradLow, gradHigh, i_lowColor, i_highColor)
+
+// Series of data to be plotted (only confirmed candles will be displayed)
+float plotBase = barstate.isconfirmed ? 2.5 : na
+
+// Invisible plots to determine the drawing bounds.
+plot(-0.5, color = color.new(color.black, 100), title="Zero")
+plot( 3.5, color = color.new(color.black, 100), title="Zero")
+
+// Background color to display the indicator the same for everyone
+plot(plotBase, style = plot.style_area,     color = color.white)
+plot(plotBase, style = plot.style_columns,  color = color.white)
+
+// The main drawing of the indicator
+plot(plotBase, style = plot.style_columns,  color = c_pvoGrad)
+
+// Draw the borders of the indicator
+plot(  0, color = color.black, title="Zero")
+plot(2.5, color = color.black, title="Zero")
+
+// Configure and display the dialog-box
+var table   dialogBox   = table.new(position = position.top_center, columns = 1, rows = 1, bgcolor = color.yellow)
+var string  DIALOG      = "Please hover your mouse pointer over the triangular labels to display more information."
+if barstate.islast
+    table.cell(dialogBox, column = 0, row = 0, text = DIALOG, text_halign = text.align_left, text_size = size.normal)
+
+// Display labels related to volume records.
+max_bars_back(time, 9999)
+var int MAX_BARS_BACK = 9999
+if barstate.islast
+    if not na(bar1YearHigh)     and bar_index  - bar1YearHigh   < MAX_BARS_BACK
+        f_labelHighest(bar1YearHigh,   "One Year",  highVolIndexs,  highVolDescs,   highVolLbls)
+    if not na(bar6MonthHigh)    and bar_index  - bar6MonthHigh  < MAX_BARS_BACK
+        f_labelHighest(bar6MonthHigh,  "Six Month",    highVolIndexs,  highVolDescs,   highVolLbls)
+    if not na(bar3MonthHigh)    and bar_index  - bar3MonthHigh  < MAX_BARS_BACK
+        f_labelHighest(bar3MonthHigh,  "Three Month",  highVolIndexs,  highVolDescs,   highVolLbls)        
+    if not na(bar1MonthHigh)    and bar_index  - bar1MonthHigh  < MAX_BARS_BACK
+        f_labelHighest(bar1MonthHigh,  "One Month",    highVolIndexs,  highVolDescs,   highVolLbls)
+    if not na(bar1WeekHigh)     and bar_index  - bar1WeekHigh   < MAX_BARS_BACK
+        f_labelHighest(bar1WeekHigh,   "One Week",     highVolIndexs,  highVolDescs,   highVolLbls)
+        
+    if not na(bar1YearLow)      and bar_index   - bar1YearLow   < MAX_BARS_BACK
+        f_labelLowest(bar1YearLow,     "One Year",  lowVolIndexs,   lowVolDescs,    lowVolLbls)
+    if not na(bar6MonthLow)     and bar_index   - bar6MonthLow  < MAX_BARS_BACK 
+        f_labelLowest(bar6MonthLow,    "Six Month",    lowVolIndexs,   lowVolDescs,    lowVolLbls)
+    if not na(bar3MonthLow)     and bar_index   - bar3MonthLow  < MAX_BARS_BACK 
+        f_labelLowest(bar3MonthLow,    "Three Month",  lowVolIndexs,   lowVolDescs,    lowVolLbls) 
+    if not na(bar1MonthLow)     and bar_index   - bar1MonthLow  < MAX_BARS_BACK
+        f_labelLowest(bar1MonthLow,    "One Month",    lowVolIndexs,   lowVolDescs,    lowVolLbls)
+    if not na(bar1WeekLow)      and bar_index   - bar1WeekLow   < MAX_BARS_BACK
+        f_labelLowest(bar1WeekLow,     "One Week",     lowVolIndexs,   lowVolDescs,    lowVolLbls)
+// }
+
+// ——————————[Alerts] ===================================================================================================================================== {
+
+if barstate.islast
+    // Alert conditions.
+    bool _cnd1YearHigh  = bar_index == bar1YearHigh
+    bool _cnd6MonthHigh = bar_index == bar6MonthHigh
+    bool _cnd3MonthHigh = bar_index == bar3MonthHigh
+    bool _cnd1MonthHigh = bar_index == bar1MonthHigh
+    bool _cnd1WeekHigh  = bar_index == bar1WeekHigh
+    
+    bool _cnd1YearLow   = bar_index == bar1YearLow
+    bool _cnd6MonthLow  = bar_index == bar6MonthLow
+    bool _cnd3MonthLow  = bar_index == bar3MonthLow
+    bool _cnd1MonthLow  = bar_index == bar1MonthLow
+    bool _cnd1WeekLow   = bar_index == bar1WeekLow
+    
+    bool _cndAlertHighs =  
+      i_alert1YearH     and _cnd1YearHigh   or
+      i_alert6MonthH    and _cnd6MonthHigh  or
+      i_alert3MonthH    and _cnd3MonthHigh  or
+      i_alert1MonthH    and _cnd1MonthHigh  or
+      i_alert1WeekH     and _cnd1WeekHigh
+    
+    bool _cndAlertLows =  
+      i_alert1YearL     and _cnd1YearLow    or
+      i_alert6MonthL    and _cnd6MonthLow   or
+      i_alert3MonthL    and _cnd3MonthLow   or
+      i_alert1MonthL    and _cnd1MonthLow   or
+      i_alert1WeekL     and _cnd1WeekLow
+    
+    // Trigger alerts
+    if _cndAlertHighs
+        int _descIndex      = array.lastindexof(highVolIndexs, bar_index)
+        string _alertMsg    = array.get(highVolDescs, _descIndex)
+        alert(_alertMsg, alert.freq_once_per_bar_close)
+        
+    if _cndAlertLows
+        int _descIndex      = array.lastindexof(lowVolIndexs, bar_index)
+        string _alertMsg    = array.get(lowVolDescs, _descIndex)
+        alert(_alertMsg, alert.freq_once_per_bar_close)
+// }

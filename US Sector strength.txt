@@ -1,0 +1,188 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © nepenji_
+
+//@version=5
+indicator("US Sector strength", overlay=false)
+
+useZScore = input(defval = true, title = "Use Z-Score Normalization")
+useDEMA = input(defval = false, title = "Use DEMA Normalization")
+useMinMax = input(defval = false, title = "Use MinMax Normalization")
+labelSize = input(defval = size.small, title = "label size(tiny,small,normal,large)")
+
+normalize_zscore(series, length) =>
+    mean = ta.sma(series, length)
+    std = ta.stdev(series, length)
+    zscore = (series - mean) / std
+    zscore
+
+normalize_dema(series, length) =>
+    dema1 = ta.ema(series, length)
+    dema2 = ta.ema(dema1, length)
+    dema = 2 * dema1 - dema2
+    series / dema
+
+normalize_minmax(series, length) =>
+    min_val = ta.lowest(series, length)
+    max_val = ta.highest(series, length)
+    minmax = (series - min_val) / (max_val - min_val)
+    minmax
+
+normalize(series, length) =>
+    if (useDEMA)
+        normalize_dema(series, length)
+    else if (useZScore)
+        normalize_zscore(series, length)
+    else if (useMinMax)
+        normalize_minmax(series, length)
+    else
+        series
+
+length = 50 // normalize over the past 50 bars
+
+show_s1 = input(defval = true, title = "Materials")
+s1 = normalize(request.security("SP:S5MATR", timeframe.period, close), length)
+color1 = input(defval = color.red, title = "line color")
+labelColor1 = input(defval = color.white, title = "label color")
+title1 = input(defval = "Materials", title = "title")
+plot(show_s1 ? s1 : na, color=color1, title="Materials")
+if (barstate.islast)
+    line.new(x1=bar_index, y1=s1, x2=bar_index+1, y2=s1, color=color1, width=2, style=line.style_dotted)
+    label.new(x=bar_index+1, y=s1, text=title1, color=color1, style=label.style_label_left, textcolor=labelColor1, size=labelSize)
+
+show_s2 = input(defval = true, title = "Industrials")
+s2 = normalize(request.security("SP:S5INDU", timeframe.period, close), length)
+color2 = input(defval = color.rgb(230, 141, 8), title = "line color")
+labelColor2 = input(defval = color.white, title = "label color")
+title2 = input(defval = "Industrials", title = "title")
+plot(show_s2 ? s2 : na, color=color2, title="Industrials")
+
+if (barstate.islast)
+    line.new(x1=bar_index, y1=s2, x2=bar_index+1, y2=s2, color=color2, width=2, style=line.style_dotted)
+    label.new(x=bar_index+1, y=s2, text=title2, color=color2, style=label.style_label_left, textcolor=labelColor2, size=labelSize)
+
+show_s3 = input(defval = true, title = "Consumer Discretionary")
+s3 = normalize(request.security("SP:S5COND", timeframe.period, close), length)
+color3 = input(defval = color.yellow, title = "line color")
+labelColor3 = input(defval = color.white, title = "label color")
+title3 = input(defval = "Consumer Discretionary", title = "title")
+plot(show_s3 ? s3 : na, color=color3, title="Consumer Discretionary")
+if (barstate.islast)
+    line.new(x1=bar_index, y1=s3, x2=bar_index+1, y2=s3, color=color3, width=2, style=line.style_dotted)
+    label.new(x=bar_index+1, y=s3, text=title3, color=color3, style=label.style_label_left, textcolor=labelColor3, size=labelSize)
+
+show_s4 = input(defval = true, title = "Consumer Staples")
+s4 = normalize(request.security("SP:S5CONS", timeframe.period, close), length)
+color4 = input(defval = color.green, title = "line color")
+labelColor4 = input(defval = color.white, title = "label color")
+title4 = input(defval = "Consumer Staples", title = "title")
+plot(show_s4 ? s4 : na, color=color4, title="Consumer Staples")
+if (barstate.islast)
+    line.new(x1=bar_index, y1=s4, x2=bar_index+1, y2=s4, color=color4, width=2, style=line.style_dotted)
+    label.new(x=bar_index+1, y=s4, text=title4, color=color4, style=label.style_label_left, textcolor=labelColor4, size=labelSize)
+
+show_s5 = input(defval = true, title = "Health Care")
+s5 = normalize(request.security("SP:S5HLTH", timeframe.period, close), length)
+color5 = input(defval = color.blue, title = "line color")
+labelColor5 = input(defval = color.white, title = "label color")
+title5 = input(defval = "Health Care", title = "title")
+plot(show_s5 ? s5 : na, color=color5, title="Health Care")
+if (barstate.islast)
+    line.new(x1=bar_index, y1=s5, x2=bar_index+1, y2=s5, color=color5, width=2, style=line.style_dotted)
+    label.new(x=bar_index+1, y=s5, text=title5, color=color5, style=label.style_label_left, textcolor=labelColor5, size=labelSize)
+
+show_s6 = input(defval = true, title = "Financials")
+s6 = normalize(request.security("SP:SPF", timeframe.period, close), length)
+color6 = input(defval = color.purple, title = "line color")
+labelColor6 = input(defval = color.white, title = "label color")
+title6 = input(defval = "Financials", title = "title")
+plot(show_s6 ? s6 : na, color=color6, title="Financials")
+if (barstate.islast)
+    line.new(x1=bar_index, y1=s6, x2=bar_index+1, y2=s6, color=color6, width=2, style=line.style_dotted)
+    label.new(x=bar_index+1, y=s6, text=title6, color=color6, style=label.style_label_left, textcolor=labelColor6, size=labelSize)
+
+show_s7 = input(defval = true, title = "Information Technology")
+s7 = normalize(request.security("SP:S5INFT", timeframe.period, close), length)
+color7 = input(defval = color.red, title = "line color")
+labelColor7 = input(defval = color.white, title = "label colory")
+title7 = input(defval = "Information Technology", title = "title")
+plot(show_s7 ? s7 : na, color=color7, title="Information Technology")
+if (barstate.islast)
+    line.new(x1=bar_index, y1=s7, x2=bar_index+1, y2=s7, color=color7, width=2, style=line.style_dotted)
+    label.new(x=bar_index+1, y=s7, text=title7, color=color7, style=label.style_label_left, textcolor=labelColor7, size=labelSize)
+
+show_s8 = input(defval = true, title = "Telecommunication Services")
+s8 = normalize(request.security("SP:S5TELS", timeframe.period, close), length)
+color8 = input(defval = color.rgb(71, 160, 98), title = "line color")
+labelColor8 = input(defval = color.white, title = "label color")
+title8 = input(defval = "Telecommunication Services", title = "title")
+plot(show_s8 ? s8 : na, color=color8, title="Telecommunication Services")
+if (barstate.islast)
+    line.new(x1=bar_index, y1=s8, x2=bar_index+1, y2=s8, color=color8, width=2, style=line.style_dotted)
+    label.new(x=bar_index+1, y=s8, text=title8, color=color8, style=label.style_label_left, textcolor=labelColor8, size=labelSize)
+
+show_s9 = input(defval = true, title = "Utilities")
+s9 = normalize(request.security("SP:S5UTIL", timeframe.period, close), length)
+color9 = input(defval = color.rgb(237, 239, 247), title = "line color")
+labelColor9 = input(defval = color.rgb(0, 0, 0), title = "label color")
+title9 = input(defval = "Utilities", title = "title")
+plot(show_s9 ? s9 : na, color=color9, title="Utilities")
+if (barstate.islast)
+    line.new(x1=bar_index, y1=s9, x2=bar_index+1, y2=s9, color=color9, width=2, style=line.style_dotted)
+    label.new(x=bar_index+1, y=s9, text=title9, color=color9, style=label.style_label_left, textcolor=labelColor9, size=labelSize)
+
+show_s10 = input(defval = true, title = "Real Estate")
+s10 = normalize(request.security("SP:S5REAS", timeframe.period, close), length)
+color10 = input(defval = color.rgb(42, 199, 107), title = "line color")
+labelColor10 = input(defval = color.white, title = "label color")
+title10 = input(defval = "Real Estate", title = "title")
+plot(show_s10 ? s10 : na, color=color10, title="Real Estate")
+if (barstate.islast)
+    line.new(x1=bar_index, y1=s10, x2=bar_index+1, y2=s10, color=color10, width=2, style=line.style_dotted)
+    label.new(x=bar_index+1, y=s10, text=title10, color=color10, style=label.style_label_left, textcolor=labelColor10, size=labelSize)
+
+
+zscore_middle = input(defval = 0, title = "Z-Score midole level")
+zscore_middle_width = input(defval = 1, title = "Z-Score midole level width")
+zscore_middle_color = input(defval = color.new(#ea55b1, 80), title = "Z-Score midole color")
+zscore_upper1 = input(defval = 3, title = "Z-Score upperl level")
+zscore_upper1_width = input(defval = 1, title = "Z-Score upperl level width")
+zscore_upper1_color = input(defval = color.new(#ea55b1, 80), title = "Z-Score upper1 color")
+zscore_upper2 = input(defval = 3.5, title = "Z-Score upper2")
+zscore_upper2_width = input(defval = 10, title = "Z-Score upper2 width")
+zscore_upper2_color = input(defval = color.new(#ea55b1, 80), title = "Z-Score upper2 color")
+zscore_lower1 = input(defval = -3, title = "Z-Score lowerl")
+zscore_lower1_width = input(defval = 1, title = "Z-Score lowerl width")
+zscore_lower1_color = input(defval = color.new(#ea55b1, 80), title = "Z-Score lower1 color")
+zscore_lower2 = input(defval = -3.5, title = "Z-Score lower2")
+zscore_lower2_width = input(defval = 10, title = "Z-Score lower2 width")
+zscore_lower2_color = input(defval = color.new(#ea55b1, 80), title = "Z-Score lower2 color")
+
+DEMA_middle = input(defval = 1, title = "DEMA midole level")
+DEMA_middle_width = input(defval = 1, title = "DEMA midole level width")
+DEMA_middle_color = input(defval = color.new(#ea55b1, 80), title = "DEMA midole color")
+DEMA_upper1 = input(defval = 1.13, title = "DEMA upperl level")
+DEMA_upper1_width = input(defval = 1, title = "DEMA upperl level width")
+DEMA_upper1_color = input(defval = color.new(#ea55b1, 80), title = "DEMA upper1 color")
+DEMA_upper2 = input(defval = 1.14, title = "DEMA upper2")
+DEMA_upper2_width = input(defval = 10, title = "DEMA upper2 width")
+DEMA_upper2_color = input(defval = color.new(#ea55b1, 80), title = "DEMA upper2 color")
+DEMA_lower1 = input(defval = 0.89, title = "DEMA lowerl")
+DEMA_lower1_width = input(defval = 1, title = "DEMA lowerl width")
+DEMA_lower1_color = input(defval = color.new(#ea55b1, 80), title = "DEMA lower1 color")
+DEMA_lower2 = input(defval = 0.88, title = "DEMA lower2")
+DEMA_lower2_width = input(defval = 10, title = "DEMA lower2 width")
+DEMA_lower2_color = input(defval = color.new(#ea55b1, 80), title = "DEMA lower2 color")
+
+if (useZScore)
+    line.new(x1=bar_index, y1=zscore_middle, x2=bar_index+1, y2=zscore_middle, extend=extend.both, color=zscore_middle_color, width = zscore_middle_width)
+    line.new(x1=bar_index, y1=zscore_upper1, x2=bar_index+1, y2=zscore_upper1, extend=extend.both, color=zscore_upper1_color, width = zscore_upper1_width)
+    line.new(x1=bar_index, y1=zscore_upper2, x2=bar_index+1, y2=zscore_upper2, extend=extend.both, color=zscore_upper2_color, width = zscore_upper2_width)
+    line.new(x1=bar_index, y1=zscore_lower1, x2=bar_index+1, y2=zscore_lower1, extend=extend.both, color=zscore_lower1_color, width = zscore_lower1_width)
+    line.new(x1=bar_index, y1=zscore_lower2, x2=bar_index+1, y2=zscore_lower2, extend=extend.both, color=zscore_lower2_color, width = zscore_lower2_width)
+
+if (useDEMA)
+    line.new(x1=bar_index, y1=DEMA_middle, x2=bar_index+1, y2=DEMA_middle, extend=extend.both, color=DEMA_middle_color, width = DEMA_middle_width)
+    line.new(x1=bar_index, y1=DEMA_upper1, x2=bar_index+1, y2=DEMA_upper1, extend=extend.both, color=DEMA_upper1_color, width = DEMA_upper1_width)
+    line.new(x1=bar_index, y1=DEMA_upper2, x2=bar_index+1, y2=DEMA_upper2, extend=extend.both, color=DEMA_upper2_color, width = DEMA_upper2_width)
+    line.new(x1=bar_index, y1=DEMA_lower1, x2=bar_index+1, y2=DEMA_lower1, extend=extend.both, color=DEMA_lower1_color, width = DEMA_lower1_width)
+    line.new(x1=bar_index, y1=DEMA_lower2, x2=bar_index+1, y2=DEMA_lower2, extend=extend.both, color=DEMA_lower2_color, width = DEMA_lower2_width)

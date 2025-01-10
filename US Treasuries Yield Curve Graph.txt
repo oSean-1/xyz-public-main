@@ -1,0 +1,198 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © QuantNomad
+
+//@version=5
+indicator("US Treasuries Yield Curve", max_labels_count = 500, max_lines_count = 500)
+
+timFm  = input.string("Monthly", "Yield Curve Timeframe", ["Yearly", "Monthly", "Weekly", "Daily"])
+yldCol = input.color(color.green, "Yield Curve Line")
+num    = input.int(1, "Number of Previous Yield Curves", 0, 12)
+brtCol = input.bool(true, "Apply Bright Colors for Previous Yield Curves?", 
+         tooltip = "Color of Previous Yield Curves Would be RANDOM.")
+mstLst = input.bool(false, "Show Only the Furthest Previous Yield Curve?")
+
+// Colors
+boxCol = input.color(#696969, "Background Color",         group = "Plots Setting")
+txtCol = input.color(color.white, "Text Color",           group = "Plots Setting")
+invCol = input.color(color.red, "Inverted Status Notice", group = "Plots Setting")
+
+// |++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++|
+// |                                CALCULATION                                 |
+// |++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++|
+// US Treasuries
+prdRy = array.from("1M", "2M", "3M", "6M", "1Y",  "2Y", "3Y", "5Y", "7Y", "10Y", "20Y", "30Y")
+
+m01 = "US01MY",  m02 = "US02MY",  m03 = "US03MY",  m06 = "US06MY",  y01 = "US01Y",   y02 = "US02Y",   
+y03 = "US03Y",   y05 = "US05Y",   y07 = "US07Y",   y10 = "US10Y",   y20 = "US20Y",   y30 = "US30Y"
+
+
+// Set Color for Yield Curve
+var prdRyCol = array.new<color>(na)
+if barstate.ishistory
+    brt = brtCol ? 75 : 0
+    array.push(prdRyCol, yldCol)
+    if num > 0
+        for i = 0 to num - 1
+            array.push(prdRyCol, 
+             color.rgb(math.random(brt, 255), math.random(brt, 255), math.random(brt, 255), 0))
+
+// Yield Curve Function
+frame = timFm == "Yearly" ? "12M" : timFm == "Monthly" ? "1M" : timFm == "Weekly" ? "1W" : "1D"
+
+instVal = matrix.new<float>(mstLst ? 2 : num + 1, 0, na)
+yeild(n) => 
+    yld = array.new<float>(na)
+
+    if mstLst
+        array.push(yld, close)
+        array.push(yld, close[n])
+    else
+        for i = 0 to n
+            array.push(yld, close[i])
+    yld
+
+getYield(symbol) => 
+    yld = request.security(symbol, frame, yeild(num), ignore_invalid_symbol = true)
+
+    if not na(yld)
+        if array.size(yld) > 0
+            matrix.add_col(instVal, matrix.columns(instVal), yld)
+
+getYield(m01), getYield(m02), getYield(m03), getYield(m06), getYield(y01), getYield(y02), 
+getYield(y03), getYield(y05), getYield(y07), getYield(y10), getYield(y20), getYield(y30),
+
+
+// Yield Curve Time Function
+yeildTime(n) =>
+    tim = array.new<int>(na)
+
+    if mstLst
+        array.push(tim, time_close)
+        array.push(tim, time_close[n])
+    else
+        for i = 0 to n
+            array.push(tim, time_close[i])
+    tim
+
+instTim = request.security(y30, frame, yeildTime(num), ignore_invalid_symbol = true)
+
+
+// |++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++|
+// |                                  DRAWING                                   |
+// |++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++|
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Plot Functions
+getTime(t) =>
+    str.format_time(t, timFm == "Yearly" ? "yyyy" : "yyyy-MM-dd", syminfo.timezone)
+
+// +++++++++ Get X-Axis
+x_axis(x, inc) =>
+    line.new( x, -1.2, x, -1.1, color = boxCol, style = line.style_solid)
+    
+    label.new(x, -1.33, str.tostring(inc), textcolor = txtCol, color = color.new(boxCol, 100), 
+              style = label.style_label_center)
+
+// +++++++++ Get Y-Axis
+y_axis(yy, min, max) =>
+    y = max - (1-yy)/(2/(max-min)) 
+    
+    line.new(bar_index, yy, bar_index - 13, yy, color = color.new(boxCol, 50), style = line.style_dashed)
+    
+    label.new(bar_index, yy, str.tostring(y, format.percent), textcolor = txtCol, color = color.new(boxCol, 100), 
+              style = label.style_label_left)
+
+// +++++++++ Get Time Curve
+scale(y, min, max) => 2/(max-min) * (y - min) - 1
+scatter(x, y, max, min, col, tip, s, t) =>
+    
+    _tiptool = tip ? array.get(prdRy, x) + " | " + getTime(t) +"\nInterest Rate: " + str.tostring(y, format.percent) : na
+    
+    label.new(bar_index - 12 + x, scale(y, min, max), "⬤", xloc.bar_index, yloc.price, 
+              color.new(boxCol, 100), label.style_label_center, col, s, tooltip = _tiptool)
+
+line(x, y, max, min, x1, y1, col, w, sty) =>   
+    line.new(bar_index - 12 + x1, scale(y1, min, max), bar_index - 12 + x, scale(y, min, max), 
+             color = col, style = sty, width = w)
+
+// +++++++++ Get Legend
+legend(y, t, col, sty) =>    
+    _x = timFm == "Yearly" ? 1 : 0
+
+    label.new(bar_index - 15 + _x, y, "⬤", xloc.bar_index, yloc.price, color.new(boxCol, 100), 
+              label.style_label_center, col, size.auto)
+
+    line.new(bar_index - 16 , y, bar_index - 15 + _x, y, color = col, style = sty, width = 2)
+
+    label.new(bar_index - 15 + _x, y, getTime(t), xloc.bar_index, yloc.price, color.new(boxCol, 100), 
+              label.style_label_left, col, size.auto)
+
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Drawing
+if barstate.islast
+    boxs = box.all
+    if array.size(boxs) > 0
+        for i = 0 to array.size(boxs) - 1
+            box.delete(array.get(boxs, i))
+    
+    labs = label.all
+    if array.size(labs) > 0
+        for i = 0 to array.size(labs) - 1
+            label.delete(array.get(labs, i))
+
+    lins = line.all
+    if array.size(lins) > 0
+        for i = 0 to array.size(lins) - 1
+            line.delete(array.get(lins, i))
+    
+    // Plot Frame 
+    box.new(bar_index-16, 1.2, bar_index, -1.2,  color.new(txtCol, 50), 2, bgcolor = color.new(boxCol, 75))
+    
+    // Title
+    box.new(bar_index-13, 1.5, bar_index,  1.18, color.new(txtCol, 50), 2, bgcolor = color.new(boxCol, 0), 
+     text = "US Treasuries Yield Curve", text_color = txtCol)
+    
+    // Legends
+    box.new(bar_index-16, 1.5, bar_index-13, -1.2, color.new(txtCol, 50), 2, bgcolor = color.new(boxCol, 100))
+    
+    //Timeframe
+    box.new(bar_index-16, 1.5, bar_index-13, 1.18, color.new(txtCol, 50), 2, bgcolor = color.new(boxCol, 0), 
+     text = timFm , text_color = txtCol)
+
+    
+    if  matrix.rows(instVal) > 0
+        maxVal = matrix.max(instVal)
+        minVal = matrix.min(instVal)
+
+        // Line Plot
+        for j = 0 to matrix.rows(instVal) - 1
+            clr = array.get(prdRyCol, j)
+
+            if array.size(instTim) > j
+                legend(1-0.15*j, array.get(instTim, j), clr, 
+                 j == 0 ? line.style_solid : line.style_dotted)
+           
+            for i = 0 to matrix.columns(instVal) - 1
+                scatter(i, matrix.get(instVal, j, i), maxVal, minVal, clr, 
+                 true, j == 0 ? size.normal : size.tiny, array.get(instTim, j))
+                
+                if i > 0
+                    line(i-1, matrix.get(instVal, j, i-1), maxVal, minVal, 
+                           i, matrix.get(instVal, j, i), clr, j == 0 ? 3 : 1, 
+                           j == 0 ? line.style_solid : line.style_dotted)
+
+        // Y-axis
+        yInc = array.from(-1, -0.5, 0, 0.5, 1)
+        for i = 0 to array.size(yInc) - 1
+            y_axis(array.get(yInc, i), minVal, maxVal)
+
+        // Inverted Status
+        if matrix.get(instVal, 0, 5) > matrix.get(instVal, 0, 9)
+            box.new(bar_index-16, -1.2, bar_index-13, -1, color.new(txtCol, 50), 2, bgcolor = invCol, 
+             text = "INVERTED" , text_color = txtCol)
+
+    // X-axis
+    for i = 0 to array.size(prdRy) - 1
+        x_axis(bar_index-12 + i, array.get(prdRy, i))
+    
+
+    tbl = table.new(position.bottom_right, 1, 1, bgcolor = boxCol, border_width = 1)
+    table.cell(tbl, 0, 0, text = "QuantNomad", text_color = txtCol, text_size = size.small)

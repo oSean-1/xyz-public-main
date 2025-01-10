@@ -1,0 +1,69 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © NeoButane 
+
+
+//@version=3
+//  @NeoButane 21 July 2018
+//
+//  With the exception of Chaikin Money Flow, all indicators are bound to zero by using (indicator - sma(indicator, length))
+//
+//  On Balance Volume                      : close > close[1] ? add volume. close < close[1] ? subtract volume.
+//
+//
+//  Accumulation/Distribution: (close - low) - (high - close) / (high - low), then multipled by volume
+//
+//  http://stockcharts.com/school/doku.php?id=chart_school:technical_indicators:accumulation_distribution_line
+//  "[...]the Money Flow Multiplier does not take into account price changes from period to period."
+//  "Sometimes the Accumulation Distribution Line simply doesn't work."
+//
+//  Price Volume Trend       : Price Volume Trend
+//
+
+study(title="Variable Volume Oscillator [NeoButane]", shorttitle="V Osc", precision=0)
+
+type = input("On Balance Volume", title="Oscillator Type", options=['Unbound OBV (Remade)',
+       'Chaikin Money Flow', 'Price Volume Trend (Log)', 'OBV (Remade)',
+       'On Balance Volume', 'Accumulation/Distribution', 'Price Volume Trend'])
+
+length     = input(21,   title="Oscillator Length")
+ma         = input(true, title="Show 21 WMA")
+esperiment = input(false, title="Use Experimental Oscillator Settings")
+log        = type == 'Price Volume Trend (Log)'
+                 ? true : false
+
+src        = log ? log(close) : type == 'OBV (Remade)' or type == 'Unbound OBV (Remade)' ? log(hlc3) : close
+_high      = high
+_low       = low
+vol        = log ? log(volume) : volume
+
+oscCalc(_type, _src, _vol) =>
+  _type == 'On Balance Volume'         ? cum(change(_src) > 0 ? _vol : change(_src) < 0 ? -_vol : 0*_vol) :
+  _type == 'OBV (Remade)'              ? cum(mom(_src, 1) > 0 ? _vol : mom(_src, 1) < 0 ? -_vol : 0*_vol) :
+  _type == 'Price Volume Trend'        ? cum(change(_src)/_src[1]*_vol)                                   :
+  _type == 'Price Volume Trend (Log)'  ? exp(cum(change(_src)/_src[1]*_vol))                              :
+  _type == 'Accumulation/Distribution' ? cum(_src==_high and _src==_low or _high==_low ? 0 : (((src - _low) - (_high - _src)) / (_high - _low)) * _vol) :
+  _type == 'Chaikin Money Flow'        ? _src==_high and _src==_low or _high==_low ? 0 : (((src - _low) - (_high - _src)) / (_high - _low)) * _vol      :
+  cum(mom(_src, 2) > 0 ? _vol : mom(_src, 2) < 0 ? -_vol : 0*_vol)
+
+
+
+oscFinal   = type == 'Chaikin Money Flow' and esperiment ? sum(oscCalc('Chaikin Money Flow', src, vol), length) / sum(vol, length) :
+             type == 'Chaikin Money Flow'   ? sum(oscCalc('Chaikin Money Flow', src, vol), length) / sum(vol, length) :
+             type == 'Unbound OBV (Remade)' ? oscCalc(type, src, vol) :
+             esperiment ? (oscCalc(type, src, vol) - sma(oscCalc(type, src, vol), length)) / (0.015 * dev(src, length)) :
+             oscCalc(type, src, vol) - sma(oscCalc(type, src, vol), length)
+
+wma        = wma(oscFinal, 21)
+
+osccol     = oscFinal > 0 and type == 'On Balance Volume'         ? #73C8A9 : oscFinal < 0 and type == 'On Balance Volume'         ? #FE4365 :
+             oscFinal > 0 and type == 'OBV (Remade)'              ? #73C8A9 : oscFinal < 0 and type == 'OBV (Remade)'              ? #FE4365 :
+             oscFinal > wma and type == 'Unbound OBV (Remade)'    ? #73C8A9 : oscFinal < wma and type == 'Unbound OBV (Remade)'    ? #FE4365 :
+             oscFinal > 0 and type == 'Price Volume Trend'        ? teal    : oscFinal < 0 and type == 'Price Volume Trend'        ? #FF4C4C :
+             oscFinal > 0 and type == 'Price Volume Trend (Log)'  ? teal    : oscFinal < 0 and type == 'Price Volume Trend (Log)'  ? #FF4C4C :
+             oscFinal > 0 and type == 'Accumulation/Distribution' ? green   : oscFinal < 0 and type == 'Accumulation/Distribution' ? #FF5A00 :
+             oscFinal > 0 and type == 'Chaikin Money Flow'        ? green   : oscFinal < 0 and type == 'Chaikin Money Flow'        ? #FF5A00 : na
+
+
+osc        = plot(oscFinal,      title="Oscillator", color=osccol, transp=0,   style=histogram, linewidth=2)
+wmaPlot    = plot(ma ? wma : na, title="21 WMA"    , color=black,   transp=10, style=line     , linewidth=1)
+zero       = hline(0, title="0")

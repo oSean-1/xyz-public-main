@@ -1,0 +1,18 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Amphibiantrading
+
+//@version=5
+indicator(title = "Deemer Breakaway Momentum Thrust", shorttitle="BAM Thrust", format=format.price, precision=2)
+
+ihistocolor = input(color.blue, "Histogram Color")
+ilinecolor = input(color.red, "Line Color")
+
+adv = request.security("ADVN.NY", "D", close)
+adv10 = math.sum(adv,10)
+dcln = request.security("DECL.NY", "D", close)
+dcln10 = math.sum(dcln, 10)
+advdclnratio = adv10 / dcln10
+thrustline = 1.97
+
+plot(thrustline, "thrust line", color=ilinecolor)
+plot(advdclnratio, "10 Day NYSE Ratio", style = plot.style_histogram, linewidth = 2, color = ihistocolor)

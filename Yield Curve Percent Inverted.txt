@@ -1,0 +1,71 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © nj_guy72
+
+//@version=3
+study(title="Yield Curve Percent Inverted", shorttitle="Yield Curve % Inverted", overlay=false)
+
+//**************************************************************************************************
+// Yield Curve Percent Inverted Indicator
+// 
+// This indicator will check all fifty-five Treasury Bond Yield spreads - every combination from
+// 1-month up to 30-year - and then graph the percentage of spreads which are inverted.
+// 
+// Yield curve inversion occurs when the longer-duration bond pays a lower yield than the shorter-
+// duration bond. Longer-dated bonds normally pay a higher yield because the investor's money is
+// committed for a longer period of time. Inversion occurs when investors have little confidence
+// in the near-term economy and demand higher rates for short-term investments.
+// 
+// Historically, a few months ahead of a recession this percent-inverted value will spike up into
+// the 60%-70% range - you can see this behavior in 1989, 2000, 2007, and 2019. (Note that there
+// is no data available on Trading View prior to 1987.)
+//**************************************************************************************************
+
+warn_level = input(title="Warning Level", type=integer, defval=70, minval=0, maxval=100)
+
+us001 = security("TVC:US01MY", period, close)
+us002 = security("TVC:US02MY", period, close)
+us003 = security("TVC:US03MY", period, close)
+us006 = security("TVC:US06MY", period, close)
+us012 = security("TVC:US01Y", period, close)
+us024 = security("TVC:US02Y", period, close)
+us036 = security("TVC:US03Y", period, close)
+us060 = security("TVC:US05Y", period, close)
+us084 = security("TVC:US07Y", period, close)
+us120 = security("TVC:US10Y", period, close)
+us360 = security("TVC:US30Y", period, close)
+
+count = (us360 < us120 ? 1 : 0) 
+      + (us360 < us084 ? 1 : 0) + (us120 < us084 ? 1 : 0) 
+      + (us360 < us060 ? 1 : 0) + (us120 < us060 ? 1 : 0) + (us084 < us060 ? 1 : 0) 
+      + (us360 < us036 ? 1 : 0) + (us120 < us036 ? 1 : 0) + (us084 < us036 ? 1 : 0) + (us060 < us036 ? 1 : 0) 
+      + (us360 < us024 ? 1 : 0) + (us120 < us024 ? 1 : 0) + (us084 < us024 ? 1 : 0) + (us060 < us024 ? 1 : 0) + (us036 < us024 ? 1 : 0) 
+      + (us360 < us012 ? 1 : 0) + (us120 < us012 ? 1 : 0) + (us084 < us012 ? 1 : 0) + (us060 < us012 ? 1 : 0) + (us036 < us012 ? 1 : 0) + (us024 < us012 ? 1 : 0) 
+      + (us360 < us006 ? 1 : 0) + (us120 < us006 ? 1 : 0) + (us084 < us006 ? 1 : 0) + (us060 < us006 ? 1 : 0) + (us036 < us006 ? 1 : 0) + (us024 < us006 ? 1 : 0) + (us012 < us006 ? 1 : 0) 
+      + (us360 < us003 ? 1 : 0) + (us120 < us003 ? 1 : 0) + (us084 < us003 ? 1 : 0) + (us060 < us003 ? 1 : 0) + (us036 < us003 ? 1 : 0) + (us024 < us003 ? 1 : 0) + (us012 < us003 ? 1 : 0) + (us006 < us003 ? 1 : 0) 
+      + (us360 < us002 ? 1 : 0) + (us120 < us002 ? 1 : 0) + (us084 < us002 ? 1 : 0) + (us060 < us002 ? 1 : 0) + (us036 < us002 ? 1 : 0) + (us024 < us002 ? 1 : 0) + (us012 < us002 ? 1 : 0) + (us006 < us002 ? 1 : 0) + (us003 < us002 ? 1 : 0) 
+      + (us360 < us001 ? 1 : 0) + (us120 < us001 ? 1 : 0) + (us084 < us001 ? 1 : 0) + (us060 < us001 ? 1 : 0) + (us036 < us001 ? 1 : 0) + (us024 < us001 ? 1 : 0) + (us012 < us001 ? 1 : 0) + (us006 < us001 ? 1 : 0) + (us003 < us001 ? 1 : 0) + (us002 < us001 ? 1 : 0) 
+
+total = (na(us360) or na(us120) ? 0 : 1) 
+      + (na(us360) or na(us084) ? 0 : 1) + (na(us120) or na(us084) ? 0 : 1) 
+      + (na(us360) or na(us060) ? 0 : 1) + (na(us120) or na(us060) ? 0 : 1) + (na(us084) or na(us060) ? 0 : 1) 
+      + (na(us360) or na(us036) ? 0 : 1) + (na(us120) or na(us036) ? 0 : 1) + (na(us084) or na(us036) ? 0 : 1) + (na(us060) or na(us036) ? 0 : 1) 
+      + (na(us360) or na(us024) ? 0 : 1) + (na(us120) or na(us024) ? 0 : 1) + (na(us084) or na(us024) ? 0 : 1) + (na(us060) or na(us024) ? 0 : 1) + (na(us036) or na(us024) ? 0 : 1) 
+      + (na(us360) or na(us012) ? 0 : 1) + (na(us120) or na(us012) ? 0 : 1) + (na(us084) or na(us012) ? 0 : 1) + (na(us060) or na(us012) ? 0 : 1) + (na(us036) or na(us012) ? 0 : 1) + (na(us024) or na(us012) ? 0 : 1) 
+      + (na(us360) or na(us006) ? 0 : 1) + (na(us120) or na(us006) ? 0 : 1) + (na(us084) or na(us006) ? 0 : 1) + (na(us060) or na(us006) ? 0 : 1) + (na(us036) or na(us006) ? 0 : 1) + (na(us024) or na(us006) ? 0 : 1) + (na(us012) or na(us006) ? 0 : 1) 
+      + (na(us360) or na(us003) ? 0 : 1) + (na(us120) or na(us003) ? 0 : 1) + (na(us084) or na(us003) ? 0 : 1) + (na(us060) or na(us003) ? 0 : 1) + (na(us036) or na(us003) ? 0 : 1) + (na(us024) or na(us003) ? 0 : 1) + (na(us012) or na(us003) ? 0 : 1) + (na(us006) or na(us003) ? 0 : 1) 
+      + (na(us360) or na(us002) ? 0 : 1) + (na(us120) or na(us002) ? 0 : 1) + (na(us084) or na(us002) ? 0 : 1) + (na(us060) or na(us002) ? 0 : 1) + (na(us036) or na(us002) ? 0 : 1) + (na(us024) or na(us002) ? 0 : 1) + (na(us012) or na(us002) ? 0 : 1) + (na(us006) or na(us002) ? 0 : 1) + (na(us003) or na(us002) ? 0 : 1) 
+      + (na(us360) or na(us001) ? 0 : 1) + (na(us120) or na(us001) ? 0 : 1) + (na(us084) or na(us001) ? 0 : 1) + (na(us060) or na(us001) ? 0 : 1) + (na(us036) or na(us001) ? 0 : 1) + (na(us024) or na(us001) ? 0 : 1) + (na(us012) or na(us001) ? 0 : 1) + (na(us006) or na(us001) ? 0 : 1) + (na(us003) or na(us001) ? 0 : 1) + (na(us002) or na(us001) ? 0 : 1) 
+
+pct = (count/total) * 100
+plot(pct, title="Pct. Inverted", color=white, transp=0)
+
+//hline(100, title="Max. Level", color=gray, linestyle=solid, linewidth=1)
+//hline(warn_level, title="Warning Level", linestyle=solid, color=red, linewidth=1)
+//hline(0, title="Min. Level", color=gray, linestyle=solid, linewidth=1)
+
+bg = pct >= warn_level ? red : na
+bgcolor(color=bg, transp=80)
+
+//EOF
+
+barcolor(bg)

@@ -1,0 +1,217 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Mynicknameislion
+
+//@version=5
+strategy(title="Too many cooks trend finder", shorttitle="TMC_Trend", process_orders_on_close = true)
+
+//MACD Calculation Section
+macd_fast_length = 10
+macd_slow_length = 35
+macd_src = close
+macd_signal_length = 7
+
+macd_fast_ma = (ta.ema(macd_src, macd_fast_length) + ta.ema(macd_src, macd_fast_length * 2) + ta.ema(macd_src, macd_fast_length / 2)) / 3
+macd_slow_ma = (ta.ema(macd_src, macd_slow_length) + ta.ema(macd_src, macd_slow_length * 2) + ta.ema(macd_src, macd_slow_length / 2)) / 3
+macd = macd_fast_ma - macd_slow_ma
+macd_signal = ta.ema(macd, macd_signal_length)
+
+macd_uptrend = macd > macd_signal ? true : false
+
+//Stochastic calculation section
+stoch_smoothK = 3
+stoch_smoothD = 3
+stoch_lengthRSI = 20
+stoch_lengthStoch = 10
+stoch_src = hlc3
+stoch_rsi = (ta.rsi(stoch_src, stoch_lengthRSI) + ta.rsi(stoch_src, stoch_lengthRSI * 2) + ta.rsi(stoch_src, stoch_lengthRSI / 2)) / 3
+stoch_k = ta.ema(ta.stoch(stoch_rsi, stoch_rsi, stoch_rsi, stoch_lengthStoch), stoch_smoothK)
+stoch_d = ta.ema(stoch_k, stoch_smoothD)
+
+stoch_uptrend = stoch_k > stoch_d ? true : false
+
+//AK trend calculation section
+aktrend_input1 = 6
+aktrend_input2 = 20
+
+aktrend_fastmaa = ta.ema(close,aktrend_input1)
+aktrend_fastmab = ta.ema(close,aktrend_input2)
+aktrend_bspread = (aktrend_fastmaa-aktrend_fastmab)*1.001
+
+aktrend_uptrend = aktrend_bspread > 0 ? true : false
+
+//Average force calculation section
+af_af(Series, High, Low, Period, PostSmooth) =>
+    period       = math.max(1, int(Period))
+    highestHigh  = ta.highest(High,  period)
+    lowestLow    = ta.lowest( Low,  period)
+    HHminusLL    = highestHigh - lowestLow
+    averageForce = HHminusLL==0.0 ? 0.0 : (Series - lowestLow) / HHminusLL - 0.5
+    ta.sma(averageForce, math.max(1, int(PostSmooth)))
+
+af_period = 25
+af_smooth = 5
+af_AF = af_af(close, high, low, af_period, af_smooth)
+
+af_uptrend = af_AF >= 0 ? true : false
+
+//Average sentiment oscilator calculation section
+aso_length = 20
+aso_intrarange = high-low
+aso_grouplow = ta.lowest(low, aso_length)
+aso_grouphigh = ta.highest(high, aso_length)
+aso_groupopen = open[aso_length-1]
+aso_grouprange = aso_grouphigh - aso_grouplow
+aso_K1 = aso_intrarange == 0 ? 1 : aso_intrarange
+aso_K2 = aso_grouprange == 0 ? 1 : aso_grouprange
+aso_intrabarbulls = ((((close-low)+(high-open)) / 2) * 100) / aso_K1
+aso_groupbulls = ((((close - aso_grouplow) + (aso_grouphigh - aso_groupopen)) / 2) * 100) / aso_K2
+aso_intrabarbears = ((((high - close) + (open - low)) / 2) * 100) / aso_K1
+aso_groupbears = ((((aso_grouphigh - close) + (aso_groupopen - aso_grouplow)) / 2) * 100) / aso_K2
+aso_TempBufferBulls = (aso_intrabarbulls + aso_groupbulls) / 2
+aso_TempBufferBears = (aso_intrabarbears + aso_groupbears) / 2
+aso_ASOBulls = ta.sma(aso_TempBufferBulls, aso_length)
+aso_ASOBears = ta.sma(aso_TempBufferBears, aso_length)
+aso_uptrend = aso_ASOBulls > aso_ASOBears ? true : false
+
+//HACOLT calculation section
+
+hacolt_length = 55
+hacolt_emaLength = 60
+hacolt_candleSizeFactor = 1.1
+
+hacolt_calc_tema(src, length) =>
+	ema1 = ta.ema(src, length)
+	ema2 = ta.ema(ema1, length)
+	ema3 = ta.ema(ema2, length)
+	3 * (ema1 - ema2) + ema3
+hacolt_haOpen = 0.0
+hacolt_haOpen := nz((hacolt_haOpen[1] + ohlc4) / 2, ohlc4)
+hacolt_haClose = (hacolt_haOpen + math.max(high, hacolt_haOpen) + math.min(low, hacolt_haOpen) + ohlc4) / 4
+hacolt_thaClose = hacolt_calc_tema(hacolt_haClose, hacolt_length)
+hacolt_thl2 = hacolt_calc_tema(hl2, hacolt_length)
+hacolt_haCloseSmooth = 2 * hacolt_thaClose - hacolt_calc_tema(hacolt_thaClose, hacolt_length)
+hacolt_hl2Smooth = 2 * hacolt_thl2 - hacolt_calc_tema(hacolt_thl2, hacolt_length)
+hacolt_shortCandle = math.abs(close - open) < ((high - low) * hacolt_candleSizeFactor)
+hacolt_keepn1 = ((hacolt_haClose >= hacolt_haOpen) and (hacolt_haClose[1] >= hacolt_haOpen[1])) or (close >= hacolt_haClose) or (high > high[1]) or (low > low[1]) or (hacolt_hl2Smooth >= hacolt_haCloseSmooth)
+hacolt_keepall1 = hacolt_keepn1 or (hacolt_keepn1[1] and (close >= open) or (close >= close[1]))
+hacolt_keep13 = hacolt_shortCandle and (high >= low[1])
+hacolt_utr = hacolt_keepall1 or (hacolt_keepall1[1] and hacolt_keep13)
+hacolt_keepn2 = (hacolt_haClose < hacolt_haOpen) and (hacolt_haClose[1] < hacolt_haOpen[1]) or (hacolt_hl2Smooth < hacolt_haCloseSmooth)
+hacolt_keep23 = hacolt_shortCandle and (low <= high[1])
+hacolt_keepall2 = hacolt_keepn2 or (hacolt_keepn2[1] and (close < open) or (close < close[1]))
+hacolt_dtr = hacolt_keepall2 or (hacolt_keepall2[1] and hacolt_keep23)
+hacolt_upw = hacolt_dtr == 0 and hacolt_dtr[1] and hacolt_utr
+hacolt_dnw = hacolt_utr == 0 and hacolt_utr[1] and hacolt_dtr
+hacolt_upwWithOffset = false
+hacolt_upwWithOffset := hacolt_upw != hacolt_dnw ? hacolt_upw : nz(hacolt_upwWithOffset[1])
+
+hacolt_buySig = hacolt_upw or (not hacolt_dnw and (na(hacolt_upwWithOffset) ? 0 : hacolt_upwWithOffset))
+hacolt_ltSellSig = close < ta.ema(close, hacolt_emaLength)
+hacolt_neutralSig = false
+hacolt_neutralSig := hacolt_buySig or (hacolt_ltSellSig ? 0 : nz(hacolt_neutralSig[1]))
+hacolt_hacolt = hacolt_buySig ? 1 : hacolt_neutralSig ? 0 : -1
+hacolt_hacolt *= 100
+
+hacolt_uptrend = hacolt_hacolt >= 0 ? true : false
+
+//Traders dynamic index calculation section
+trd_lengthrsi = 15
+trd_src = close
+trd_lengthband = 40
+
+trd_r = ta.rsi(trd_src, trd_lengthrsi)
+trd_ma = ta.sma(trd_r, trd_lengthband)
+trd_offs = (1.6185 * ta.stdev(trd_r, trd_lengthband))
+trd_up = trd_ma + trd_offs
+trd_dn = trd_ma - trd_offs
+trd_mid = (trd_up + trd_dn) / 2
+trd_mid *= 2
+trd_mid -= 100
+trd_uptrend = trd_mid > 0 ? true : false
+
+//Wavetrend oscilator calculation section
+woc_n1 = 80
+woc_n2 = 40
+woc_obLevel = 70
+woc_osLevel = -70
+var woc_trend = "up"
+
+woc_ap = hlc3 
+woc_esa = ta.ema(woc_ap, woc_n1)
+woc_d = ta.ema(math.abs(woc_ap - woc_esa), woc_n1)
+woc_ci = (woc_ap - woc_esa) / (0.015 * woc_d)
+woc_tci = ta.ema(woc_ci, woc_n2)
+woc_wt1 = woc_tci
+
+if ta.crossover(woc_wt1, woc_obLevel)
+    woc_trend := "none"
+else if ta.crossover(woc_obLevel, woc_wt1)
+    woc_trend := "down"
+else if ta.crossover(woc_osLevel, woc_wt1)
+    woc_trend := "none"
+else if ta.crossover(woc_wt1, woc_osLevel)
+    woc_trend := "up"
+
+
+//Overall rating
+trendsOverall = input.float(5, "Trend line offset", minval = -100, maxval = 100)
+
+if macd_uptrend
+    trendsOverall += 100
+else
+    trendsOverall -= 100
+
+if stoch_uptrend
+    trendsOverall += 100
+else
+    trendsOverall -= 100
+
+if aktrend_uptrend
+    trendsOverall += 100
+else
+    trendsOverall -= 100
+
+if af_uptrend
+    trendsOverall += 100
+else
+    trendsOverall -= 100
+
+if aso_uptrend
+    trendsOverall += 100
+else
+    trendsOverall -= 100
+
+if hacolt_uptrend
+    trendsOverall += 100
+else
+    trendsOverall -= 100
+
+if trd_uptrend
+    trendsOverall += 100
+else
+    trendsOverall -= 100
+
+if woc_trend == "up"
+    trendsOverall += 100
+else if woc_trend == "down"
+    trendsOverall -= 100
+else
+    trendsOverall += trd_uptrend ? 100 : -100
+
+smoothing = input.int(4, "Trend line smoothing period", minval=0)
+
+
+trendsOverall /= 8
+
+if smoothing > 0
+    trendsOverall := trendsOverall, smoothing
+
+plot(trendsOverall, "Cooks Line", trendsOverall > 0 ? color.lime : color.red)
+    
+barcolor(trendsOverall > 0 ? color.lime : color.red)
+
+if trendsOverall >= 0
+    strategy.entry('Long', strategy.long)
+
+if trendsOverall <= 0
+    strategy.entry('Short', strategy.short)

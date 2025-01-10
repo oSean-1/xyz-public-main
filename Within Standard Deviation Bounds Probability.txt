@@ -1,0 +1,54 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © oisigma
+
+
+//@version=5
+indicator("Within Standard Deviation Bounds Probability", overlay=false) // Set overlay=false to create a separate pane
+
+// Input for period
+period = input.int(title="Period (Days)", defval=60, minval=1)
+
+// Calculate percent change between close prices
+pct_change = (close - close[1]) / close[1] // Convert to percentage
+
+// Initialize variables for counting crossovers
+num_above_crossovers = 0
+num_below_crossovers = 0
+
+// Calculate mean and standard deviation
+mean_pct_change = 0.0
+for i = 1 to period  // Start from 1 to use valid percent change values
+    mean_pct_change += pct_change[i]
+mean_pct_change /= period
+
+// Calculate squared deviations from the mean
+sum_squared_deviations = 0.0
+for i = 1 to period
+    deviation = pct_change[i] - mean_pct_change
+    sum_squared_deviations += deviation * deviation
+
+// Calculate standard deviation
+stdev_pct_change = math.sqrt(sum_squared_deviations / (period - 1))  // Unbiased calculation
+
+// Calculate upper and lower bounds based on percent change
+upper_bound = close[1] * (1 + mean_pct_change + stdev_pct_change)
+lower_bound = close[1] * (1 + mean_pct_change - stdev_pct_change)
+
+// Loop through bars and track crossovers
+
+for i = 1 to period  // Iterate through all bars in the period
+    // Check for crossovers above and below bounds
+    if close[i] > upper_bound[i] 
+        num_above_crossovers += 1
+    else if close[i] < lower_bound[i] 
+        num_below_crossovers += 1
+
+
+// Calculate total crossover probability
+total_crossover_prob =(100* ((num_above_crossovers + num_below_crossovers)/period)) 
+
+
+// Plot both probability the close stays within bounds
+plot(100 - total_crossover_prob, style = plot.style_line, color = color.blue, linewidth = 2, title = "Close within bounds Probability")
+hline(68, color = color.gray, linestyle = hline.style_dashed) // Draw horizontal line at 68%
+

@@ -1,0 +1,131 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © timtr4d3
+
+// @version=4
+study(title="SPX Divergence", overlay=false)
+
+length = input(60, minval=1, title="Divergence Length")
+mf_length = input(10, title="MFI Length")
+sectors_threshold = input(26, title="Sectors Divergence Threshold")
+world_threshold = input(34, title="Mega Caps Divergence Threshold")
+average_threshold = input(20, title="Average Divergence Threshold")
+
+mode = ''
+
+[spy_open,spy_high,spy_low,spy_last,spy_volume]=security('SPY',mode,[open,high,low,close,volume])
+
+
+[xlk_open, xlk_high, xlk_low, xlk_last]=security('XLK',mode,[open,high,low,close])
+[vox_open, vox_high, vox_low, vox_last]=security('VOX',mode,[open,high,low,close])
+[xlv_open, xlv_high, xlv_low, xlv_last]=security('XLV',mode,[open,high,low,close])
+[xly_open, xly_high, xly_low, xly_last]=security('XLY',mode,[open,high,low,close])
+[xlf_open, xlf_high, xlf_low, xlf_last]=security('XLF',mode,[open,high,low,close])
+[xli_open, xli_high, xli_low, xli_last]=security('XLI',mode,[open,high,low,close])
+[xlp_open, xlp_high, xlp_low, xlp_last]=security('XLP',mode,[open,high,low,close])
+[xlu_open, xlu_high, xlu_low, xlu_last]=security('XLU',mode,[open,high,low,close])
+[xlb_open, xlb_high, xlb_low, xlb_last]=security('XLB',mode,[open,high,low,close])
+[vnq_open, vnq_high, vnq_low, vnq_last]=security('VNQ',mode,[open,high,low,close])
+[xle_open, xle_high, xle_low, xle_last]=security('XLE',mode,[open,high,low,close])
+
+[spx_open, spx_high, spx_low, spx_last]=security('SPX',mode,[open,high,low,close])
+[ni_open, ni_high, ni_low, ni_last]=security('NI225',mode,[open,high,low,close])
+[uk_open, uk_high, uk_low, uk_last]=security('UKX',mode,[open,high,low,close])
+[dax_open, dax_high, dax_low, dax_last]=security('DAX',mode,[open,high,low,close])
+[hsi_open, hsi_high, hsi_low, hsi_last]=security('HSI',mode,[open,high,low,close])
+[ewa_open, ewa_high, ewa_low, ewa_last]=security('EWA',mode,[open,high,low,close])
+
+spy_hlc3 = (spy_high + spy_low + spy_last)/3
+spy_ret = ((spy_last[0]/spy_last[length])-1)*100
+
+xlk_hlc3 = (xlk_high + xlk_low + xlk_last)/3
+xlk_ret = ((xlk_last[0]/xlk_last[length])-1)*100
+vox_hlc3 = (vox_high + vox_low + vox_last)/3
+vox_ret = ((vox_last[0]/vox_last[length])-1)*100
+xlv_hlc3 = (xlv_high + xlv_low + xlv_last)/3
+xlv_ret = ((xlv_last[0]/xlv_last[length])-1)*100
+xly_hlc3 = (xly_high + xly_low + xly_last)/3
+xly_ret = ((xly_last[0]/xly_last[length])-1)*100
+xlf_hlc3 = (xlf_high + xlf_low + xlf_last)/3
+xlf_ret = ((xlf_last[0]/xlf_last[length])-1)*100
+xli_hlc3 = (xli_high + xli_low + xli_last)/3
+xli_ret = ((xli_last[0]/xli_last[length])-1)*100
+xlp_hlc3 = (xlp_high + xlp_low + xlp_last)/3
+xlp_ret = ((xlp_last[0]/xlp_last[length])-1)*100
+xlu_hlc3 = (xlu_high + xlu_low + xlu_last)/3
+xlu_ret = ((xlu_last[0]/xlu_last[length])-1)*100
+xlb_hlc3 = (xlb_high + xlb_low + xlb_last)/3
+xlb_ret = ((xlb_last[0]/xlb_last[length])-1)*100
+vnq_hlc3 = (vnq_high + vnq_low + vnq_last)/3
+vnq_ret = ((vnq_last[0]/vnq_last[length])-1)*100
+xle_hlc3 = (xle_high + xle_low + xle_last)/3
+xle_ret = ((xle_last[0]/xle_last[length])-1)*100
+
+spx_ret = ((spx_last[0]/spx_last[length])-1)*100
+ni_ret = ((ni_last[0]/ni_last[length])-1)*100
+uk_ret = ((uk_last[0]/uk_last[length])-1)*100
+dax_ret = ((dax_last[0]/dax_last[length])-1)*100
+hsi_ret = ((hsi_last[0]/hsi_last[length])-1)*100
+ewa_ret = ((ewa_last[0]/ewa_last[length])-1)*100
+
+sectors_maxes = max(xlk_ret, vox_ret, xlv_ret, xly_ret, xlf_ret, xli_ret, xlp_ret, xlu_ret, xlb_ret, vnq_ret, xle_ret)
+sectors_mins = min(xlk_ret, vox_ret, xlv_ret, xly_ret, xlf_ret, xli_ret, xlp_ret, xlu_ret, xlb_ret, vnq_ret, xle_ret)
+sectors_divergence = (sectors_maxes + 100) - (sectors_mins + 100)
+
+world_maxes = max(spx_ret, ni_ret, uk_ret, dax_ret, hsi_ret, ewa_ret)
+world_mins = min(spx_ret, ni_ret, uk_ret, dax_ret, hsi_ret, ewa_ret)
+world_divergence = (world_maxes + 100) - (world_mins + 100)
+
+// MFI
+_rsi(mupper, mlower) =>
+    100.0 - (100.0 / (1.0 + mupper / mlower))
+mf_upper = sum(spy_volume * (change(spy_hlc3) <= 0 ? 0 : spy_hlc3), mf_length)
+mf_lower = sum(spy_volume * (change(spy_hlc3) >= 0 ? 0 : spy_hlc3), mf_length)
+mf = _rsi(mf_upper, mf_lower)
+b_color = (mf >= 50) ? color.rgb(0,255,2,90) : (mf < 50) ? color.rgb(255,0,0,75) : na
+//bgcolor(spy_volume ? b_color : na )
+
+// Bollinger Band %
+_bbr(dat, length) =>
+    basis = sma(dat, length)
+    mult = 2.0
+    dev = mult * stdev(dat, length)
+    upper = basis + dev
+    lower = basis - dev
+    bbr = (dat - lower)/(upper - lower)
+    bbr
+
+// Williams R% calculation
+_wpr(dat, length) =>
+	max = highest(dat, length)
+	min = lowest(dat, length)
+	100 * (dat - max) / (max - min)
+
+div_average = ema(tsi((sectors_divergence+world_divergence)/2, 5, 15), 5)*100
+
+avgdivcolor = (sectors_divergence > sectors_threshold and div_average > 0) or div_average > 40 ? color.red : color.white
+
+plot(div_average, title='Average Divergence', color=avgdivcolor, style=plot.style_area, transp=60, linewidth=2)
+plot(sectors_divergence, title='Sectors Divergence', color=color.yellow, style=plot.style_line, linewidth=2)
+plot(world_divergence, title='World Divergence', color=color.purple, style=plot.style_line, linewidth=2)
+hline(sectors_threshold, "Sectors Threshold", color=color.yellow, linestyle=hline.style_dotted, linewidth=2)
+hline(world_threshold, "World Threshold", color=color.purple, linestyle=hline.style_dotted, linewidth=2)
+hline(0, "Zero", color=color.yellow, linestyle=hline.style_dotted, linewidth=1)
+
+plotchar(xlk_ret, "XLK", "", location.top)
+plotchar(vox_ret, "VOX", "", location.top)
+plotchar(xlv_ret, "XLV", "", location.top)
+plotchar(xly_ret, "XLY", "", location.top)
+plotchar(xlf_ret, "XLF", "", location.top)
+plotchar(xli_ret, "XLI", "", location.top)
+plotchar(xlp_ret, "XLP", "", location.top)
+plotchar(xlu_ret, "XLU", "", location.top)
+plotchar(xlb_ret, "XLB", "", location.top)
+plotchar(vnq_ret, "VNQ", "", location.top)
+plotchar(xle_ret, "XLE", "", location.top)
+
+plotchar(spx_ret, "SPX", "", location.top)
+plotchar(ni_ret, "NI225", "", location.top)
+plotchar(uk_ret, "UKX", "", location.top)
+plotchar(dax_ret, "DAX", "", location.top)
+plotchar(hsi_ret, "HSI", "", location.top)
+plotchar(ewa_ret, "EWA", "", location.top)

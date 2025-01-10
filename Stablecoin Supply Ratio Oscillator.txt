@@ -1,0 +1,108 @@
+// This work is licensed under a Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0) https://creativecommons.org/licenses/by-nc-sa/4.0/
+// © EliCobra
+
+//@version=5
+indicator("Stablecoin Supply Ratio Oscillator", "[Ʌ] -‌ SSRO", false)
+
+type bar
+    float o = open
+    float h = high
+    float l = low
+    float c = close
+
+method src(bar b, simple string src) =>
+    float x = switch src
+        'oc2'   => math.avg(b.o, b.c          )
+        'hl2'   => math.avg(b.h, b.l          )
+        'hlc3'  => math.avg(b.h, b.l, b.c     )
+        'ohlc4' => math.avg(b.o, b.h, b.l, b.c)
+        'hlcc4' => math.avg(b.h, b.l, b.c, b.c)
+
+    x
+
+method data(simple string coin) =>
+    bar x = request.security('CRYPTOCAP:' + coin, '', bar.new())
+    
+    na(x) ? bar.new(0, 0, 0, 0) : x
+
+method srcget(array<bar> stbl, string src) =>
+    array<float> srcs = array.new<float>()
+
+    for coin in stbl
+        val = switch src
+            'o' => coin.o
+            'h' => coin.h
+            'l' => coin.l
+            'c' => coin.c
+
+        srcs.unshift(val)
+
+    srcs
+
+method ssro(float src, array<float> stblsrc, simple int len) =>
+    float ssr = src / stblsrc.sum()
+    
+    (ssr - ta.sma(ssr, len)) / ta.stdev(ssr, len)
+
+method adj(color col, simple int lvl) =>
+    color x = color.new(col, lvl)
+
+    x
+
+
+var string gs = 'SSRO', var string gc = 'Colors'
+len   = input.int   (200      , "Length"                ,                      group = gs)
+chart = input.bool  (true     , "Use Chart As Main Coin",                      group = gs)
+osc   = input.string('Candles', "Display As"            , ['Candles', 'Line'], group = gs)
+colup = input.color (#16bb9f, "Bull"                  ,                      group = gc)
+coldn = input.color (#b3212d, "Bear"                  ,                      group = gc)
+
+
+var string main = syminfo.type != 'crypto' ? 'BTC' : chart ? syminfo.basecurrency : 'BTC'
+bar        coin = main .data(          )
+array<bar> stbl = array.from(
+                          'USDT'.data(),
+                          'USDC'.data(),
+                          'DAI' .data(),
+                          'FRAX'.data())
+
+bar        ssro = bar  .new (
+     coin.o.ssro(stbl.srcget('o'), len),
+     coin.h.ssro(stbl.srcget('h'), len),
+     coin.l.ssro(stbl.srcget('l'), len),
+     coin.c.ssro(stbl.srcget('c'), len))
+
+
+color col = ssro.c > ssro.o ? na : coldn
+
+plotcandle(osc == 'Candles' ? ssro.o : na,
+           osc == 'Candles' ? ssro.h : na,
+           osc == 'Candles' ? ssro.l : na,
+           osc == 'Candles' ? ssro.c : na,
+           "SSRO", col, chart.fg_color, bordercolor = chart.fg_color)
+
+hline(0                          , "Mid-Line", chart.fg_color)
+plot (osc == 'Line' ? ssro.c : na, "SSRO"    , chart.fg_color)
+
+max = hline(4 , display = display.none)
+hh  = hline(3 , display = display.none)
+lh  = hline(2 , display = display.none)
+
+min = hline(-4, display = display.none)
+ll  = hline(-3, display = display.none)
+hl  = hline(-2, display = display.none)
+
+fill(hl, min, coldn.adj(75))
+fill(ll, min, coldn.adj(75))
+fill(lh, max, colup.adj(75))
+fill(hh, max, colup.adj(75))
+
+//Source Construction For Indicator\Strategy Exports
+plot(osc == 'Candles' ? ssro.o            : na, "open" , editable = false, display = display.none)
+plot(osc == 'Candles' ? ssro.h            : na, "high" , editable = false, display = display.none)
+plot(osc == 'Candles' ? ssro.l            : na, "low"  , editable = false, display = display.none)
+plot(osc == 'Candles' ? ssro.c            : na, "close", editable = false, display = display.none)
+plot(osc == 'Candles' ? ssro.src('hl2'  ) : na, "hl2"  , editable = false, display = display.none)
+plot(osc == 'Candles' ? ssro.src('hlc3' ) : na, "hlc3" , editable = false, display = display.none)
+plot(osc == 'Candles' ? ssro.src('ohlc4') : na, "ohlc4", editable = false, display = display.none)
+plot(osc == 'Candles' ? ssro.src('hlcc4') : na, "hlcc4", editable = false, display = display.none)

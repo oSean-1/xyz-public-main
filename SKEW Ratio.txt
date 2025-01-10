@@ -1,0 +1,28 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © 
+
+
+//SKEW values generally range from 100 to 150 where the higher the rating, the higher the perceived tail risk and chance of a black swan event.
+//A SKEW rating of 100 means the perceived distribution of S&P 500 returns is normal and, therefore, the probability of an outlier return is small.
+
+//@version=5
+indicator('SKEW Ratio ')
+
+len = input(1008, 'Lookback period in Days')
+mult = input(1.5, 'Standard Deviation Multiple')
+
+pcc = request.security('CBOE:SKEW', '', close)
+
+ma = ta.sma(pcc, len)
+sd = ta.stdev(pcc, len)
+bu = ma + mult * sd
+bl = ma - mult * sd
+
+buy = pcc > bu
+sell = pcc < bl
+
+plot(pcc)
+plot(sd)
+
+
+

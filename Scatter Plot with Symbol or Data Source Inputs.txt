@@ -1,0 +1,130 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Unjuno
+
+
+//@version=6
+indicator("Scatter Plot with Symbol or Data Source Inputs", overlay=false, precision=3)
+
+// XY軸にシンボルを使用するかデータソースを使用するかを選択
+use_symbol_for_x = input.bool(false, title="Use Symbol for X Data?")
+use_symbol_for_y = input.bool(false, title="Use Symbol for Y Data?")
+
+// シンボルを入力
+ticker_symbol_x = input.symbol("AAPL", title="Select Ticker Symbol for X Data")
+ticker_symbol_y = input.symbol("GOOG", title="Select Ticker Symbol for Y Data")
+
+// データソースの入力
+x_source_input = input.source(close, title="X Data Source")
+y_source_input = input.source(volume, title="Y Data Source")
+
+// XY方向にオフセットを加える設定（X方向とY方向の移動量を設定）
+x_offset = input.int(0, title="X Offset", minval=-500, maxval=500)
+y_offset = 0
+
+// X軸データとY軸データのソース
+x_source = use_symbol_for_x ? request.security(ticker_symbol_x, timeframe.period, x_source_input) : x_source_input
+y_source = use_symbol_for_y ? request.security(ticker_symbol_y, timeframe.period, y_source_input) : y_source_input
+
+// 色の設定（重なり数に応じて色を濃くする）
+colors = array.from(color.new(color.red, 90), color.new(color.red, 80), color.new(color.red, 70), color.new(color.red, 60), color.new(color.red, 50), color.new(color.red, 40), color.new(color.red, 30), color.new(color.red, 20), color.new(color.red, 10), color.new(color.red, 0))
+
+// グリッド格納用配列
+grid_width = input.int(200, title = "grid_width")
+grid_height = input.int(200, title = "grid_height")
+
+grid = array.new_int(grid_width * grid_height, 0)
+
+// ボックスを管理する配列（初期化は `na`）
+boxes = array.new_box(grid_width * grid_height, na)
+
+// データ範囲の計算（直近100本のバーで更新）
+Fupdate = input.int(5000, title = "Frequency of updates")
+x_min = ta.lowest(x_source, Fupdate) - 10  // X軸をマイナス方向に広げる
+x_max = ta.highest(x_source, Fupdate) + 10  // X軸の最大値を調整
+y_min = ta.lowest(y_source, Fupdate)
+y_max = ta.highest(y_source, Fupdate)
+
+// セルサイズ計算
+x_cell_size = (x_max - x_min) / grid_width
+y_cell_size = (y_max - y_min) / grid_height
+
+// 正規化してグリッドに格納（grid_width と grid_height が 1 のときは 0 に強制）
+x_normalized = math.floor((x_source - x_min) / x_cell_size)
+y_normalized = math.floor((y_source - y_min) / y_cell_size)
+
+// 範囲外のデータをクリップ（math.clampの代わりにmath.maxとmath.minを使用）
+x_normalized := math.max(0, math.min(x_normalized, grid_width - 1))  // 修正: x_normalized を制限
+y_normalized := math.max(0, math.min(y_normalized, grid_height - 1))  // 修正: y_normalized を制限
+
+// グリッドの値を更新
+index = y_normalized * grid_width + x_normalized
+if (index < array.size(grid))
+    current_value = array.get(grid, index)
+    array.set(grid, index, current_value + 1)
+
+// ボックスを描画・更新
+for y = 0 to grid_height - 1
+    for x = 0 to grid_width - 1
+        index := y * grid_width + x
+        count = array.get(grid, index)
+        if count > 0
+            // 色の選択 (countの範囲をチェック)
+            box_color = array.get(colors, math.min(count - 1, array.size(colors) - 1))
+
+            // ボックスの座標 (グリッドに基づく描画位置)
+            left_index = bar_index - grid_width + x + x_offset
+            right_index = bar_index - grid_width + x + 1 + x_offset
+            top = y_min + (y + 1) * y_cell_size + y_offset
+            bottom = y_min + y * y_cell_size + y_offset
+
+            // 既存のボックスがあれば削除
+            if not na(array.get(boxes, index))
+                box.delete(array.get(boxes, index))
+
+            // 新しいボックスを描画
+            new_box = box.new(left=left_index, top=top, right=right_index, bottom=bottom, bgcolor=box_color, border_color=input.color(color.blue, title="Box Border Color"))
+            array.set(boxes, index, new_box)
+
+// X軸の描画 (水平方向のライン)
+var line x_axis_line = na
+if (na(x_axis_line))
+    x_axis_line := line.new(x1=int(bar_index - grid_width), y1=y_min + y_offset, x2=int(bar_index), y2=y_min + y_offset, color=color.blue, width=2)
+else
+    line.set_xy1(x_axis_line, int(bar_index - grid_width) + x_offset, y_min + y_offset)
+    line.set_xy2(x_axis_line, int(bar_index) + x_offset, y_min + y_offset)
+
+// Y軸の描画 (垂直方向のライン)
+var line y_axis_line = na
+if (na(y_axis_line))
+    y_axis_line := line.new(x1=int(bar_index - grid_width), y1=y_min, x2=int(bar_index - grid_width), y2=y_max, color=color.blue, width=2)
+else
+    line.set_xy1(y_axis_line, int(bar_index - grid_width) + x_offset, y_min + y_offset)
+    line.set_xy2(y_axis_line, int(bar_index - grid_width) + x_offset, y_max + y_offset)
+
+// 原点(0, 0)の描画 (ラベルで表示)
+var label origin_label = na
+if (na(origin_label))
+    origin_label := label.new(x=int(bar_index - grid_width) + x_offset, y=y_min + y_offset, text="Origin", style=label.style_label_down, color=color.green, textcolor=color.white, size=size.normal)
+else
+    label.set_xy(origin_label, int(bar_index - grid_width) + x_offset, y_min + y_offset)
+
+// 目盛の間隔
+x_tick_interval = input.int(10, title="X Tick Interval")
+y_tick_interval = input.int(10, title="Y Tick Interval")
+
+// 目盛用の配列を初期化
+var label[] x_ticks = array.new_label()
+var label[] y_ticks = array.new_label()
+
+// X軸の目盛を描画
+for i = 0 to grid_width by x_tick_interval
+    x_tick_value = x_min + i * x_cell_size
+    if i % x_tick_interval == 0
+        tick_label = label.new(x=int(bar_index - grid_width + i + x_offset), y=y_min + y_offset - y_cell_size, text=str.tostring(x_tick_value, format.mintick), style=label.style_label_down, size=size.small, textcolor=color.white, color=na)
+        array.push(x_ticks, tick_label)
+
+// Y軸の目盛を描画
+for i = 0 to grid_height by y_tick_interval
+    y_tick_value = y_min + i * y_cell_size
+    tick_label = label.new(x=int(bar_index - grid_width) + x_offset - 1, y=y_tick_value, text=str.tostring(y_tick_value, format.mintick), style=label.style_label_left, size=size.small, textcolor=color.white, color=na)
+    array.push(y_ticks, tick_label)

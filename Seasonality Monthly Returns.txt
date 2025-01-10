@@ -1,0 +1,103 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © iravan
+
+//@version=5
+indicator("Monthly Returns", max_boxes_count=500)
+
+var matched = timeframe.ismonthly and timeframe.multiplier == 1
+var lbl = label.new(na, na, "Please change timeframe to 1M", color=color.yellow, style=label.style_label_center)
+if not matched and barstate.islast
+    label.set_xy(lbl, bar_index - 10, close)
+
+var start_year = year
+var years = year(timenow) - start_year + 1
+var returns = matrix.new<float>(13, years)
+
+matrix.set(returns, month(time_close) - 1, year(time_close) - start_year, (close - close[1])/math.abs(close[1])*100)
+if month(time_close) == 12
+    matrix.set(returns, 12, year(time_close) - start_year, (close - close[12])/math.abs(close[12])*100)
+
+var width = 12
+var height = 10
+var box_count = 0
+var months = array.from("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+if barstate.islast and matched
+    month_max = array.new<float>()
+    month_min = array.new<float>()
+    month_avg = array.new<float>()
+    month_std_dev = array.new<float>()
+    for i = 0 to 11
+        month_row = matrix.row(returns, i)
+        array.push(month_max, array.max(month_row))
+        array.push(month_min, array.min(month_row))
+        array.push(month_avg, array.avg(month_row))
+        array.push(month_std_dev, array.stdev(month_row))
+
+    max = array.max(month_max)
+    min = array.min(month_min)
+
+    year_row = matrix.row(returns, 12)
+    year_max = array.max(year_row)
+    year_min = array.min(year_row)
+    year_avg = array.avg(year_row)
+    year_std_dev = array.stdev(year_row)    
+
+    for c = years - 1 to 0
+        for r = 0 to 11
+            _left = last_bar_index - (years - c - 1) * width - month(time_close) + 1
+            left = _left < 0 ? 0 : _left
+            right = left + (c == 0 ? width - month[last_bar_index] + 1: width)
+            val = matrix.get(returns, r, c)
+            val_str = na(val) ? "": (str.tostring(val, "0.00") + "%")
+            bgcolor = val >= 0? color.from_gradient(val, 0, max, color.gray, color.green): color.from_gradient(val, min, 0, color.red, color.gray)
+
+            if (c == years - 1)
+                box.new(_left + width, (12 - r + 1) * height, right + width, (12 - r) * height, text=array.get(months, r), border_width=0, bgcolor=color.from_gradient(r % 2, 0, 1, color.blue, color.new(color.blue, 20)), text_color=color.white, text_size=size.normal)                
+                box_count := box_count + 1
+
+                if r == 0
+                    box.new(_left + 2 * width, (12 - r + 2) * height, right + 2 * width, (12 - r + 1) * height, text="Max", border_width=0, bgcolor=color.new(color.blue, 20), text_color=color.white, text_size=size.normal)
+                    box.new(_left + 3 * width, (12 - r + 2) * height, right + 3 * width, (12 - r + 1) * height, text="Min", border_width=0, bgcolor=color.blue, text_color=color.white, text_size=size.normal)
+                    box.new(_left + 4 * width, (12 - r + 2) * height, right + 4 * width, (12 - r + 1) * height, text="Avg", border_width=0, bgcolor=color.new(color.blue, 20), text_color=color.white, text_size=size.normal)
+                    box.new(_left + 5 * width, (12 - r + 2) * height, right + 5 * width, (12 - r + 1) * height, text="Std Dev", border_width=0, bgcolor=color.blue, text_color=color.white, text_size=size.normal)                    
+                    box_count := box_count + 4    
+
+                if r == 11
+                    box.new(_left + width, (12 - r) * height, right + width, (12 - r - 1) * height, text="Year", border_width=0, bgcolor=color.rgb(45, 69, 122), text_color=color.white, text_size=size.normal)
+                    box_count := box_count + 1
+                    if not na(year_avg)
+                        box.new(_left + 2 * width, (12 - r) * height, right + 2 * width, (12 - r - 1) * height, text=str.tostring(year_max, "0.00") + "%", border_width=0, bgcolor=color.from_gradient(year_max, year_min, year_max, color.purple, color.blue), text_color=color.white, text_size=size.normal)
+                        box.new(_left + 3 * width, (12 - r) * height, right + 3 * width, (12 - r - 1) * height, text=str.tostring(year_min, "0.00") + "%", border_width=0, bgcolor=color.from_gradient(year_min, year_min, year_max, color.purple, color.blue), text_color=color.white, text_size=size.normal)                    
+                        box.new(_left + 4 * width, (12 - r) * height, right + 4 * width, (12 - r - 1) * height, text=str.tostring(year_avg, "0.00") + "%", border_width=0, bgcolor=color.from_gradient(year_avg, year_min, year_max, color.purple, color.blue), text_color=color.white, text_size=size.normal)
+                        box.new(_left + 5 * width, (12 - r) * height, right + 5 * width, (12 - r - 1) * height, text=str.tostring(year_std_dev, "0.00"), border_width=0, bgcolor=color.from_gradient(year_std_dev, year_min, year_max, color.purple, color.blue), text_color=color.white, text_size=size.normal)                                            
+                        box_count := box_count + 4
+
+                monthly_max = array.get(month_max, r)
+                monthly_min = array.get(month_min, r)
+                monthly_avg = array.get(month_avg, r)
+                monthly_std_dev = array.get(month_std_dev, r)
+                if not na(monthly_avg)
+                    box.new(_left + 2 * width, (12 - r + 1) * height, right + 2 * width, (12 - r) * height, text=str.tostring(monthly_max, "0.00") + "%", border_width=0, bgcolor=color.from_gradient(monthly_max, array.min(month_max), array.max(month_max), color.gray, color.green), text_color=color.black, text_size=size.normal)
+                    box.new(_left + 3 * width, (12 - r + 1) * height, right + 3 * width, (12 - r) * height, text=str.tostring(monthly_min, "0.00") + "%", border_width=0, bgcolor=color.from_gradient(monthly_min, array.min(month_min), array.max(month_min), color.rgb(175, 75, 75), color.gray), text_color=color.black, text_size=size.normal)
+                    box.new(_left + 4 * width, (12 - r + 1) * height, right + 4 * width, (12 - r) * height, text=str.tostring(monthly_avg, "0.00") + "%", border_width=0, bgcolor=color.from_gradient(monthly_avg, array.min(month_avg), array.max(month_avg), color.rgb(175, 100, 100), color.green), text_color=color.black, text_size=size.normal)
+                    box.new(_left + 5 * width, (12 - r + 1) * height, right + 5 * width, (12 - r) * height, text=str.tostring(monthly_std_dev, "0.00"), border_width=0, bgcolor=color.from_gradient(monthly_std_dev, array.min(month_std_dev), array.max(month_std_dev), color.gray, color.silver), text_color=color.black, text_size=size.normal)
+                    box_count := box_count + 4
+            
+            if (box_count <= 500)
+                box.new(left, (12 - r + 1) * height, right, (12 - r) * height, text=val_str, border_width=0, bgcolor=bgcolor, text_color=color.black, text_size=size.normal)
+                box_count := box_count + 1          
+
+                if val == max
+                    label.new(right - 1, (12 - r + 1) * height - 4, "*", style=label.style_text_outline, size=size.normal, textcolor=color.white)
+                else if val == min
+                    label.new(right - 1, (12 - r + 1) * height - 4, "*", style=label.style_text_outline, size=size.normal, textcolor=color.white)      
+
+            if r == 0 and box_count <= 500
+                box.new(left, (12 - r + 2) * height, right, (12 - r + 1) * height, text=str.tostring(year(timenow) - (years - 1 - c)), border_width=0, bgcolor=color.new(color.blue, c%2==0?20:0), text_color=color.white, text_size=size.normal)
+                box_count := box_count + 1                 
+
+            if r == 11 and box_count <= 500
+                y_val = matrix.get(returns, 12, c)
+                y_val_str = na(y_val) ? "": (str.tostring(y_val, "0.00") + "%")
+                box.new(left, (12 - r) * height, right, (12 - r - 1) * height, text=y_val_str, border_width=0, bgcolor=color.from_gradient(y_val, year_min, year_max, color.purple, color.blue), text_color=color.white, text_size=size.normal)
+                box_count := box_count + 1        

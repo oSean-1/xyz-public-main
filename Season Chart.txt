@@ -1,0 +1,206 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © east-west_trading
+
+//@version=5
+indicator("Season Chart", overlay = true)
+
+startYear = input.int(2019, 'start year', tooltip = 'Accuracy will depend on validity of data provided by Tradingview. It is suggested to check data history if using a longer ' +
+ 'sample size in order to confirm years included have a full year of history')
+
+scheme = input.bool(true, 'Use dark colour scheme?')
+
+/////////////////////////////
+//variables
+////////////////////////////
+atr = ta.atr(20)
+starting = year[1] != startYear and year == startYear
+change = year[1] >= startYear and year != year[1]
+move = ((close - close[1]) / close[1]) * 100
+m_size = 270
+
+start_plot = ta.barssince(change)
+length = nz(start_plot, 0) + 1  // Ensure length is always at least 1
+LBLP = ta.lowest(low, length)
+////////////////////////////
+
+///////////////////////////////
+//functions
+//////////////////////////////
+//function to pad array
+pad_array(arr, target_size) =>
+    padded = array.copy(arr)
+    while array.size(padded) < target_size
+        array.push(padded, na)
+    padded
+
+// trimmed mean function
+trimmed_mean(arr, trim_percent) =>
+    sorted = array.copy(arr)
+    array.sort(sorted)
+    size = array.size(sorted)
+    trim_count = math.round(size * trim_percent / 100)
+    sum = 0.0
+    count = 0
+    for i = trim_count to size - 1 - trim_count
+        sum += array.get(sorted, i)
+        count += 1
+    count > 0 ? sum / count : na
+///////////////////////////////////
+
+////////////////////////////
+//plotting variables
+////////////////////////////
+// line variables
+var line top = na,var line bottom = na,var line end = na,var line jan_line = na,var line feb_line = na,var line mar_line = na,var line apr_line = na,var line may_line = na,
+ var line jun_line = na,var line jul_line = na,var line aug_line = na,var line sep_line = na,var line oct_line = na,var line nov_line = na,var line dec_line = na,
+ var line hori_one = na,var line hori_two = na,var line hori_three = na,var polyline price = na
+// label variables
+var label jan_txt = na,var label feb_txt = na,var label mar_txt = na,var label apr_txt = na,var label may_txt = na,var label jun_txt = na,var label jul_txt = na,
+var label aug_txt = na,var label sep_txt = na,var label oct_txt = na,var label nov_txt = na,var label dec_txt = na,var label info = na
+// location variables
+var float plot_top = na,var float plot_bottom = na,var float plot_range = na,var int start_index = na,var float running_total = na,var int months = na,var int hori_one_val = 0,
+ var int hori_two_val = 0,var int hori_three_val = 0,var int quads_hori = na
+//color variables
+var color light_one = color.gray
+var color light_two = color.white
+var color light_three = color.silver 
+
+var color dark_one = color.black
+var color dark_two = color.navy
+
+///////////////////////////////////
+
+///////////////////////////////////
+// array and matrix variables
+var float[] changes = array.new_float()
+var float nyd = 0
+var float nye = 0
+var data = matrix.new<float>()
+var bool year_one = true
+///////////////////////////////////
+
+///////////////////////////////////
+// array and matrix population
+///////////////////////////////////
+if starting
+    array.push(changes, move)    
+if year >= startYear and not starting
+    array.push(changes, move)
+if change
+    nyd := array.get(changes, 0)
+    nye := array.get(changes, array.size(changes)- 2)
+    nyd := array.pop(changes)
+    if year_one == true
+        year_one := false
+    changes := pad_array(changes, m_size)
+    data.add_col(0,changes)
+    array.clear(changes)
+    array.push(changes, nyd)
+
+
+
+///////////////////////////////////
+
+if barstate.islast
+
+///////////////////////////////////
+// matrix extraction
+    all_avg = array.new_float()
+    row = array.new_float()
+    for j = 0 to matrix.rows(data) - 1
+        has_valid_data = false
+        for i = 0 to matrix.columns(data) - 1
+            value = matrix.get(data, j, i)
+            if not na(value)
+                array.push(row, value)
+                has_valid_data := true
+        if has_valid_data
+            trim_percent = 10  // Remove 10% from each end, adjust as needed
+            row_av = trimmed_mean(row, trim_percent)
+            array.push(all_avg, row_av)
+        array.clear(row)
+
+// array cumulation
+    cum_avg = array.new_float()
+    running_total := 0.0
+    for i = 0 to array.size(all_avg) - 1
+        current_value = array.get(all_avg, i)
+        if not na(current_value)
+            running_total := running_total + current_value
+            array.push(cum_avg, running_total)
+        else
+            array.push(cum_avg, running_total) 
+
+// plotting variables and values
+    array_length = array.size(cum_avg)
+    start_index := bar_index - start_plot 
+    plot_top := LBLP - atr * 5
+    plot_bottom := LBLP - atr * 15
+    plot_range := plot_top - plot_bottom
+    months := int(array_length / 12)
+    float overall_min = array.min(cum_avg)
+    float overall_max = array.max(cum_avg)
+    float overall_range = overall_max - overall_min
+    hori_one_val := int(overall_min + overall_range / 4)
+    hori_two_val := int(overall_min + (overall_range / 2))
+    hori_three_val := int(overall_min + (3 * overall_range / 4))
+    quads_hori := int(plot_range / 4)
+
+// line and label deletion
+    line.delete(top), line.delete(bottom), polyline.delete(price),
+     label.delete(sep_txt), line.delete(hori_one), line.delete(hori_two),line.delete(hori_three),
+     line.delete(jan_line), line.delete(feb_line), line.delete(mar_line), line.delete(apr_line), line.delete(may_line), line.delete(jun_line), line.delete(jul_line),
+     line.delete(aug_line),line.delete(sep_line), line.delete(oct_line), line.delete(nov_line), line.delete(dec_line),
+     label.delete(jan_txt), label.delete(feb_txt), label.delete(mar_txt), label.delete(apr_txt), label.delete(may_txt), label.delete(jun_txt), label.delete(jul_txt),
+     label.delete(aug_txt), label.delete(sep_txt), label.delete(oct_txt), label.delete(nov_txt), label.delete(dec_txt),label.delete(info)
+
+// line plotting
+    bottom := line.new(x1 = start_index, y1 = plot_bottom, x2 = start_index + array_length, y2 = plot_bottom, color=scheme ? light_one : dark_one)
+    top := line.new(x1 = start_index, y1 = plot_top, x2 = start_index + array_length, y2 = plot_top, color=scheme ? light_one : dark_one)
+
+    // Create lines for each month
+    jan_line := line.new(x1 = start_index, y1 = plot_bottom, x2 = start_index, y2 = plot_top, color=color.gray)
+    feb_line := line.new(x1 = start_index + months, y1 = plot_bottom, x2 = start_index + months, y2 = plot_top, color=color.gray)
+    mar_line := line.new(x1 = start_index + (months * 2), y1 = plot_bottom, x2 = start_index + (months * 2), y2 = plot_top, color=color.gray)
+    apr_line := line.new(x1 = start_index + (months * 3), y1 = plot_bottom, x2 = start_index + (months * 3), y2 = plot_top, color=color.gray)
+    may_line := line.new(x1 = start_index + (months * 4), y1 = plot_bottom, x2 = start_index + (months * 4), y2 = plot_top, color=color.gray)
+    jun_line := line.new(x1 = start_index + (months * 5), y1 = plot_bottom, x2 = start_index + (months * 5), y2 = plot_top, color=color.gray)
+    jul_line := line.new(x1 = start_index + (months * 6), y1 = plot_bottom, x2 = start_index + (months * 6), y2 = plot_top, color=color.gray)
+    aug_line := line.new(x1 = start_index + (months * 7), y1 = plot_bottom, x2 = start_index + (months * 7), y2 = plot_top, color=color.gray)
+    sep_line := line.new(x1 = start_index + (months * 8), y1 = plot_bottom, x2 = start_index + (months * 8), y2 = plot_top, color=color.gray)
+    oct_line := line.new(x1 = start_index + (months * 9), y1 = plot_bottom, x2 = start_index + (months * 9), y2 = plot_top, color=color.gray)
+    nov_line := line.new(x1 = start_index + (months * 10), y1 = plot_bottom, x2 = start_index + (months * 10), y2 = plot_top, color=color.gray)
+    dec_line := line.new(x1 = start_index + (months * 11), y1 = plot_bottom, x2 = start_index + (months * 11), y2 = plot_top, color=color.gray)
+    end := line.new(x1 = start_index + array_length, y1 = plot_bottom, x2 = start_index + array_length, y2 = plot_top, color=color.gray)
+
+    //create text for each month
+    jan_txt := label.new(start_index, plot_bottom - atr , 'Jan', textcolor = color.silver, style=label.style_none, size=size.small)
+    feb_txt := label.new(start_index + months, plot_bottom - atr, 'Feb', textcolor = color.silver, style=label.style_none, size=size.small)
+    mar_txt := label.new(start_index + (months * 2), plot_bottom - atr, 'Mar', textcolor = color.silver, style=label.style_none, size=size.small)
+    apr_txt := label.new(start_index + (months * 3), plot_bottom - atr, 'Apr', textcolor = color.silver, style=label.style_none, size=size.small)
+    may_txt := label.new(start_index + (months * 4), plot_bottom - atr, 'May', textcolor = color.silver, style=label.style_none, size=size.small)
+    jun_txt := label.new(start_index + (months * 5), plot_bottom - atr, 'Jun', textcolor = color.silver, style=label.style_none, size=size.small)
+    jul_txt := label.new(start_index + (months * 6), plot_bottom - atr, 'Jul', textcolor = color.silver, style=label.style_none, size=size.small)
+    aug_txt := label.new(start_index + (months * 7), plot_bottom - atr, 'Aug', textcolor = color.silver, style=label.style_none, size=size.small)
+    sep_txt := label.new(start_index + (months * 8), plot_bottom - atr, 'Sep', textcolor = color.silver, style=label.style_none, size=size.small)
+    oct_txt := label.new(start_index + (months * 9), plot_bottom - atr, 'Oct', textcolor = color.silver, style=label.style_none, size=size.small)
+    nov_txt := label.new(start_index + (months * 10), plot_bottom - atr, 'Nov', textcolor = color.silver, style=label.style_none, size=size.small)
+    dec_txt := label.new(start_index + (months * 11), plot_bottom - atr, 'Dec', textcolor = color.silver, style=label.style_none, size=size.small)
+    hori_one := line.new(x1 = start_index, y1 = plot_bottom + quads_hori,x2 = start_index + array_length, y2 = plot_bottom + quads_hori,color=color.gray)
+    hori_two := line.new(x1 = start_index, y1 = plot_bottom + (quads_hori * 2),x2 = start_index + array_length, y2 = plot_bottom + (quads_hori * 2),color=color.gray)
+    hori_three := line.new(x1 = start_index, y1 = plot_bottom + (quads_hori * 3),x2 = start_index + array_length, y2 = plot_bottom + (quads_hori * 3),color=color.gray)
+
+    // Scale and plot cum_avg
+    var _points = array.new<chart.point>()
+    array.clear(_points)
+    for i = 0 to array_length - 1
+        value = array.get(cum_avg, i)
+        scaled_value = ((value - overall_min) / overall_range) * plot_range + plot_bottom
+        idx = start_index + i
+        _points.push(chart.point.from_index(idx, scaled_value))
+
+    price := polyline.new(points = _points, line_color = scheme ? color.white : color.navy)
+
+    // information label
+    info := label.new(start_index + 100, plot_top + atr,'Seasonal chart from '+str.tostring(startYear)+' to '+str.tostring(year - 1), textcolor=scheme ? color.white : color.navy,
+     style=label.style_none, size=size.small)

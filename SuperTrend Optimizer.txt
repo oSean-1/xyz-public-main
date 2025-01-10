@@ -1,0 +1,2372 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © KioseffTrading
+//@version=5
+
+
+//  ________________________________________________
+// |                                               |  
+// |       ---------------------------------       | 
+// |      | K̲ i̲ o̲ s̲ e̲ f̲ f̲     T̲ r̲ a̲ d̲ i̲ n̲ g |      | 
+// |      |                                 |      |  
+// |      | ƃ u ᴉ p ɐ ɹ ꓕ     ⅎ ⅎ ǝ s o ᴉ ꓘ |      |  
+// |       --------------------------------        |  
+// |                                               | 
+// |_______________________________________________|
+
+
+
+indicator("SuperTrend Optimizer",  shorttitle = "SuperTrend Optimizer [Kioseff Trading]", overlay = true, max_lines_count = 500, max_boxes_count = 500)
+
+factor = input.float(3.0, "SuperTrend Factor", step = 0.01, minval = 0.0001, group = "Set Lower Threshold for Parameter Optimization Range", tooltip = "Changes to This Parameter Shifts the Tested Factor Range. For Instance, Increasing the Factor Measure From 3.00 to 3.01 (+0.01) Will Remove 3.00 From the Tested Range - This Setting Controls the Lower Threshold of the Range. The Upper Threshold, in All Instances, Is This Setting + 3.3 (I.e 3.0[Lower] - 6.3[Upper], 4.0[Lower] - 7.3[Upper], 2.5[Lower], - 5.8[Upper])")
+atr = input.int(10, "SuperTrend ATR Length", step = 1, minval = 1, tooltip = "Changes to This Parameter Shifts the Tested ATR Period Range. For Instance, Increasing the Factor Measure From 10 to 1 (+1) Will Remove 10 From the Tested Range - This Setting Controls the Lower Threshold of the Range. The Upper Threshold, in All Instances, Is This Setting + 2 (I.e 10[Lower] - 12[Upper], 11[Lower] - 13[Upper], 9[Lower], - 11[Upper])")
+select = input.string("Best", title = "Best Performers ? Worst Performers", options = ["Best", "Worst"], group = "Table Config")
+inst = input.string("No", title = "Instructions?", options = ["No", "Yes"])
+tab = input.string("All", title = "Show Performers", options = ["Top Three", "All"])
+ovr = input.string("Off", title = "Plot Override SuperTrend (Plot Your Own Instead of Auto Plot Best Performer)", options = ["Off", "On"] , group = 'Plot Supertrend With Your Parameters (This Overrides the Automatic Plot of the Best Performing Parameters) Selecting "On" Does NOT Affect the Parameter Combination Testing Range!')
+ovrF  = input.float(3.0, "Override SuperTrend Factor", step = 0.01, minval = 0.0001)
+ovrA  = input.int(10, "SuperTrend ATR Length", step = 1, minval = 1)
+
+// _______________________________________________________
+//
+// Override ST                       
+// _______________________________________________________  
+
+[s, d] = ta.supertrend(ovrF, ovrA)
+
+
+// _______________________________________________________
+//
+// Combination Parameters for Array                         
+// _______________________________________________________  
+
+[s1, d1] = ta.supertrend(factor , atr)
+[s2, d2] = ta.supertrend(factor + 0.1, atr)
+[s3, d3] = ta.supertrend(factor + 0.2, atr)
+[s4, d4] = ta.supertrend(factor + 0.3, atr)
+[s5, d5] = ta.supertrend(factor + 0.4, atr)
+[s6, d6] = ta.supertrend(factor + 0.5, atr)
+[s7, d7] = ta.supertrend(factor + 0.6, atr)
+[s8, d8] = ta.supertrend(factor + 0.7, atr)
+[s9, d9] = ta.supertrend(factor+ 0.8, atr)
+[s10, d10] = ta.supertrend(factor + 0.9, atr)
+[s11, d11] = ta.supertrend(factor + 1.0, atr)
+[s12, d12] = ta.supertrend(factor + 1.1, atr)
+[s13, d13] = ta.supertrend(factor + 1.2, atr)
+[s14, d14] = ta.supertrend(factor + 1.3, atr)
+[s15, d15] = ta.supertrend(factor + 1.4, atr)
+[s16, d16] = ta.supertrend(factor + 1.5, atr)
+[s17, d17] = ta.supertrend(factor + 1.6, atr)
+[s18, d18] = ta.supertrend(factor + 1.7, atr)
+[s19, d19] = ta.supertrend(factor + 1.8, atr)
+[s20, d20] = ta.supertrend(factor + 1.9, atr)
+[s21, d21] = ta.supertrend(factor + 2.0, atr)
+[s22, d22] = ta.supertrend(factor + 2.1, atr)
+[s23, d23] = ta.supertrend(factor + 2.2, atr)
+[s24, d24] = ta.supertrend(factor + 2.3, atr)
+[s25, d25] = ta.supertrend(factor + 2.4, atr)
+[s26, d26] = ta.supertrend(factor + 2.5, atr)
+[s27, d27] = ta.supertrend(factor + 2.6, atr)
+[s28, d28] = ta.supertrend(factor + 2.7, atr)
+[s29, d29] = ta.supertrend(factor + 2.8, atr)
+[s30, d30] = ta.supertrend(factor + 2.9, atr)
+[s31, d31] = ta.supertrend(factor + 3.0, atr)
+[s32, d32] = ta.supertrend(factor + 3.1, atr)
+[s33, d33] = ta.supertrend(factor + 3.2, atr)
+[s34, d34] = ta.supertrend(factor + 3.3, atr)
+
+[sB1, dB1] = ta.supertrend(factor , atr + 1)
+[sB2, dB2] = ta.supertrend(factor + 0.1, atr + 1)
+[sB3, dB3] = ta.supertrend(factor + 0.2, atr + 1)
+[sB4, dB4] = ta.supertrend(factor + 0.3, atr + 1)
+[sB5, dB5] = ta.supertrend(factor + 0.4, atr + 1)
+[sB6, dB6] = ta.supertrend(factor + 0.5, atr + 1)
+[sB7, dB7] = ta.supertrend(factor + 0.6, atr + 1)
+[sB8, dB8] = ta.supertrend(factor + 0.7, atr + 1)
+[sB9, dB9] = ta.supertrend(factor + 0.8, atr + 1)
+[sB10, dB10] = ta.supertrend(factor + 0.9, atr + 1)
+[sB11, dB11] = ta.supertrend(factor + 1.0, atr + 1)
+[sB12, dB12] = ta.supertrend(factor + 1.1, atr + 1)
+[sB13, dB13] = ta.supertrend(factor + 1.2, atr + 1)
+[sB14, dB14] = ta.supertrend(factor + 1.3, atr + 1)
+[sB15, dB15] = ta.supertrend(factor + 1.4, atr + 1)
+[sB16, dB16] = ta.supertrend(factor + 1.5, atr + 1)
+[sB17, dB17] = ta.supertrend(factor + 1.6, atr + 1)
+[sB18, dB18] = ta.supertrend(factor + 1.7, atr + 1)
+[sB19, dB19] = ta.supertrend(factor + 1.8, atr + 1)
+[sB20, dB20] = ta.supertrend(factor + 1.9, atr + 1)
+[sB21, dB21] = ta.supertrend(factor + 2.0, atr + 1)
+[sB22, dB22] = ta.supertrend(factor + 2.1, atr + 1)
+[sB23, dB23] = ta.supertrend(factor + 2.2, atr + 1)
+[sB24, dB24] = ta.supertrend(factor + 2.3, atr + 1)
+[sB25, dB25] = ta.supertrend(factor + 2.4, atr + 1)
+[sB26, dB26] = ta.supertrend(factor + 2.5, atr + 1)
+[sB27, dB27] = ta.supertrend(factor + 2.6, atr + 1)
+[sB28, dB28] = ta.supertrend(factor + 2.7, atr + 1)
+[sB29, dB29] = ta.supertrend(factor + 2.8, atr + 1)
+[sB30, dB30] = ta.supertrend(factor + 2.9, atr + 1)
+[sB31, dB31] = ta.supertrend(factor + 3.0, atr + 1)
+[sB32, dB32] = ta.supertrend(factor + 3.1, atr + 1)
+[sB33, dB33] = ta.supertrend(factor + 3.2, atr + 1)
+[sB34, dB34] = ta.supertrend(factor + 3.3, atr + 1)
+
+
+[sC1, dC1] = ta.supertrend(factor , atr + 2)
+[sC2, dC2] = ta.supertrend(factor + 0.1, atr + 2)
+[sC3, dC3] = ta.supertrend(factor + 0.2, atr + 2)
+[sC4, dC4] = ta.supertrend(factor + 0.3, atr + 2)
+[sC5, dC5] = ta.supertrend(factor + 0.4, atr + 2)
+[sC6, dC6] = ta.supertrend(factor + 0.5, atr + 2)
+[sC7, dC7] = ta.supertrend(factor + 0.6, atr + 2)
+[sC8, dC8] = ta.supertrend(factor + 0.7, atr + 2)
+[sC9, dC9] = ta.supertrend(factor + 0.8, atr + 2)
+[sC10, dC10] = ta.supertrend(factor + 0.9, atr + 2)
+[sC11, dC11] = ta.supertrend(factor + 1.0, atr + 2)
+[sC12, dC12] = ta.supertrend(factor + 1.1, atr + 2)
+[sC13, dC13] = ta.supertrend(factor + 1.2, atr + 2)
+[sC14, dC14] = ta.supertrend(factor + 1.3, atr + 2)
+[sC15, dC15] = ta.supertrend(factor + 1.4, atr + 2)
+[sC16, dC16] = ta.supertrend(factor + 1.5, atr + 2)
+[sC17, dC17] = ta.supertrend(factor + 1.6, atr + 2)
+[sC18, dC18] = ta.supertrend(factor + 1.7, atr + 2)
+[sC19, dC19] = ta.supertrend(factor + 1.8, atr + 2)
+[sC20, dC20] = ta.supertrend(factor + 1.9, atr + 2)
+[sC21, dC21] = ta.supertrend(factor + 2.0, atr + 2)
+[sC22, dC22] = ta.supertrend(factor + 2.1, atr + 2)
+[sC23, dC23] = ta.supertrend(factor + 2.2, atr + 2)
+[sC24, dC24] = ta.supertrend(factor + 2.3, atr + 2)
+[sC25, dC25] = ta.supertrend(factor + 2.4, atr + 2)
+[sC26, dC26] = ta.supertrend(factor + 2.5, atr + 2)
+[sC27, dC27] = ta.supertrend(factor + 2.6, atr + 2)
+[sC28, dC28] = ta.supertrend(factor + 2.7, atr + 2)
+[sC29, dC29] = ta.supertrend(factor + 2.8, atr + 2)
+[sC30, dC30] = ta.supertrend(factor + 2.9, atr + 2)
+[sC31, dC31] = ta.supertrend(factor + 3.0, atr + 2)
+[sC32, dC32] = ta.supertrend(factor + 3.1, atr + 2)
+[sC33, dC33] = ta.supertrend(factor + 3.2, atr + 2)
+[sC34, dC34] = ta.supertrend(factor + 3.3, atr + 2)
+
+
+var float x = 0
+var float x1 = 0
+var float x2 = 0
+var float x3 = 0
+var float x4 = 0
+var float x5 = 0
+var float x6 = 0
+var float x7 = 0
+var float x8 = 0
+var float x9 = 0
+var float x10 = 0
+var float x11 = 0
+var float x12 = 0
+var float x13 = 0
+var float x14 = 0
+var float x15 = 0
+var float x16 = 0
+var float x17 = 0
+var float x18 = 0
+var float x19 = 0
+var float x20 = 0
+var float x21 = 0
+var float x22 = 0
+var float x23 = 0
+var float x24 = 0
+var float x25 = 0
+var float x26 = 0
+var float x27 = 0
+var float x28 = 0
+var float x29 = 0
+var float x30 = 0
+var float x31 = 0
+var float x32 = 0
+var float x33 = 0
+var float x34 = 0
+var float x35 = 0
+var float x36 = 0
+var float x37 = 0
+var float x38 = 0
+var float x39 = 0
+var float x40 = 0
+var float x41 = 0
+var float x42 = 0
+var float x43 = 0
+var float x44 = 0
+var float x45 = 0
+var float x46 = 0
+var float x47 = 0
+var float x48 = 0
+var float x49 = 0
+var float x50 = 0
+var float x51 = 0
+var float x52 = 0
+var float x53 = 0
+var float x54 = 0
+var float x55 = 0
+var float x56 = 0
+var float x57 = 0
+var float x58 = 0
+var float x59 = 0
+var float x60 = 0
+var float x61 = 0
+var float x62 = 0
+var float x63 = 0
+var float x64 = 0
+var float x65 = 0
+var float x66 = 0
+var float x67 = 0
+var float x68 = 0
+var float x69 = 0
+var float x70 = 0
+var float x71 = 0
+var float x72 = 0
+var float x73 = 0
+var float x74 = 0
+var float x75 = 0
+var float x76 = 0
+var float x77 = 0
+var float x78 = 0
+var float x79 = 0
+var float x80 = 0
+var float x81 = 0
+var float x82 = 0
+var float x83 = 0
+var float x84 = 0
+var float x85 = 0
+var float x86 = 0
+var float x87 = 0
+var float x88 = 0
+var float x89 = 0
+var float x90 = 0
+var float x91 = 0
+var float x92 = 0
+var float x93 = 0
+var float x94 = 0
+var float x95 = 0
+var float x96 = 0
+var float x97 = 0
+var float x98 = 0
+var float x99 = 0
+var float x100 = 0
+var float x101 = 0
+var float x102 = 0
+var float x103 = 0
+var float x104 = 0
+var float x105 = 0
+var float x106 = 0
+var float x107 = 0
+var float x108 = 0
+var float x109 = 0
+var float x110 = 0
+var float x111 = 0
+var float x112 = 0
+var float x113 = 0
+var float x114 = 0
+var float x115 = 0
+var float x116 = 0
+var float x117 = 0
+var float x118 = 0
+var float x119 = 0
+var float x120 = 0
+var float x121 = 0
+var float x122 = 0
+var float x123 = 0
+var float x124 = 0
+var float x125 = 0
+var float x126 = 0
+var float x127 = 0
+var float x128 = 0
+var float x129 = 0
+var float x130 = 0
+var float x131 = 0
+var float x132 = 0
+var float x133 = 0
+var float x134 = 0
+var float x135 = 0
+var float x136 = 0
+
+var float xC69 = 0
+var float xC70 = 0
+var float xC71 = 0
+var float xC72 = 0
+var float xC73 = 0
+var float xC74 = 0
+var float xC75 = 0
+var float xC76 = 0
+var float xC77 = 0
+var float xC78 = 0
+var float xC79 = 0
+var float xC80 = 0
+var float xC81 = 0
+var float xC82 = 0
+var float xC83 = 0
+var float xC84 = 0
+var float xC85 = 0
+var float xC86 = 0
+var float xC87 = 0
+var float xC88 = 0
+var float xC89 = 0
+var float xC90 = 0
+var float xC91 = 0
+var float xC92 = 0
+var float xC93 = 0
+var float xC94 = 0
+var float xC95 = 0
+var float xC96 = 0
+var float xC97 = 0
+var float xC98 = 0
+var float xC99 = 0
+var float xC100 = 0
+var float xC101 = 0
+var float xC102 = 0
+var float xC103 = 0
+var float xC104 = 0
+var float xC105 = 0
+var float xC106 = 0
+var float xC107 = 0
+var float xC108 = 0
+var float xC109 = 0
+var float xC110 = 0
+var float xC111 = 0
+var float xC112 = 0
+var float xC113 = 0
+var float xC114 = 0
+var float xC115 = 0
+var float xC116 = 0
+var float xC117 = 0
+var float xC118 = 0
+var float xC119 = 0
+var float xC120 = 0
+var float xC121 = 0
+var float xC122 = 0
+var float xC123 = 0
+var float xC124 = 0
+var float xC125 = 0
+var float xC126 = 0
+var float xC127 = 0
+var float xC128 = 0
+var float xC129 = 0
+var float xC130 = 0
+var float xC131 = 0
+var float xC132 = 0
+var float xC133 = 0
+var float xC134 = 0
+var float xC135 = 0
+var float xC136 = 0
+
+var float k = 0
+var float k1 = 0
+var float k2 = 0
+var float k3 = 0
+var float k4 = 0
+var float k5 = 0
+var float k6 = 0
+var float k7 = 0
+var float k8 = 0
+var float k9 = 0
+var float k10 = 0
+var float k11 = 0
+var float k12 = 0
+var float k13 = 0
+var float k14 = 0
+var float k15 = 0
+var float k16 = 0
+var float k17 = 0
+var float k18 = 0
+var float k19 = 0
+var float k20 = 0
+var float k21 = 0
+var float k22 = 0
+var float k23 = 0
+var float k24 = 0
+var float k25 = 0
+var float k26 = 0
+var float k27 = 0
+var float k28 = 0
+var float k29 = 0
+var float k30 = 0
+var float k31 = 0
+var float k32 = 0
+var float k33 = 0
+var float k34 = 0
+var float k35 = 0
+var float k36 = 0
+var float k37 = 0
+var float k38 = 0
+var float k39 = 0
+var float k40 = 0
+var float k41 = 0
+var float k42 = 0
+var float k43 = 0
+var float k44 = 0
+var float k45 = 0
+var float k46 = 0
+var float k47 = 0
+var float k48 = 0
+var float k49 = 0
+var float k50 = 0
+var float k51 = 0
+var float k52 = 0
+var float k53 = 0
+var float k54 = 0
+var float k55 = 0
+var float k56 = 0
+var float k57 = 0
+var float k58 = 0
+var float k59 = 0
+var float k60 = 0
+var float k61 = 0
+var float k62 = 0
+var float k63 = 0
+var float k64 = 0
+var float k65 = 0
+var float k66 = 0
+var float k67 = 0
+
+
+var float kx34 = 0
+var float kx35 = 0
+var float kx36 = 0
+var float kx37 = 0
+var float kx38 = 0
+var float kx39 = 0
+var float kx40 = 0
+var float kx41 = 0
+var float kx42 = 0
+var float kx43 = 0
+var float kx44 = 0
+var float kx45 = 0
+var float kx46 = 0
+var float kx47 = 0
+var float kx48 = 0
+var float kx49 = 0
+var float kx50 = 0
+var float kx51 = 0
+var float kx52 = 0
+var float kx53 = 0
+var float kx54 = 0
+var float kx55 = 0
+var float kx56 = 0
+var float kx57 = 0
+var float kx58 = 0
+var float kx59 = 0
+var float kx60 = 0
+var float kx61 = 0
+var float kx62 = 0
+var float kx63 = 0
+var float kx64 = 0
+var float kx65 = 0
+var float kx66 = 0
+var float kx67 = 0
+
+var float j = 0
+var float j1 = 0
+var float j2 = 0
+var float j3 = 0
+var float j4 = 0
+var float j5 = 0
+var float j6 = 0
+var float j7 = 0
+var float j8 = 0
+var float j9 = 0
+var float j10 = 0
+var float j11 = 0
+var float j12 = 0
+var float j13 = 0
+var float j14 = 0
+var float j15 = 0
+var float j16 = 0
+var float j17 = 0
+var float j18 = 0
+var float j19 = 0
+var float j20 = 0
+var float j21 = 0
+var float j22 = 0
+var float j23 = 0
+var float j24 = 0
+var float j25 = 0
+var float j26 = 0
+var float j27 = 0
+var float j28 = 0
+var float j29 = 0
+var float j30 = 0
+var float j31 = 0
+var float j32 = 0
+var float j33 = 0
+var float j34 = 0
+var float j35 = 0
+var float j36 = 0
+var float j37 = 0
+var float j38 = 0
+var float j39 = 0
+var float j40 = 0
+var float j41 = 0
+var float j42 = 0
+var float j43 = 0
+var float j44 = 0
+var float j45 = 0
+var float j46 = 0
+var float j47 = 0
+var float j48 = 0
+var float j49 = 0
+var float j50 = 0
+var float j51 = 0
+var float j52 = 0
+var float j53 = 0
+var float j54 = 0
+var float j55 = 0
+var float j56 = 0
+var float j57 = 0
+var float j58 = 0
+var float j59 = 0
+var float j60 = 0
+var float j61 = 0
+var float j62 = 0
+var float j63 = 0
+var float j64 = 0
+var float j65 = 0
+var float j66 = 0
+var float j67 = 0
+
+
+var float jx34 = 0
+var float jx35 = 0
+var float jx36 = 0
+var float jx37 = 0
+var float jx38 = 0
+var float jx39 = 0
+var float jx40 = 0
+var float jx41 = 0
+var float jx42 = 0
+var float jx43 = 0
+var float jx44 = 0
+var float jx45 = 0
+var float jx46 = 0
+var float jx47 = 0
+var float jx48 = 0
+var float jx49 = 0
+var float jx50 = 0
+var float jx51 = 0
+var float jx52 = 0
+var float jx53 = 0
+var float jx54 = 0
+var float jx55 = 0
+var float jx56 = 0
+var float jx57 = 0
+var float jx58 = 0
+var float jx59 = 0
+var float jx60 = 0
+var float jx61 = 0
+var float jx62 = 0
+var float jx63 = 0
+var float jx64 = 0
+var float jx65 = 0
+var float jx66 = 0
+var float jx67 = 0
+
+// _______________________________________________________
+//
+// Combination Parameter Calculations for Array                         
+// _______________________________________________________  
+
+if d1[1] == 1 and d1 == -1 and j == 0
+    x := close 
+    j := 1
+if d1[1] == -1 and d1 == 1 and j == 1
+    x2 := ((close / x) - 1) * 100
+    x2 := x2[1] + x2
+    k += 1
+    j := 0
+
+if d2[1] == 1 and d2 == -1 and j1 == 0
+    x3 := close 
+    j1 := 1
+if d2[1] == -1 and d2 == 1  and j1 == 1
+    x4 := ((close / x3) - 1) * 100
+    x4 := x4[1] + x4
+    k1 += 1
+    j1 := 0
+
+
+if d3[1] == 1 and d3 == -1 and j2 == 0
+    x5 := close 
+    j2 := 1
+if d13[1] == -1 and d3 == 1  and j2 == 1
+    x6 := ((close / x5) - 1) * 100
+    x6 := x6[1] + x6
+    k2 += 1
+    j2 := 0
+
+
+if d4[1] == 1 and d4 == -1 and j3 == 0
+    x7 := close
+    j3 := 1
+if d4[1] == -1 and d4 == 1  and j3 == 1
+    x8 := ((close / x7) - 1) * 100
+    x8 := x8[1] + x8
+    k3 += 1
+    j3 := 0
+
+
+if d5[1] == 1 and d5 == -1 and j4 == 0
+    x9 := close 
+    j4 := 1
+if d5[1] == -1 and d5 == 1  and j4 == 1
+    x10 := ((close / x9) - 1) * 100
+    x10 := x10[1] + x10
+    k4 += 1
+    j4 := 0
+
+
+if d6[1] == 1 and d6 == -1 and j5 == 0
+    x11 := close
+    j5 := 1
+if d6[1] == -1 and d6 == 1  and j5 == 1
+    x12 := ((close / x11) - 1) * 100
+    x12 := x12[1] + x12
+    k5 += 1
+    j5 := 0
+
+
+if d7[1] == 1 and d7 == -1 and j6 == 0
+    x13 := close 
+    j6 := 1
+if d7[1] == -1 and d7 == 1  and j6 == 1
+    x14 := ((close / x13) - 1) * 100
+    x14 := x14[1] + x14
+    k6 += 1
+    j6 := 0
+
+
+if d8[1] == 1 and d8 == -1 and j7 == 0
+    x15 := close 
+    j7 := 1
+if d8[1] == -1 and d8 == 1  and j7 == 1
+    x16 := ((close / x15) - 1) * 100
+    x16 := x16[1] + x16
+    k7 += 1
+    j7 := 0
+
+
+if d9[1] == 1 and d9 == -1 and j8 == 0
+    x17 := close 
+    j8 := 1
+if d9[1] == -1 and d9 == 1 and j8 == 1
+    x18 := ((close / x17) - 1) * 100
+    x18 := x18[1] + x18
+    k8 += 1
+    j8 := 0
+
+
+if d10[1] == 1 and d10 == -1 and j9 == 0
+    x19 := close
+    j9 := 1
+if d10[1] == -1 and d10 == 1 and j9 == 1
+    x20 := ((close / x19) - 1) * 100
+    x20 := x20[1] + x20
+    k9 += 1
+    j9 := 0
+
+
+if d11[1] == 1 and d11 == -1 and j10 == 0
+    x21 := close 
+    j10 := 1
+if d11[1] == -1 and d11 == 1 and j10 == 1
+    x22 := ((close / x21) - 1) * 100
+    x22 := x22[1] + x22
+    k10 += 1
+    j10 := 0
+
+
+if d12[1] == 1 and d12 == -1 and j11 == 0
+    x23 := close 
+    j11 := 1
+if d12[1] == -1 and d12 == 1 and j11 == 1
+    x24 := ((close / x23) - 1) * 100
+    x24 := x24[1] + x24
+    k11 += 1
+    j11 := 0
+
+
+if d13[1] == 1 and d13 == -1 and j12 == 0
+    x25 := close 
+    j12 := 1
+if d13[1] == -1 and d13 == 1 and j12 == 1
+    x26 := ((close / x25) - 1) * 100
+    x26 := x26[1] + x26
+    k12 += 1
+    j12 := 0
+
+
+if d14[1] == 1 and d14 == -1 and j13 == 0
+    x27 := close 
+    j13 := 1
+if d14[1] == -1 and d14 == 1 and j13 == 1
+    x28 := ((close / x27) - 1) * 100
+    x28 := x28[1] + x28
+    k13 += 1
+    j13 := 0
+
+
+if d15[1] == 1 and d15 == -1 and j14 == 0
+    x29 := close 
+    j14 := 1
+if d15[1] == -1 and d15 == 1 and j14 == 1
+    x30 := ((close / x29) - 1) * 100
+    x30 := x30[1] + x30
+    k14 += 1
+    j14 := 0
+
+
+if d16[1] == 1 and d16 == -1 and j15 == 0
+    x31 := close 
+    j15 := 1
+if d16[1] == -1 and d16 == 1 and j15 == 1
+    x32 := ((close / x31) - 1) * 100
+    x32 := x32[1] + x32
+    k15 += 1
+    j15 := 0
+
+
+if d17[1] == 1 and d17 == -1 and j16 == 0
+    x33 := close 
+    j16 := 1
+if d17[1] == -1 and d17 == 1 and j16 == 1
+    x34 := ((close / x33) - 1) * 100
+    x34 := x34[1] + x34
+    k16 += 1
+    j16 := 0
+
+
+if d18[1] == 1 and d18 == -1 and j17 == 0
+    x35 := close 
+    j17 := 1
+if d18[1] == -1 and d18 == 1 and j17 == 1
+    x36 := ((close / x35) - 1) * 100
+    x36 := x36[1] + x36
+    k17 += 1
+    j17 := 0
+
+
+if d19[1] == 1 and d19 == -1 and j18 == 0
+    x37 := close
+    j18 := 1
+if d19[1] == -1 and d19 == 1 and j18 == 1
+    x38 := ((close / x37) - 1) * 100
+    x38 := x38[1] + x38
+    k18 += 1
+    j18 := 0
+
+
+if d20[1] == 1 and d20 == -1 and j19 == 0
+    x39 := close 
+    j19 := 1
+if d20[1] == -1 and d20 == 1 and j19 == 1
+    x40 := ((close / x39) - 1) * 100
+    x40 := x40[1] + x40
+    k19 += 1
+    j19 := 0
+
+
+if d21[1] == 1 and d21 == -1 and j20 == 0
+    x41 := close 
+    j20 := 1
+if d21[1] == -1 and d21 == 1  and j20 == 1
+    x42 := ((close / x41) - 1) * 100
+    x42 := x42[1] + x42
+    k20 += 1
+    j20 := 0
+
+
+if d22[1] == 1 and d22 == -1 and j21 == 0
+    x43 := close 
+    j21 := 1
+if d22[1] == -1 and d22 == 1  and j21 == 1
+    x44 := ((close / x43) - 1) * 100
+    x44 := x44[1] + x44
+    k21 += 1
+    j21 := 0
+
+
+if d23[1] == 1 and d23 == -1 and j22 == 0
+    x45 := close 
+    j22 := 1
+if d23[1] == -1 and d23 == 1  and j22 == 1
+    x46 := ((close / x45) - 1) * 100
+    x46 := x46[1] + x46
+    k22 += 1
+    j22 := 0
+
+
+if d24[1] == 1 and d24 == -1 and j23 == 0
+    x47 := close 
+    j23 := 1
+if d24[1] == -1 and d24 == 1  and j23 == 1
+    x48 := ((close / x47) - 1) * 100
+    x48 := x48[1] + x48
+    k23 += 1
+    j23 := 0
+
+
+if d25[1] == 1 and d25 == -1 and j24 == 0
+    x49 := close 
+    j24 := 1
+if d25[1] == -1 and d25 == 1  and j24 == 1
+    x50 := ((close / x49) - 1) * 100
+    x50 := x50[1] + x50
+    k24 += 1
+    j24 := 0
+
+
+if d26[1] == 1 and d26 == -1 and j25 == 0
+    x51 := close 
+    j25 := 1
+if d26[1] == -1 and d26 == 1  and j25 == 1
+    x52 := ((close / x51) - 1) * 100
+    x52 := x52[1] + x52
+    k25 += 1
+    j25 := 0
+
+
+if d27[1] == 1 and d27 == -1 and j26 == 0
+    x53 := close 
+    j26 := 1
+if d27[1] == -1 and d27 == 1  and j26 == 1
+    x54 := ((close / x53) - 1) * 100
+    x54 := x54[1] + x54
+    k26 += 1
+    j26 := 0
+
+
+if d28[1] == 1 and d28 == -1 and j27 == 0
+    x55 := close 
+    j27 := 1
+if d28[1] == -1 and d28 == 1  and j27 == 1
+    x56 := ((close / x55) - 1) * 100
+    x56 := x56[1] + x56
+    k27 += 1
+    j27 := 0
+
+
+if d29[1] == 1 and d29 == -1 and j28 == 0
+    x57 := close 
+    j28 := 1
+if d29[1] == -1 and d29 == 1  and j28 == 1
+    x58 := ((close / x57) - 1) * 100
+    x58 := x58[1] + x58
+    k28 += 1
+    j28 := 0
+
+
+if d30[1] == 1 and d30 == -1 and j29 == 0
+    x59 := close 
+    j29 := 1
+if d30[1] == -1 and d30 == 1  and j29 == 1
+    x60 := ((close / x59) - 1) * 100
+    x60 := x60[1] + x60
+    k29 += 1
+    j29 := 0
+
+
+if d31[1] == 1 and d31 == -1 and j30 == 0
+    x61 := close
+    j30 := 1
+if d31[1] == -1 and d31 == 1  and j30 == 1
+    x62 := ((close / x61) - 1) * 100
+    x62 := x62[1] + x62
+    k30 += 1
+    j30 := 0
+
+
+if d32[1] == 1 and d32 == -1 and j31 == 0
+    x63 := close 
+    j31 := 1
+if d32[1] == -1 and d32 == 1  and j31 == 1
+    x64 := ((close / x63) - 1) * 100
+    x64 := x64[1] + x64
+    k31 += 1
+    j31 := 0
+
+
+if d33[1] == 1 and d33 == -1 and j32 == 0
+    x65 := close 
+    j32 := 1
+if d33[1] == -1 and d33 == 1  and j32 == 1
+    x66 := ((close / x65) - 1) * 100
+    x66 := x66[1] + x66
+    k32 += 1
+    j32 := 0
+
+
+if d34[1] == 1 and d34 == -1 and j33 == 0
+    x67 := close 
+    j33 := 1
+if d34[1] == -1 and d34 == 1 and j33 == 1
+    x68 := ((close / x67) - 1) * 100
+    x68 := x68[1] + x68
+    k33 += 1
+    j33 := 0
+
+
+if dB1[1] == 1 and dB1 == -1 and j34 == 0
+    x69 := close 
+    j34 := 1
+if dB1[1] == -1 and dB1 == 1 and j34 == 1
+    x70 := ((close / x69) - 1) * 100
+    x70 := x70[1] + x70
+    k34 += 1
+    j34 := 0
+
+
+if dB2[1] == 1 and dB2 == -1 and j35 == 0
+    x71 := close 
+    j35 := 1
+if dB2[1] == -1 and dB2 == 1  and j35 == 1
+    x72 := ((close / x71) - 1) * 100
+    x72 := x72[1] + x72
+    k35 += 1
+    j35 := 0
+
+
+if dB3[1] == 1 and dB3 == -1 and j36 == 0
+    x73 := close 
+    j36 := 1
+if dB13[1] == -1 and dB3 == 1  and j36 == 1
+    x74 := ((close / x73) - 1) * 100
+    x74 := x74[1] + x74
+    k36 += 1
+    j36 := 0
+
+
+if dB4[1] == 1 and dB4 == -1 and j37 == 0
+    x75 := close
+    j37 := 1
+if dB4[1] == -1 and dB4 == 1  and j37 == 1
+    x76 := ((close / x75) - 1) * 100
+    x76 := x76[1] + x76
+    k37 += 1
+    j37 := 0
+
+
+if dB5[1] == 1 and dB5 == -1 and j38 == 0
+    x77 := close 
+    j38 := 1
+if dB5[1] == -1 and dB5 == 1  and j38 == 1
+    x78 := ((close / x77) - 1) * 100
+    x78 := x78[1] + x78
+    k38 += 1
+    j38 := 0
+
+
+if dB6[1] == 1 and dB6 == -1 and j39 == 0
+    x79 := close
+    j39 := 1
+if dB6[1] == -1 and dB6 == 1  and j39 == 1
+    x80 := ((close / x79) - 1) * 100
+    x80 := x80[1] + x80
+    k39 += 1
+    j39 := 0
+
+
+if dB7[1] == 1 and dB7 == -1 and j40 == 0
+    x81 := close 
+    j40 := 1
+if dB7[1] == -1 and dB7 == 1  and j40 == 1
+    x82 := ((close / x81) - 1) * 100
+    x82 := x82[1] + x82
+    k40 += 1
+    j40 := 0
+
+
+if dB8[1] == 1 and dB8 == -1 and j41 == 0
+    x83 := close 
+    j41 := 1
+if dB8[1] == -1 and dB8 == 1  and j41 == 1
+    x84 := ((close / x83) - 1) * 100
+    x84 := x84[1] + x84
+    k41 += 1
+    j41 := 0
+
+
+if dB9[1] == 1 and dB9 == -1 and j42 == 0
+    x85 := close 
+    j42 := 1
+if dB9[1] == -1 and dB9 == 1 and j42 == 1
+    x86 := ((close / x85) - 1) * 100
+    x86 := x86[1] + x86
+    k42 += 1
+    j42 := 0
+
+
+if dB10[1] == 1 and dB10 == -1 and j43 == 0
+    x87 := close
+    j43 := 1
+if dB10[1] == -1 and dB10 == 1 and j43 == 1
+    x88 := ((close / x87) - 1) * 100
+    x88 := x88[1] + x88
+    k43 += 1
+    j43 := 0
+
+
+if dB11[1] == 1 and dB11 == -1 and j44 == 0
+    x89 := close 
+    j44 := 1
+if dB11[1] == -1 and dB11 == 1 and j44 == 1
+    x90 := ((close / x89) - 1) * 100
+    x90 := x90[1] + x90
+    k44 += 1
+    j44 := 0
+
+
+if dB12[1] == 1 and dB12 == -1 and j45 == 0
+    x91 := close 
+    j45 := 1
+if dB12[1] == -1 and dB12 == 1 and j45 == 1
+    x92 := ((close / x91) - 1) * 100
+    x92 := x92[1] + x92
+    k45 += 1
+    j45 := 0
+
+
+if dB13[1] == 1 and dB13 == -1 and j46 == 0
+    x93 := close 
+    j46 := 1
+if dB13[1] == -1 and dB13 == 1 and j46 == 1
+    x94 := ((close / x93) - 1) * 100
+    x94 := x94[1] + x94
+    k46 += 1
+    j46 := 0
+
+
+if dB14[1] == 1 and dB14 == -1 and j47 == 0
+    x95 := close 
+    j47 := 1
+if dB14[1] == -1 and dB14 == 1 and j47 == 1
+    x96 := ((close / x95) - 1) * 100
+    x96 := x96[1] + x96
+    k47 += 1
+    j47 := 0
+
+
+if dB15[1] == 1 and dB15 == -1 and j48 == 0
+    x97 := close 
+    j48 := 1
+if dB15[1] == -1 and dB15 == 1 and j48 == 1
+    x98 := ((close / x97) - 1) * 100
+    x98 := x98[1] + x98
+    k48 += 1
+    j48 := 0
+
+
+if dB16[1] == 1 and dB16 == -1 and j49 == 0
+    x99 := close 
+    j49 := 1
+if dB16[1] == -1 and dB16 == 1 and j49 == 1
+    x100 := ((close / x99) - 1) * 100
+    x100 := x100[1] + x100
+    k49 += 1
+    j49 := 0
+
+
+if dB17[1] == 1 and dB17 == -1 and j50 == 0
+    x101 := close 
+    j50 := 1
+if dB17[1] == -1 and dB17 == 1 and j50 == 1
+    x102 := ((close / x101) - 1) * 100
+    x102 := x102[1] + x102
+    k50 += 1
+    j50 := 0
+
+
+if dB18[1] == 1 and dB18 == -1 and j51 == 0
+    x103 := close 
+    j51 := 1
+if dB18[1] == -1 and dB18 == 1 and j51 == 1
+    x104 := ((close / x103) - 1) * 100
+    x104 := x104[1] + x104
+    k51 += 1
+    j51 := 0
+
+
+if dB19[1] == 1 and dB19 == -1 and j52 == 0
+    x105 := close
+    j52 := 1
+if dB19[1] == -1 and dB19 == 1 and j52 == 1
+    x106 := ((close / x105) - 1) * 100
+    x106 := x106[1] + x106
+    k52 += 1
+    j52 := 0
+
+
+if dB20[1] == 1 and dB20 == -1 and j53 == 0
+    x107 := close 
+    j53 := 1
+if dB20[1] == -1 and dB20 == 1 and j53 == 1
+    x108 := ((close / x107) - 1) * 100
+    x108 := x108[1] + x108
+    k53 += 1
+    j53 := 0
+
+
+if dB21[1] == 1 and dB21 == -1 and j54 == 0
+    x109 := close 
+    j54 := 1
+if dB21[1] == -1 and dB21 == 1  and j54 == 1
+    x110 := ((close / x109) - 1) * 100
+    x110 := x110[1] + x110
+    k54 += 1
+    j54 := 0
+
+
+if dB22[1] == 1 and dB22 == -1 and j55 == 0
+    x111 := close 
+    j55 := 1
+if dB22[1] == -1 and dB22 == 1  and j55 == 1
+    x112 := ((close / x111) - 1) * 100
+    x112 := x112[1] + x112
+    k55 += 1
+    j55 := 0
+
+
+if dB23[1] == 1 and dB23 == -1 and j56 == 0
+    x113 := close 
+    j56 := 1
+if dB23[1] == -1 and dB23 == 1  and j56 == 1
+    x114 := ((close / x113) - 1) * 100
+    x114 := x114[1] + x114
+    k56 += 1
+    j56 := 0
+
+
+if dB24[1] == 1 and dB24 == -1 and j57 == 0
+    x115 := close 
+    j57 := 1
+if dB24[1] == -1 and dB24 == 1  and j57 == 1
+    x116 := ((close / x115) - 1) * 100
+    x116 := x116[1] + x116
+    k57 += 1
+    j57 := 0
+
+
+if dB25[1] == 1 and dB25 == -1 and j58 == 0
+    x117 := close 
+    j58 := 1
+if dB25[1] == -1 and dB25 == 1  and j58 == 1
+    x118 := ((close / x117) - 1) * 100
+    x118 := x118[1] + x118
+    k58 += 1
+    j58 := 0
+
+
+if dB26[1] == 1 and dB26 == -1 and j59 == 0
+    x119 := close 
+    j59 := 1
+if dB26[1] == -1 and dB26 == 1  and j59 == 1
+    x120 := ((close / x119) - 1) * 100
+    x120 := x120[1] + x120
+    k59 += 1
+    j59 := 0
+
+
+if dB27[1] == 1 and dB27 == -1 and j60 == 0
+    x121 := close 
+    j60 := 1
+if dB27[1] == -1 and dB27 == 1  and j60 == 1
+    x122 := ((close / x121) - 1) * 100
+    x122 := x122[1] + x122
+    k60 += 1
+    j60 := 0
+
+
+if dB28[1] == 1 and dB28 == -1 and j61 == 0
+    x123 := close 
+    j61 := 1
+if dB28[1] == -1 and dB28 == 1  and j61 == 1
+    x124 := ((close / x123) - 1) * 100
+    x124 := x124[1] + x124
+    k61 += 1
+    j61 := 0
+
+
+if dB29[1] == 1 and dB29 == -1 and j62 == 0
+    x125 := close 
+    j62 := 1
+if dB29[1] == -1 and dB29 == 1  and j62 == 1
+    x126 := ((close / x125) - 1) * 100
+    x126 := x126[1] + x126
+    k62 += 1
+    j62 := 0
+
+
+if dB30[1] == 1 and dB30 == -1 and j63 == 0
+    x127 := close 
+    j63 := 1
+if dB30[1] == -1 and dB30 == 1  and j63 == 1
+    x128 := ((close / x127) - 1) * 100
+    x128 := x128[1] + x128
+    k63 += 1
+    j63 := 0
+
+
+if dB31[1] == 1 and dB31 == -1 and j64 == 0
+    x129 := close
+    j64 := 1
+if dB31[1] == -1 and dB31 == 1  and j64 == 1
+    x130 := ((close / x129) - 1) * 100
+    x130 := x130[1] + x130
+    k64 += 1
+    j64 := 0
+
+
+if dB32[1] == 1 and dB32 == -1 and j65 == 0
+    x131 := close 
+    j65 := 1
+if dB32[1] == -1 and dB32 == 1  and j65 == 1
+    x132 := ((close / x131) - 1) * 100
+    x132 := x132[1] + x132
+    k65 += 1
+    j65 := 0
+
+
+if dB33[1] == 1 and dB33 == -1 and j66 == 0
+    x133 := close 
+    j66 := 1
+if dB33[1] == -1 and dB33 == 1  and j66 == 1
+    x134 := ((close / x133) - 1) * 100
+    x134 := x134[1] + x134
+    k66 += 1
+    j66 := 0
+
+
+if dB34[1] == 1 and dB34 == -1 and j67 == 0
+    x135 := close 
+    j67 := 1
+if dB34[1] == -1 and dB34 == 1 and j67 == 1
+    x136 := ((close / x135) - 1) * 100
+    x136 := x136[1] + x136
+    k67 += 1
+    j67 := 0
+
+
+
+if dC1[1] == 1 and dC1 == -1 and jx34 == 0
+    xC69 := close 
+    jx34 := 1
+if dC1[1] == -1 and dC1 == 1 and jx34 == 1
+    xC70 := ((close / xC69) - 1) * 100
+    xC70 := xC70[1] + xC70
+    kx34 += 1
+    jx34 := 0
+
+
+if dC2[1] == 1 and dC2 == -1 and jx35 == 0
+    xC71 := close 
+    jx35 := 1
+if dC2[1] == -1 and dC2 == 1  and jx35 == 1
+    xC72 := ((close / xC71) - 1) * 100
+    xC72 := xC72[1] + xC72
+    kx35 += 1
+    jx35 := 0
+
+
+if dC3[1] == 1 and dC3 == -1 and jx36 == 0
+    xC73 := close 
+    jx36 := 1
+if dC13[1] == -1 and dC3 == 1  and jx36 == 1
+    xC74 := ((close / xC73) - 1) * 100
+    xC74 := xC74[1] + xC74
+    kx36 += 1
+    jx36 := 0
+
+
+if dC4[1] == 1 and dC4 == -1 and jx37 == 0
+    xC75 := close
+    jx37 := 1
+if dC4[1] == -1 and dC4 == 1  and jx37 == 1
+    xC76 := ((close / xC75) - 1) * 100
+    xC76 := xC76[1] + xC76
+    kx37 += 1
+    jx37 := 0
+
+
+if dC5[1] == 1 and dC5 == -1 and jx38 == 0
+    xC77 := close 
+    jx38 := 1
+if dC5[1] == -1 and dC5 == 1  and jx38 == 1
+    xC78 := ((close / xC77) - 1) * 100
+    xC78 := xC78[1] + xC78
+    kx38 += 1
+    jx38 := 0
+
+
+if dC6[1] == 1 and dC6 == -1 and jx39 == 0
+    xC79 := close
+    jx39 := 1
+if dC6[1] == -1 and dC6 == 1  and jx39 == 1
+    xC80 := ((close / xC79) - 1) * 100
+    xC80 := xC80[1] + xC80
+    kx39 += 1
+    jx39 := 0
+
+
+if dC7[1] == 1 and dC7 == -1 and jx40 == 0
+    xC81 := close 
+    jx40 := 1
+if dC7[1] == -1 and dC7 == 1  and jx40 == 1
+    xC82 := ((close / xC81) - 1) * 100
+    xC82 := xC82[1] + xC82
+    kx40 += 1
+    jx40 := 0
+
+
+if dC8[1] == 1 and dC8 == -1 and jx41 == 0
+    xC83 := close 
+    jx41 := 1
+if dC8[1] == -1 and dC8 == 1  and jx41 == 1
+    xC84 := ((close / xC83) - 1) * 100
+    xC84 := xC84[1] + xC84
+    kx41 += 1
+    jx41 := 0
+
+
+if dC9[1] == 1 and dC9 == -1 and jx42 == 0
+    xC85 := close 
+    jx42 := 1
+if dC9[1] == -1 and dC9 == 1 and jx42 == 1
+    xC86 := ((close / xC85) - 1) * 100
+    xC86 := xC86[1] + xC86
+    kx42 += 1
+    jx42 := 0
+
+
+if dC10[1] == 1 and dC10 == -1 and jx43 == 0
+    xC87 := close
+    jx43 := 1
+if dC10[1] == -1 and dC10 == 1 and jx43 == 1
+    xC88 := ((close / xC87) - 1) * 100
+    xC88 := xC88[1] + xC88
+    kx43 += 1
+    jx43 := 0
+
+
+if dC11[1] == 1 and dC11 == -1 and jx44 == 0
+    xC89 := close 
+    jx44 := 1
+if dC11[1] == -1 and dC11 == 1 and jx44 == 1
+    xC90 := ((close / xC89) - 1) * 100
+    xC90 := xC90[1] + xC90
+    kx44 += 1
+    jx44 := 0
+
+
+if dC12[1] == 1 and dC12 == -1 and jx45 == 0
+    xC91 := close 
+    jx45 := 1
+if dC12[1] == -1 and dC12 == 1 and jx45 == 1
+    xC92 := ((close / xC91) - 1) * 100
+    xC92 := xC92[1] + xC92
+    kx45 += 1
+    jx45 := 0
+
+
+if dC13[1] == 1 and dC13 == -1 and jx46 == 0
+    xC93 := close 
+    jx46 := 1
+if dC13[1] == -1 and dC13 == 1 and jx46 == 1
+    xC94 := ((close / xC93) - 1) * 100
+    xC94 := xC94[1] + xC94
+    kx46 += 1
+    jx46 := 0
+
+
+if dC14[1] == 1 and dC14 == -1 and jx47 == 0
+    xC95 := close 
+    jx47 := 1
+if dC14[1] == -1 and dC14 == 1 and jx47 == 1
+    xC96 := ((close / xC95) - 1) * 100
+    xC96 := xC96[1] + xC96
+    kx47 += 1
+    jx47 := 0
+
+
+if dC15[1] == 1 and dC15 == -1 and jx48 == 0
+    xC97 := close 
+    jx48 := 1
+if dC15[1] == -1 and dC15 == 1 and jx48 == 1
+    xC98 := ((close / xC97) - 1) * 100
+    xC98 := xC98[1] + xC98
+    kx48 += 1
+    jx48 := 0
+
+
+if dC16[1] == 1 and dC16 == -1 and jx49 == 0
+    xC99 := close 
+    jx49 := 1
+if dC16[1] == -1 and dC16 == 1 and jx49 == 1
+    xC100 := ((close / xC99) - 1) * 100
+    xC100 := xC100[1] + xC100
+    kx49 += 1
+    jx49 := 0
+
+
+if dC17[1] == 1 and dC17 == -1 and jx50 == 0
+    xC101 := close 
+    jx50 := 1
+if dC17[1] == -1 and dC17 == 1 and jx50 == 1
+    xC102 := ((close / xC101) - 1) * 100
+    xC102 := xC102[1] + xC102
+    kx50 += 1
+    jx50 := 0
+
+
+if dC18[1] == 1 and dC18 == -1 and jx51 == 0
+    xC103 := close 
+    jx51 := 1
+if dC18[1] == -1 and dC18 == 1 and jx51 == 1
+    xC104 := ((close / xC103) - 1) * 100
+    xC104 := xC104[1] + xC104
+    kx51 += 1
+    jx51 := 0
+
+
+if dC19[1] == 1 and dC19 == -1 and jx52 == 0
+    xC105 := close
+    jx52 := 1
+if dC19[1] == -1 and dC19 == 1 and jx52 == 1
+    xC106 := ((close / xC105) - 1) * 100
+    xC106 := xC106[1] + xC106
+    kx52 += 1
+    jx52 := 0
+
+
+if dC20[1] == 1 and dC20 == -1 and jx53 == 0
+    xC107 := close 
+    jx53 := 1
+if dC20[1] == -1 and dC20 == 1 and jx53 == 1
+    xC108 := ((close / xC107) - 1) * 100
+    xC108 := xC108[1] + xC108
+    kx53 += 1
+    jx53 := 0
+
+
+if dC21[1] == 1 and dC21 == -1 and jx54 == 0
+    xC109 := close 
+    jx54 := 1
+if dC21[1] == -1 and dC21 == 1  and jx54 == 1
+    xC110 := ((close / xC109) - 1) * 100
+    xC110 := xC110[1] + xC110
+    kx54 += 1
+    jx54 := 0
+
+
+if dC22[1] == 1 and dC22 == -1 and jx55 == 0
+    xC111 := close 
+    jx55 := 1
+if dC22[1] == -1 and dC22 == 1  and jx55 == 1
+    xC112 := ((close / xC111) - 1) * 100
+    xC112 := xC112[1] + xC112
+    kx55 += 1
+    jx55 := 0
+
+
+if dC23[1] == 1 and dC23 == -1 and jx56 == 0
+    xC113 := close 
+    jx56 := 1
+if dC23[1] == -1 and dC23 == 1  and jx56 == 1
+    xC114 := ((close / xC113) - 1) * 100
+    xC114 := xC114[1] + xC114
+    kx56 += 1
+    jx56 := 0
+
+
+if dC24[1] == 1 and dC24 == -1 and jx57 == 0
+    xC115 := close 
+    jx57 := 1
+if dC24[1] == -1 and dC24 == 1  and jx57 == 1
+    xC116 := ((close / xC115) - 1) * 100
+    xC116 := xC116[1] + xC116
+    kx57 += 1
+    jx57 := 0
+
+
+if dC25[1] == 1 and dC25 == -1 and jx58 == 0
+    xC117 := close 
+    jx58 := 1
+if dC25[1] == -1 and dC25 == 1  and jx58 == 1
+    xC118 := ((close / xC117) - 1) * 100
+    xC118 := xC118[1] + xC118
+    kx58 += 1
+    jx58 := 0
+
+
+if dC26[1] == 1 and dC26 == -1 and jx59 == 0
+    xC119 := close 
+    jx59 := 1
+if dC26[1] == -1 and dC26 == 1  and jx59 == 1
+    xC120 := ((close / xC119) - 1) * 100
+    xC120 := xC120[1] + xC120
+    kx59 += 1
+    jx59 := 0
+
+
+if dC27[1] == 1 and dC27 == -1 and jx60 == 0
+    xC121 := close 
+    jx60 := 1
+if dC27[1] == -1 and dC27 == 1  and jx60 == 1
+    xC122 := ((close / xC121) - 1) * 100
+    xC122 := xC122[1] + xC122
+    kx60 += 1
+    jx60 := 0
+
+
+if dC28[1] == 1 and dC28 == -1 and jx61 == 0
+    xC123 := close 
+    jx61 := 1
+if dC28[1] == -1 and dC28 == 1  and jx61 == 1
+    xC124 := ((close / xC123) - 1) * 100
+    xC124 := xC124[1] + xC124
+    kx61 += 1
+    jx61 := 0
+
+
+if dC29[1] == 1 and dC29 == -1 and jx62 == 0
+    xC125 := close 
+    jx62 := 1
+if dC29[1] == -1 and dC29 == 1  and jx62 == 1
+    xC126 := ((close / xC125) - 1) * 100
+    xC126 := xC126[1] + xC126
+    kx62 += 1
+    jx62 := 0
+
+
+if dC30[1] == 1 and dC30 == -1 and jx63 == 0
+    xC127 := close 
+    jx63 := 1
+if dC30[1] == -1 and dC30 == 1  and jx63 == 1
+    xC128 := ((close / xC127) - 1) * 100
+    xC128 := xC128[1] + xC128
+    kx63 += 1
+    jx63 := 0
+
+
+if dC31[1] == 1 and dC31 == -1 and jx64 == 0
+    xC129 := close
+    jx64 := 1
+if dC31[1] == -1 and dC31 == 1  and jx64 == 1
+    xC130 := ((close / xC129) - 1) * 100
+    xC130 := xC130[1] + xC130
+    kx64 += 1
+    jx64 := 0
+
+
+if dC32[1] == 1 and dC32 == -1 and jx65 == 0
+    xC131 := close 
+    jx65 := 1
+if dC32[1] == -1 and dC32 == 1  and jx65 == 1
+    xC132 := ((close / xC131) - 1) * 100
+    xC132 := xC132[1] + xC132
+    kx65 += 1
+    jx65 := 0
+
+
+if dC33[1] == 1 and dC33 == -1 and jx66 == 0
+    xC133 := close 
+    jx66 := 1
+if dC33[1] == -1 and dC33 == 1  and jx66 == 1
+    xC134 := ((close / xC133) - 1) * 100
+    xC134 := xC134[1] + xC134
+    kx66 += 1
+    jx66 := 0
+
+
+if dC34[1] == 1 and dC34 == -1 and jx67 == 0
+    xC135 := close 
+    jx67 := 1
+if dC34[1] == -1 and dC34 == 1 and jx67 == 1
+    xC136 := ((close / xC135) - 1) * 100
+    xC136 := xC136[1] + xC136
+    kx67 += 1
+    jx67 := 0
+
+
+// Thank you Dyuck https://www.tradingview.com/v/Mzc4dmq7/
+
+f_sort_by_array(_array1, _array2, _ascending) =>
+    _array1_size    = array.size(_array1)
+    _array1_sorted  = array.new_string(_array1_size)
+    _array2_sorted  = array.copy(_array2)
+    if _array1_size == array.size(_array2)
+        array.sort(_array2_sorted, _ascending ? order.ascending : order.descending)
+        for i = 0 to _array1_size - 1
+            _sorted_value    =          array.get    (_array2_sorted, i)
+            _unsorted_index  = math.max(0,   array.indexof(_array2,        _sorted_value))
+            _unsorted_value  =          array.get    (_array1,        _unsorted_index)
+            array.set(_array1_sorted, i, _unsorted_value)
+    
+    [_array1_sorted, _array2_sorted]
+    
+// Thank you Dyuck https://www.tradingview.com/v/Mzc4dmq7/
+
+// _______________________________________________________
+//
+// Performance Array Set                     
+// _______________________________________________________  
+
+best = array.new_float(102)
+
+array.set(best, 0, x2)  
+array.set(best, 1, x4)  
+array.set(best, 2, x6)  
+array.set(best, 3, x8)  
+array.set(best, 4, x10)  
+array.set(best, 5, x12)  
+array.set(best, 6, x14)  
+array.set(best, 7, x16)  
+array.set(best, 8, x18)  
+array.set(best, 9, x20)  
+array.set(best, 10, x22)  
+array.set(best, 11, x24)  
+array.set(best, 12, x26)  
+array.set(best, 13, x28)  
+array.set(best, 14, x30)  
+array.set(best, 15, x32)  
+array.set(best, 16, x34)
+array.set(best, 17, x36)  
+array.set(best, 18, x38)  
+array.set(best, 19, x40)  
+array.set(best, 20, x42)  
+array.set(best, 21, x44)  
+array.set(best, 22, x46)  
+array.set(best, 23, x48)  
+array.set(best, 24, x50)  
+array.set(best, 25, x52)  
+array.set(best, 26, x54)  
+array.set(best, 27, x56)  
+array.set(best, 28, x58)  
+array.set(best, 29, x60)  
+array.set(best, 30, x62)  
+array.set(best, 31, x64)  
+array.set(best, 32, x66)
+array.set(best, 33, x68)  
+ 
+
+array.set(best, 34, x70)  
+array.set(best, 35, x72)  
+array.set(best, 36, x74)  
+array.set(best, 37, x76)  
+array.set(best, 38, x78)  
+array.set(best, 39, x80)  
+array.set(best, 40, x82)  
+array.set(best, 41, x84)  
+array.set(best, 42, x86)  
+array.set(best, 43, x88)  
+array.set(best, 44, x90)  
+array.set(best, 45, x92)  
+array.set(best, 46, x94)  
+array.set(best, 47, x96)  
+array.set(best, 48, x98)  
+array.set(best, 49, x100)  
+array.set(best, 50, x102)  
+array.set(best, 51, x104)  
+array.set(best, 52, x106)  
+array.set(best, 53, x108)  
+array.set(best, 54, x110)  
+array.set(best, 55, x112)  
+array.set(best, 56, x114)  
+array.set(best, 57, x116)  
+array.set(best, 58, x118)  
+array.set(best, 59, x120)  
+array.set(best, 60, x122)  
+array.set(best, 61, x124)  
+array.set(best, 62, x126)  
+array.set(best, 63, x128)  
+array.set(best, 64, x130)  
+array.set(best, 65, x132)  
+array.set(best, 66, x134)
+array.set(best, 67, x136)  
+
+array.set(best, 68, xC70)  
+array.set(best, 69, xC72)  
+array.set(best, 70, xC74)  
+array.set(best, 71, xC76)  
+array.set(best, 72, xC78)  
+array.set(best, 73, xC80)  
+array.set(best, 74, xC82)  
+array.set(best, 75, xC84)  
+array.set(best, 76, xC86)  
+array.set(best, 77, xC88)  
+array.set(best, 78, xC90)  
+array.set(best, 79, xC92)  
+array.set(best, 80, xC94)  
+array.set(best, 81, xC96)  
+array.set(best, 82, xC98)  
+array.set(best, 83, xC100)  
+array.set(best, 84, xC102)  
+array.set(best, 85, xC104)  
+array.set(best, 86, xC106)  
+array.set(best, 87, xC108)  
+array.set(best, 88, xC110)  
+array.set(best, 89, xC112)  
+array.set(best, 90, xC114)  
+array.set(best, 91, xC116)  
+array.set(best, 92, xC118)  
+array.set(best, 93, xC120)  
+array.set(best, 94, xC122)  
+array.set(best, 95, xC124)  
+array.set(best, 96, xC126)  
+array.set(best, 97, xC128)  
+array.set(best, 98, xC130)  
+array.set(best, 99, xC132)  
+array.set(best, 100, xC134)
+array.set(best, 101, xC136)  
+
+
+// _______________________________________________________
+//
+// String Array Set                     
+// _______________________________________________________  
+
+best1 = array.new_string(102)
+
+array.set(best1, 0, "SuperTrend: " + "[" +str.tostring(factor, format.mintick) + ", "  + str.tostring(atr + 0, "#") + "] ") 
+array.set(best1, 1, "SuperTrend: " + "[" +str.tostring(factor + 0.1, format.mintick) + ", "  + str.tostring(atr + 0, "#") + "] ") 
+array.set(best1, 2, "SuperTrend: " + "[" +str.tostring(factor + 0.2, format.mintick) + ", "  + str.tostring(atr + 0, "#") + "] ") 
+array.set(best1, 3, "SuperTrend: " + "[" +str.tostring(factor + 0.3, format.mintick) + ", "  + str.tostring(atr + 0, "#") + "] ") 
+array.set(best1, 4, "SuperTrend: " + "[" +str.tostring(factor + 0.4, format.mintick) + ", "  + str.tostring(atr + 0, "#") + "] ") 
+array.set(best1, 5, "SuperTrend: " + "[" +str.tostring(factor + 0.5, format.mintick) + ", "  + str.tostring(atr + 0, "#") + "] ") 
+array.set(best1, 6, "SuperTrend: " + "[" +str.tostring(factor + 0.6, format.mintick) + ", "  + str.tostring(atr + 0, "#") + "] ") 
+array.set(best1, 7, "SuperTrend: " + "[" +str.tostring(factor + 0.7, format.mintick) + ", "  + str.tostring(atr + 0, "#") + "] ") 
+array.set(best1, 8, "SuperTrend: " + "[" +str.tostring(factor + 0.8, format.mintick) + ", "  + str.tostring(atr + 0, "#") + "] ") 
+array.set(best1, 9, "SuperTrend: " + "[" +str.tostring(factor + 0.9, format.mintick) + ", "  + str.tostring(atr + 0, "#") + "] ") 
+array.set(best1, 10, "SuperTrend: " + "[" +str.tostring(factor + 1.0, format.mintick) + ", "  + str.tostring(atr + 0, "#") + "] ") 
+array.set(best1, 11, "SuperTrend: " + "[" +str.tostring(factor + 1.1, format.mintick) + ", "  + str.tostring(atr + 0, "#") + "] ") 
+array.set(best1, 12, "SuperTrend: " + "[" +str.tostring(factor + 1.2, format.mintick) + ", "  + str.tostring(atr + 0, "#") + "] ") 
+array.set(best1, 13, "SuperTrend: " + "[" +str.tostring(factor + 1.3, format.mintick) + ", "  + str.tostring(atr + 0, "#") + "] ") 
+array.set(best1, 14, "SuperTrend: " + "[" +str.tostring(factor + 1.4, format.mintick) + ", "  + str.tostring(atr + 0, "#") + "] ") 
+array.set(best1, 15, "SuperTrend: " + "[" +str.tostring(factor + 1.5, format.mintick) + ", "  + str.tostring(atr + 0, "#") + "] ") 
+array.set(best1, 16, "SuperTrend: " + "[" +str.tostring(factor + 1.6, format.mintick) + ", "  + str.tostring(atr + 0, "#") + "] ") 
+array.set(best1, 17, "SuperTrend: " + "[" +str.tostring(factor + 1.7, format.mintick) + ", "  + str.tostring(atr + 0, "#") + "] ") 
+array.set(best1, 18, "SuperTrend: " + "[" +str.tostring(factor + 1.8, format.mintick) + ", "  + str.tostring(atr + 0, "#") + "] ") 
+array.set(best1, 19, "SuperTrend: " + "[" +str.tostring(factor + 1.9, format.mintick) + ", "  + str.tostring(atr + 0, "#") + "] ") 
+array.set(best1, 20, "SuperTrend: " + "[" +str.tostring(factor + 2.0, format.mintick) + ", "  + str.tostring(atr + 0, "#") + "] ") 
+array.set(best1, 21, "SuperTrend: " + "[" +str.tostring(factor + 2.1, format.mintick) + ", "  + str.tostring(atr + 0, "#") + "] ") 
+array.set(best1, 22, "SuperTrend: " + "[" +str.tostring(factor + 2.2, format.mintick) + ", "  + str.tostring(atr + 0, "#") + "] ") 
+array.set(best1, 23, "SuperTrend: " + "[" +str.tostring(factor + 2.3, format.mintick) + ", "  + str.tostring(atr + 0, "#") + "] ") 
+array.set(best1, 24, "SuperTrend: " + "[" +str.tostring(factor + 2.4, format.mintick) + ", "  + str.tostring(atr + 0, "#") + "] ") 
+array.set(best1, 25, "SuperTrend: " + "[" +str.tostring(factor + 2.5, format.mintick) + ", "  + str.tostring(atr + 0, "#") + "] ") 
+array.set(best1, 26, "SuperTrend: " + "[" +str.tostring(factor + 2.6, format.mintick) + ", "  + str.tostring(atr + 0, "#") + "] ") 
+array.set(best1, 27, "SuperTrend: " + "[" +str.tostring(factor + 2.7, format.mintick) + ", "  + str.tostring(atr + 0, "#") + "] ") 
+array.set(best1, 28, "SuperTrend: " + "[" +str.tostring(factor + 2.8, format.mintick) + ", "  + str.tostring(atr + 0, "#") + "] ") 
+array.set(best1, 29, "SuperTrend: " + "[" +str.tostring(factor + 2.9, format.mintick) + ", "  + str.tostring(atr + 0, "#") + "] ") 
+array.set(best1, 30, "SuperTrend: " + "[" +str.tostring(factor + 3.0, format.mintick) + ", "  + str.tostring(atr + 0, "#") + "] ") 
+array.set(best1, 31, "SuperTrend: " + "[" +str.tostring(factor + 3.1, format.mintick) + ", "  + str.tostring(atr + 0, "#") + "] ") 
+array.set(best1, 32, "SuperTrend: " + "[" +str.tostring(factor + 3.2, format.mintick) + ", "  + str.tostring(atr + 0, "#") + "] ") 
+array.set(best1, 33, "SuperTrend: " + "[" +str.tostring(factor + 3.3, format.mintick) + ", "  + str.tostring(atr + 0, "#") + "] ") 
+
+
+array.set(best1, 34, "SuperTrend: " + "[" +str.tostring(factor, format.mintick) + ", "  + str.tostring(atr + 1, "#") + "] ") 
+array.set(best1, 35, "SuperTrend: " + "[" +str.tostring(factor + 0.1, format.mintick) + ", "  + str.tostring(atr + 1, "#") + "] ") 
+array.set(best1, 36, "SuperTrend: " + "[" +str.tostring(factor + 0.2, format.mintick) + ", "  + str.tostring(atr + 1, "#") + "] ") 
+array.set(best1, 37, "SuperTrend: " + "[" +str.tostring(factor + 0.3, format.mintick) + ", "  + str.tostring(atr + 1, "#") + "] ") 
+array.set(best1, 38, "SuperTrend: " + "[" +str.tostring(factor + 0.4, format.mintick) + ", "  + str.tostring(atr + 1, "#") + "] ") 
+array.set(best1, 39, "SuperTrend: " + "[" +str.tostring(factor + 0.5, format.mintick) + ", "  + str.tostring(atr + 1, "#") + "] ") 
+array.set(best1, 40, "SuperTrend: " + "[" +str.tostring(factor + 0.6, format.mintick) + ", "  + str.tostring(atr + 1, "#") + "] ") 
+array.set(best1, 41, "SuperTrend: " + "[" +str.tostring(factor + 0.7, format.mintick) + ", "  + str.tostring(atr + 1, "#") + "] ") 
+array.set(best1, 42, "SuperTrend: " + "[" +str.tostring(factor + 0.8, format.mintick)+ ", "   + str.tostring(atr + 1, "#") + "] ") 
+array.set(best1, 43, "SuperTrend: " + "[" +str.tostring(factor + 0.9, format.mintick) + ", "  + str.tostring(atr + 1, "#") + "] ") 
+array.set(best1, 44, "SuperTrend: " + "[" +str.tostring(factor + 1.0, format.mintick) + ", "  + str.tostring(atr + 1, "#") + "] ") 
+array.set(best1, 45, "SuperTrend: " + "[" +str.tostring(factor + 1.1, format.mintick) + ", "  + str.tostring(atr + 1, "#") + "] ") 
+array.set(best1, 46, "SuperTrend: " + "[" +str.tostring(factor + 1.2, format.mintick) + ", "  + str.tostring(atr + 1, "#") + "] ") 
+array.set(best1, 47, "SuperTrend: " + "[" +str.tostring(factor + 1.3, format.mintick) + ", "  + str.tostring(atr + 1, "#") + "] ") 
+array.set(best1, 48, "SuperTrend: " + "[" +str.tostring(factor + 1.4, format.mintick) + ", "  + str.tostring(atr + 1, "#") + "] ") 
+array.set(best1, 49, "SuperTrend: " + "[" +str.tostring(factor + 1.5, format.mintick) + ", "  + str.tostring(atr + 1, "#") + "] ") 
+array.set(best1, 50, "SuperTrend: " + "[" +str.tostring(factor + 1.6, format.mintick) + ", "  + str.tostring(atr + 1, "#") + "] ") 
+array.set(best1, 51, "SuperTrend: " + "[" +str.tostring(factor + 1.7, format.mintick) + ", "  + str.tostring(atr + 1, "#") + "] ") 
+array.set(best1, 52, "SuperTrend: " + "[" +str.tostring(factor + 1.8, format.mintick) + ", "  + str.tostring(atr + 1, "#") + "] ") 
+array.set(best1, 53, "SuperTrend: " + "[" +str.tostring(factor + 1.9, format.mintick) + ", "  + str.tostring(atr + 1, "#") + "] ") 
+array.set(best1, 54, "SuperTrend: " + "[" +str.tostring(factor + 2.0, format.mintick) + ", "  + str.tostring(atr + 1, "#") + "] ") 
+array.set(best1, 55, "SuperTrend: " + "[" +str.tostring(factor + 2.1, format.mintick) + ", "  + str.tostring(atr + 1, "#") + "] ") 
+array.set(best1, 56, "SuperTrend: " + "[" +str.tostring(factor + 2.2, format.mintick) + ", "  + str.tostring(atr + 1, "#") + "] ") 
+array.set(best1, 57, "SuperTrend: " + "[" +str.tostring(factor + 2.3, format.mintick) + ", "  + str.tostring(atr + 1, "#") + "] ") 
+array.set(best1, 58, "SuperTrend: " + "[" +str.tostring(factor + 2.4, format.mintick) + ", "  + str.tostring(atr + 1, "#") + "] ") 
+array.set(best1, 59, "SuperTrend: " + "[" +str.tostring(factor + 2.5, format.mintick) + ", "  + str.tostring(atr + 1, "#") + "] ") 
+array.set(best1, 60, "SuperTrend: " + "[" +str.tostring(factor + 2.6, format.mintick) + ", "  + str.tostring(atr + 1, "#") + "] ") 
+array.set(best1, 61, "SuperTrend: " + "[" +str.tostring(factor + 2.7, format.mintick) + ", "  + str.tostring(atr + 1, "#") + "] ") 
+array.set(best1, 62, "SuperTrend: " + "[" +str.tostring(factor + 2.8, format.mintick) + ", "  + str.tostring(atr + 1, "#") + "] ") 
+array.set(best1, 63, "SuperTrend: " + "[" +str.tostring(factor + 2.9, format.mintick) + ", "  + str.tostring(atr + 1, "#") + "] ") 
+array.set(best1, 64, "SuperTrend: " + "[" +str.tostring(factor + 3.0, format.mintick) + ", "  + str.tostring(atr + 1, "#") + "] ") 
+array.set(best1, 65, "SuperTrend: " + "[" +str.tostring(factor + 3.1, format.mintick) + ", "  + str.tostring(atr + 1, "#") + "] ") 
+array.set(best1, 66, "SuperTrend: " + "[" +str.tostring(factor + 3.2, format.mintick) + ", "  + str.tostring(atr + 1, "#") + "] ") 
+array.set(best1, 67, "SuperTrend: " + "[" +str.tostring(factor + 3.3, format.mintick) + ", "  + str.tostring(atr + 1, "#") + "] ") 
+
+array.set(best1, 68, "SuperTrend: " + "[" +str.tostring(factor, format.mintick) + ", "  + str.tostring(atr + 2, "#") + "] ") 
+array.set(best1, 69, "SuperTrend: " + "[" +str.tostring(factor + 0.1, format.mintick) + ", "  + str.tostring(atr + 2, "#") + "] ") 
+array.set(best1, 70, "SuperTrend: " + "[" +str.tostring(factor + 0.2, format.mintick) + ", "  + str.tostring(atr + 2, "#") + "] ") 
+array.set(best1, 71, "SuperTrend: " + "[" +str.tostring(factor + 0.3, format.mintick) + ", "  + str.tostring(atr + 2, "#") + "] ") 
+array.set(best1, 72, "SuperTrend: " + "[" +str.tostring(factor + 0.4, format.mintick) + ", "  + str.tostring(atr + 2, "#") + "] ") 
+array.set(best1, 73, "SuperTrend: " + "[" +str.tostring(factor + 0.5, format.mintick) + ", "  + str.tostring(atr + 2, "#") + "] ") 
+array.set(best1, 74, "SuperTrend: " + "[" +str.tostring(factor + 0.6, format.mintick) + ", "  + str.tostring(atr + 2, "#") + "] ") 
+array.set(best1, 75, "SuperTrend: " + "[" +str.tostring(factor + 0.7, format.mintick) + ", "  + str.tostring(atr + 2, "#") + "] ") 
+array.set(best1, 76, "SuperTrend: " + "[" +str.tostring(factor + 0.8, format.mintick)+ ", "   + str.tostring(atr + 2, "#") + "] ") 
+array.set(best1, 77, "SuperTrend: " + "[" +str.tostring(factor + 0.9, format.mintick) + ", "  + str.tostring(atr + 2, "#") + "] ") 
+array.set(best1, 78, "SuperTrend: " + "[" +str.tostring(factor + 1.0, format.mintick) + ", "  + str.tostring(atr + 2, "#") + "] ") 
+array.set(best1, 79, "SuperTrend: " + "[" +str.tostring(factor + 1.1, format.mintick) + ", "  + str.tostring(atr + 2, "#") + "] ") 
+array.set(best1, 80, "SuperTrend: " + "[" +str.tostring(factor + 1.2, format.mintick) + ", "  + str.tostring(atr + 2, "#") + "] ") 
+array.set(best1, 81, "SuperTrend: " + "[" +str.tostring(factor + 1.3, format.mintick) + ", "  + str.tostring(atr + 2, "#") + "] ") 
+array.set(best1, 82, "SuperTrend: " + "[" +str.tostring(factor + 1.4, format.mintick) + ", "  + str.tostring(atr + 2, "#") + "] ") 
+array.set(best1, 83, "SuperTrend: " + "[" +str.tostring(factor + 1.5, format.mintick) + ", "  + str.tostring(atr + 2, "#") + "] ") 
+array.set(best1, 84, "SuperTrend: " + "[" +str.tostring(factor + 1.6, format.mintick) + ", "  + str.tostring(atr + 2, "#") + "] ") 
+array.set(best1, 85, "SuperTrend: " + "[" +str.tostring(factor + 1.7, format.mintick) + ", "  + str.tostring(atr + 2, "#") + "] ") 
+array.set(best1, 86, "SuperTrend: " + "[" +str.tostring(factor + 1.8, format.mintick) + ", "  + str.tostring(atr + 2, "#") + "] ") 
+array.set(best1, 87, "SuperTrend: " + "[" +str.tostring(factor + 1.9, format.mintick) + ", "  + str.tostring(atr + 2, "#") + "] ") 
+array.set(best1, 88, "SuperTrend: " + "[" +str.tostring(factor + 2.0, format.mintick) + ", "  + str.tostring(atr + 2, "#") + "] ") 
+array.set(best1, 89, "SuperTrend: " + "[" +str.tostring(factor + 2.1, format.mintick) + ", "  + str.tostring(atr + 2, "#") + "] ") 
+array.set(best1, 90, "SuperTrend: " + "[" +str.tostring(factor + 2.2, format.mintick) + ", "  + str.tostring(atr + 2, "#") + "] ") 
+array.set(best1, 91, "SuperTrend: " + "[" +str.tostring(factor + 2.3, format.mintick) + ", "  + str.tostring(atr + 2, "#") + "] ") 
+array.set(best1, 92, "SuperTrend: " + "[" +str.tostring(factor + 2.4, format.mintick) + ", "  + str.tostring(atr + 2, "#") + "] ") 
+array.set(best1, 93, "SuperTrend: " + "[" +str.tostring(factor + 2.5, format.mintick) + ", "  + str.tostring(atr + 2, "#") + "] ") 
+array.set(best1, 94, "SuperTrend: " + "[" +str.tostring(factor + 2.6, format.mintick) + ", "  + str.tostring(atr + 2, "#") + "] ") 
+array.set(best1, 95, "SuperTrend: " + "[" +str.tostring(factor + 2.7, format.mintick) + ", "  + str.tostring(atr + 2, "#") + "] ") 
+array.set(best1, 96, "SuperTrend: " + "[" +str.tostring(factor + 2.8, format.mintick) + ", "  + str.tostring(atr + 2, "#") + "] ") 
+array.set(best1, 97, "SuperTrend: " + "[" +str.tostring(factor + 2.9, format.mintick) + ", "  + str.tostring(atr + 2, "#") + "] ") 
+array.set(best1, 98, "SuperTrend: " + "[" +str.tostring(factor + 3.0, format.mintick) + ", "  + str.tostring(atr + 2, "#") + "] ") 
+array.set(best1, 99, "SuperTrend: " + "[" +str.tostring(factor + 3.1, format.mintick) + ", "  + str.tostring(atr + 2, "#") + "] ") 
+array.set(best1, 100, "SuperTrend: " + "[" +str.tostring(factor + 3.2, format.mintick) + ", "  + str.tostring(atr + 2, "#") + "] ") 
+array.set(best1, 101, "SuperTrend: " + "[" +str.tostring(factor + 3.3, format.mintick) + ", "  + str.tostring(atr + 2, "#") + "] ") 
+
+
+[cumulativePerformanceNameSorted, cumulativePerformanceSorted] = f_sort_by_array(best1, best, false)
+
+
+// _______________________________________________________
+//
+// Attaching an Identifier to Optimized Parameters                    
+// _______________________________________________________  
+
+
+o = array.get(cumulativePerformanceSorted, 0)
+
+var p = 0.0 
+var t = 0.0
+
+if o == x2 
+    p := s1
+    t := d1
+else if o == x4
+    p := s2
+    t := d2
+else if o == x6 
+    p := s3
+    t := d3
+else if o == x8
+    p := s4
+    t := d4
+else if o == x10 
+    p := s5
+    t := d5
+else if o == x12
+    p := s6
+    t := d6
+else if o == x14 
+    p := s7
+    t := d7
+else if o == x16
+    p := s8
+    t := d8
+else if o == x18 
+    p := s9
+    t := d9
+else if o == x20
+    p := s10
+    t := d10
+else if o == x22
+    p := s11
+    t := d11
+else if o == x24
+    p := s12
+    t := d12
+else if o == x26 
+    p := s13
+    t := d13
+else if o == x28
+    p := s14
+    t := d14
+else if o == x30 
+    p := s15
+    t := d15
+else if o == x32
+    p := s16
+    t := d16
+else if o == x34
+    p := s17
+    t := d17
+else if o == x36
+    p := s18
+    t := d18
+else if o == x38 
+    p := s19
+    t := d19
+else if o == x40
+    p := s20
+    t := d20
+else if o == x42 
+    p := s21
+    t := d21
+else if o == x44
+    p := s22
+    t := d22
+else if o == x46 
+    p := s23
+    t := d23
+else if o == x48
+    p := s24
+    t := d24
+else if o == x50 
+    p := s25
+    t := d25
+else if o == x52
+    p := s26
+    t := d26
+else if  o == x54 
+    p := s27
+    t := d27
+else if o == x56
+    p := s28
+    t := d28
+else if o == x58 
+    p := s29
+    t := d29
+else if o == x60
+    p := s30
+    t := d30
+else if o == x62 
+    p := s31
+    t := d31
+else if o == x64
+    p := s32
+    t := d32
+else if  o == x66 
+    p := s33
+    t := d33
+else if o == x68
+    p := s34
+    t := d34
+else if o == x70
+    p := sB1
+    t := dB1
+else if o == x72
+    p := sB2
+    t := dB2
+else if o == x74
+    p := sB3
+    t := dB3
+else if o == x76
+    p := sB4
+    t := dB4
+else if o == x78 
+    p := sB5
+    t := dB5
+else if o == x80
+    p := sB6
+    t := dB6
+else if o == x82 
+    p := sB7
+    t := dB7
+else if o == x84
+    p := sB8
+    t := dB8
+else if o == x86 
+    p := sB9
+    t := dB9
+else if o == x88
+    p := sB10
+    t := dB10
+else if o == x90
+    p := sB11
+    t := dB11
+else if o == x92
+    p := sB12
+    t := dB12
+else if o == x94 
+    p := sB13
+    t := dB13
+else if o == x96
+    p := sB14
+    t := dB14
+else if o == x98 
+    p := sB15
+    t := dB15
+else if o == x100
+    p := sB16
+    t := dB16
+else if o == x102
+    p := sB17
+    t := dB17
+else if o == x104
+    p := sB18
+    t := dB18
+else if o == x106
+    p := sB19
+    t := dB19
+else if o == x108
+    p := sB20
+    t := dB20
+else if o == x110
+    p := sB21
+    t := dB21
+else if o == x112
+    p := sB22
+    t := dB22
+else if o == x114
+    p := sB23
+    t := dB23
+else if o == x116
+    p := sB24
+    t := dB24
+else if o == x118
+    p := sB25
+    t := dB25
+else if o == x120
+    p := sB26
+    t := dB26
+else if  o == x122 
+    p := sB27
+    t := dB27
+else if o == x124
+    p := sB28
+    t := dB28
+else if o == x126 
+    p := sB29
+    t := dB29
+else if o == x128
+    p := sB30
+    t := dB30
+else if o == x130
+    p := sB31
+    t := dB31
+else if o == x132
+    p := sB32
+    t := dB32
+else if  o == x134 
+    p := sB33
+    t := dB33
+else if o == x136
+    p := sB34
+    t := dB34
+else if o == xC70
+    p := sC1
+    t := dC1
+else if o == xC72
+    p := sC2
+    t := dC2
+else if o == xC74
+    p := sC3
+    t := dC3
+else if o == xC76
+    p := sC4
+    t := dC4
+else if o == xC78 
+    p := sC5
+    t := dC5
+else if o == xC80
+    p := sC6
+    t := dC6
+else if o == xC82 
+    p := sC7
+    t := dC7
+else if o == xC84
+    p := sC8
+    t := dC8
+else if o == xC86 
+    p := sC9
+    t := dC9
+else if o == xC88
+    p := sC10
+    t := dC10
+else if o == xC90
+    p := sC11
+    t := dC11
+else if o == xC92
+    p := sC12
+    t := dC12
+else if o == xC94 
+    p := sC13
+    t := dC13
+else if o == xC96
+    p := sC14
+    t := dC14
+else if o == xC98 
+    p := sC15
+    t := dC15
+else if o == xC100
+    p := sC16
+    t := dC16
+else if o == xC102
+    p := sC17
+    t := dC17
+else if o == xC104
+    p := sC18
+    t := dC18
+else if o == xC106
+    p := sC19
+    t := dC19
+else if o == xC108
+    p := sC20
+    t := dC20
+else if o == xC110
+    p := sC21
+    t := dC21
+else if o == xC112
+    p := sC22
+    t := dC22
+else if o == xC114
+    p := sC23
+    t := dC23
+else if o == xC116
+    p := sC24
+    t := dC24
+else if o == xC118
+    p := sC25
+    t := dC25
+else if o == xC120
+    p := sC26
+    t := dC26
+else if  o == xC122 
+    p := sC27
+    t := dC27
+else if o == xC124
+    p := sC28
+    t := dC28
+else if o == xC126 
+    p := sC29
+    t := dC29
+else if o == xC128
+    p := sC30
+    t := dC30
+else if o == xC130
+    p := sC31
+    t := dC31
+else if o == xC132
+    p := sC32
+    t := dC32
+else if  o == xC134 
+    p := sC33
+    t := dC33
+else if o == xC136
+    p := sC34
+    t := dC34
+    
+   
+// _______________________________________________________
+//
+// Plot Optimized Parameters.. Or Override ST                  
+// _______________________________________________________  
+   
+    
+midS = plot((open + close) / 2, display=display.none, title = "[(Open + Close) / 2] Average Price")
+upS = plot(ovr == "Off" and t < 0 ? p : na, "Up Trend", color = #02ff00, style=plot.style_linebr)
+downS = plot(ovr == "Off" and t > 0 ? p : na, "Down Trend", color = #ff0500, style=plot.style_linebr)
+
+fill(midS, upS, ovr == "Off" ? color.new(#ffffff, 90) : na, fillgaps=false, title = "Uptrend Fill")
+fill(midS, downS, ovr == "Off" ? color.new(#000000, 90) : na, fillgaps=false, title = "Downtrend Fill")
+
+upO = plot(ovr == "On" and d < 0 ? s : na, "Up Trend (OVERRIDE ST)", color = color.blue, style=plot.style_linebr)
+downO = plot(ovr == "On" and d > 0 ? s : na, "Down Trend (OVERRIDE ST)", color = color.orange, style=plot.style_linebr)
+
+var label [] buy = array.new_label(1)
+
+if t[1] == 1 and t == -1 and ovr == "Off"
+    array.push(buy, label.new(bar_index, p * .99, style = label.style_label_up, textcolor = color.green, color = color.new(color.black,50), text = "Long"))
+else if d[1] == 1 and d == -1 and ovr == "On"
+    array.push(buy, label.new(bar_index, s * .99, style = label.style_label_up, textcolor = color.orange, color = color.new(color.black,50), text = "Long"))
+
+// _______________________________________________________
+//
+// Performance Table                     
+// _______________________________________________________  
+
+
+arrayText = ""
+allText = ""
+allText2 = ""
+tablePerformance = table.new(position.bottom_right, 10, 10, bgcolor = color.new(color.white, 100))
+
+if bar_index > bar_index[1] 
+    if select == "Best" and tab == "Top Three"
+        for i = 0 to 2
+            arrayText := arrayText + array.get(cumulativePerformanceNameSorted, i) + str.tostring(array.get(cumulativePerformanceSorted, i), format.percent) +"\n\n"
+    else if select == "Worst" 
+        array.reverse(cumulativePerformanceSorted)
+        array.reverse(cumulativePerformanceNameSorted)
+        if tab == "Top Three"
+            for i = 0 to 2
+                arrayText := arrayText + array.get(cumulativePerformanceNameSorted, i) + str.tostring(array.get(cumulativePerformanceSorted, i), format.percent) +"\n\n"
+    if tab == "All"
+        for i = 0 to 33
+            arrayText := arrayText + array.get(cumulativePerformanceNameSorted, i) + str.tostring(array.get(cumulativePerformanceSorted, i), format.percent) +"\n\n"
+        for i = 34 to 67
+            allText := allText  +  array.get(cumulativePerformanceNameSorted, i) + str.tostring(array.get(cumulativePerformanceSorted, i), format.percent) +"\n\n"
+        for i = 68 to 101
+            allText2 := allText2  +  array.get(cumulativePerformanceNameSorted, i) + str.tostring(array.get(cumulativePerformanceSorted, i), format.percent) +"\n\n"
+        table.cell(tablePerformance, 2, 2, text = allText, text_color = color.blue, text_size = size.tiny, bgcolor = color.new(color.black, 50))
+        table.cell(tablePerformance, 3, 2, text = allText2, text_color = color.red, text_size = size.tiny, bgcolor = color.new(color.black, 50)) 
+    if tab == "Top Three"
+        table.cell(tablePerformance, 1,0, text = "Best Performing ST is Automatically Plotted" ,text_color = color.white, text_size = tab == "All" ? size.tiny : size.normal, bgcolor = na)
+        table.cell(tablePerformance, 1,1, text = "Parameters : Performance" ,text_color = color.green, text_size = tab == "All" ? size.tiny : size.normal, bgcolor = color.new(color.black, 50))
+    table.cell(tablePerformance, 1,2, text = arrayText ,text_color = color.green, text_size =  tab == "All" ? size.tiny : size.normal, bgcolor = color.new(color.black, 50))
+    table.cell(tablePerformance, tab == "All" ? 2 : 1, tab == "All" ? 0 : 3, text = "Parameters Tested: \n\n" + "Factor [" + str.tostring(factor, format.mintick) + " to " + str.tostring(factor + 3.3, format.mintick) + "]" 
+         + "\n\nATR Period " + "[" + str.tostring(atr, "#.0") + " to " + str.tostring(atr + 2, "#.0") + "]",
+         text_color = color.white, text_size = tab == "All" ? size.small : size.normal)
+   
+   
+    if inst == "Yes"
+        table.cell(tablePerformance, 0,4, text_size = size.small, text_color = color.white, text = "Hello! This indicator attempts to optimize Supertrend parameters. To achieve this, 102 parameter combinations are tested \nconcurrently - the top three performers are \nlisted in descending order. Parameters, \nFactor: Changes to this parameter shifts the tested factor range. \nFor instance, increasing the factor measure from 3.00 to 3. 01 (+0. 01 ) \nwill remove 3.00 from the tested range - this setting controls \nthe lower threshold of the range. The upper threshold, in all instances, is the \nlower Factor threshold + 3.3 (i.e. 3.0(lower) - 6.3(upper), 4.0(lower) - 7.3(upper), 2.5(lower) - 5.8(upper)) \nATR period: Changes to this parameter shifts the tested ATR period range. For instance, increasing \nthe ATR measure from 10 to 11 (+1) will remove 10\n from the tested range - this setting controls the lower threshold of the \nrange. The upper threshold, in all instances, is the lower threshold + 2 \n(i.e. 10(lower) - 12(upper), 11(lower) - 13(upper), 9(lower), - 11(upper)) The Factor \nparameter is modifiable to any positive decimal number; the ATR parameter is modifiable to any positive integer. \nChanging either parameter shifts the tested parameter combination range. \nBoth parameters can be changed in the settings, to which you control the lower threshold \nof the range. If, for instance, you were to change the Factor measurement from 3.0 to 4.1 \n(+1.1) the 4.0 Factor measurement, and all Factor measures less than 4.0, \nwill be excluded from the performance test. Consequently, \na Supertrend test will be performed with a Factor of 4.1 \nand an ATR period of 10 (default). This test repeats at \n0.1 Factor intervals and 1.0 ATR intervals. Therefore, assume you modify the Factor \nlower threshold to 3.1 and the ATR lower threshold to 10. The indicator will test three Supertrend \nsystems with a Factor of 3.1 and an ATR period of 10.. then 11.. 12, then three systems \nwith a Factor of 3.2 and an ATR period of 10.. then 11.. 12... \nuntil (lower Factor threshold + 3.3) and (lower ATR threshold + 2) are tested... \nwhich in this example is... a Factor of 6.4 and an ATR period of 12. The tested Factor \nrange and ATR range are displayed in a bottom right table alongside \nthe top performing parameter combinations. Of course, you can change \nthe the lower thresholds, which means you can test numerous Supertrend \nparameter combinations! However, no greater than 102 parameter combinations\n will be tested simultaneously; the best performing Supertrend parameters are plotted \non the chart automatically. The indicator tests LONG positions ONLY! Traditional Supertrend sell signals are \nconsidered LONG EXIT signals - \nwhich are calculated for profit/loss. Performance calculations are predicated on CUMULATIVE \ngains, not average gain/loss! Also, it's good to be prudent with an indicator \nlike this! Automated optimization can lead to \nover optimization!")
+
+
+// _______________________________________________________
+//
+// FUN                            
+// _______________________________________________________  
+
+// _______________________________________________________
+//
+// Raining Candlesticks (Rocketship?)                         
+// _______________________________________________________    
+    
+
+var line [] n = array.new_line(1)
+var line [] n1 = array.new_line(1)
+var linefill [] b = array.new_linefill(1)
+var line[] c = array.new_line(1)
+var line [] c1 = array.new_line(1)
+var line [] l = array.new_line(1)
+var line [] l1 = array.new_line(1)
+var line [] l2 = array.new_line(1)
+var line [] l3 = array.new_line(1)
+var box[] bo = array.new_box(1)
+var box[] bo1 = array.new_box(1)
+var box[] bo2 = array.new_box(1)
+var box[] bo3 = array.new_box(1)
+var label [] btc = array.new_label(1)
+var label [] eth = array.new_label(1)
+var label [] zCash = array.new_label(1)
+var label[] doge = array.new_label(1)
+var label [] rocket = array.new_label(1)
+
+[mid, up, lo] = ta.bb(ohlc4, 20, 2.0)
+
+emalo = ta.sma(lo, 200)
+emahi = ta.ema(up, 2)
+
+var int counter = 0
+var int counter1 = 0
+
+if counter < 30 
+    counter += 1
+if counter == 30
+    counter := 0
+
+if counter1 < 50 
+    counter1 += 1
+if counter1 == 50
+    counter1 := 0 
+
+h = ta.highest(high, 250)
+
+rain = input.string(defval = "Sunny Day", title = 'Raining ?', options = ["Candles", "Crypto", "Sunny Day", "Rocketship?"], group = 'Leave on "Sunny Day" for the chart to remain unaffected; changing the settings below does not affect script calculations. If you want to try these with Bar Replay, be sure to change the "Show Performers" tab to "Top Three" to increase chart space!')
+
+
+if bar_index 
+   
+    if rain != "Sunny Day" and rain != "Rocketship?"
+
+        array.push(n, line.new(bar_index + 150, emahi[1], bar_index + 151, emahi, color = color.gray))
+        array.push(n1, line.new(bar_index + 150, emalo[1], bar_index + 151, emalo, color = color.gray))
+        array.push(b, linefill.new(array.get(n, array.size(n) - 1), array.get(n1, array.size(n1) - 1), color.new(color.gray,50)))
+        array.push(c, line.new(bar_index + 101, emahi[50], bar_index + 101, emalo[50], color = color.gray))
+        array.push(c1, line.new(bar_index + 151, emahi, bar_index + 151, emalo, color = color.gray))
+    
+    if rain == "Candles"
+    
+        array.push(bo, box.new(bar_index + 110, emalo[40] - counter[5], bar_index + 112, emalo[40] - counter, bgcolor = counter > 5 and close[5] > open[5] ? color.green :  
+             counter > 5 and close[5] < open[5] ? color.red : na, border_color = 
+             counter > 5 and close[5] > open[5] ? color.green : counter > 5 and close[5] < open[5] ? color.red : na))
+        array.push(bo1, box.new(bar_index + 130, emalo[20] - counter[5], bar_index + 132, emalo[20] - counter, bgcolor = counter > 8 and close[3] > open[3] ? color.green :  
+             counter > 8 and close[3] < open[3] ? color.red : na, border_color = 
+             counter > 8 and close[3] > open[3] ? color.green : counter > 8 and close[3] < open[3] ? color.red : na))
+        array.push(bo2, box.new(bar_index + 120, emalo[30] - counter[5], bar_index + 122, emalo[30] - counter, bgcolor = counter > 11 and close[4] > open[4] ? color.green :  
+             counter > 11 and close[4] < open[4] ? color.red : na, border_color = 
+             counter > 11 and close[4] > open[4] ? color.green : counter > 14 and close[4] < open[4] ? color.red : na))
+        array.push(bo3, box.new(bar_index + 140, emalo[10] - counter[5], bar_index + 142, emalo[10] - counter, bgcolor = counter > 14 and close[2] > open[2] ? color.green :  
+             counter > 14 and close[2] < open[2] ? color.red : na, border_color = 
+             counter > 14 and close[2] > open[2] ? color.green : counter > 18  and close[2] < open[2] ? color.red : na))
+        array.push(l, line.new(bar_index + 111, box.get_top(array.get(bo, 0)) * 1.01, bar_index + 111, box.get_bottom(array.get(bo, 0)) * .99, 
+             color = counter > 5 and close[5] > open[5] ? color.green :  
+             counter > 5 and close[5] < open[5] ? color.red : na))
+        array.push(l1, line.new(bar_index + 121, box.get_top(array.get(bo1, 0)) * 1.01, bar_index + 121, box.get_bottom(array.get(bo1, 0)) * .99, 
+             color = counter > 11 and close[4] > open[4] ? color.green :  
+             counter > 11 and close[4] < open[4] ? color.red : na))
+        array.push(l2, line.new(bar_index + 131, box.get_top(array.get(bo2, 0)), bar_index + 131, box.get_bottom(array.get(bo2, 0)) * .98, 
+             color = counter > 8 and close[3] > open[3] ? color.green :  
+             counter > 8 and close[3] < open[3] ? color.red : na))
+        array.push(l3, line.new(bar_index + 141, box.get_top(array.get(bo3, 0)) * 1.02, bar_index + 141, box.get_bottom(array.get(bo3, 0)) * .98, 
+             color = counter > 14 and close[2] > open[2] ? color.green :  
+             counter > 14 and close[2] < open[2] ? color.red : na))
+    
+    if rain == "Crypto"
+        
+        array.push(btc, label.new(bar_index + 111, emalo[40] - counter1[5], text = "₿", color = na, textcolor = counter1 > 5 ? color.yellow : na, size = size.large))
+        array.push(eth, label.new(bar_index + 121, emalo[30] - counter1[5], text = "⟠", color = na, textcolor = counter1 > 14 ? color.blue : na, size = size.huge))
+        array.push(zCash, label.new(bar_index + 131, emalo[20] - counter1[5], text = "ⓩ", color = na, textcolor = counter1 > 11? color.red : na, size = size.normal))
+        array.push(doge, label.new(bar_index + 141, emalo[10] - counter1[5], text = "🐶", color = na, textcolor = counter1 > 18 ? color.black : na, size = size.normal))
+    
+    if rain == "Rocketship?"
+        
+        array.push(rocket, label.new(bar_index + bar_index % 200, h + bar_index % 200, text = "🚀", color = na))
+
+if array.size(n) > 50
+    
+    if rain != "Sunny Day" 
+
+        line.delete(array.shift(n))
+        line.delete(array.shift(n1))
+        linefill.delete(array.shift(b))
+        
+    
+if array.size(c) > 1
+
+    line.delete(array.shift(c))
+    line.delete(array.shift(c1))
+    
+    if array.size(l) > 1 and rain == "Candles"
+        
+        line.delete(array.shift(l))
+        line.delete(array.shift(l1))
+        line.delete(array.shift(l2))
+        line.delete(array.shift(l3))
+        box.delete(array.shift(bo))
+        box.delete(array.shift(bo1))
+        box.delete(array.shift(bo2))
+        box.delete(array.shift(bo3))
+    
+    if rain == "Crypto" and array.size(btc) > 1
+        
+        label.delete(array.shift(btc))
+        label.delete(array.shift(eth))
+        label.delete(array.shift(zCash))
+        label.delete(array.shift(doge))
+
+
+tt = table.new(position.top_right, 5, 5)
+    
+if rain == "Rocketship?" and array.size(rocket) > 1
+    label.delete(array.shift(rocket))
+    table.cell(tt,0, 0, text = "🌕", text_size = size.huge)
+        
+        
+        
+
+    
+    
+
+    
+

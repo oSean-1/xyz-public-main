@@ -1,0 +1,367 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © ILuvMarkets
+
+
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+//@version=5
+indicator("Sector Performance Dashboard", "Sector Performance v0.1", overlay = false)
+
+if not timeframe.isdaily
+    runtime.error("Please switch timeframe to daily")
+    
+i_sector = input.string("Sectors", "Sector", ["Sectors", "SPY", "QQQ", "AMEX:XLY", "AMEX:XLE", 
+                         "AMEX:XLB", "AMEX:XLK", "AMEX:XLRE", "AMEX:XLU", "AMEX:XLI", "AMEX:XLV", "AMEX:XLP",
+                         "AMEX:XLF","AMEX:XLC"])
+i_time_1_txt = input.string("Yearly",                        title="Period", inline="1")
+i_time_1     = input.time(timestamp("2022-01-01T00:00:00"),title="Date",   inline="1")
+i_time_2_txt = input.string("Quarterly",                     title="Period", inline="2")
+i_time_2     = input.time(timestamp("2022-10-01T00:00:00"),title="Date",   inline="2")
+i_time_3_txt = input.string("Monthly",                       title="Period", inline="3")
+i_time_3     = input.time(timestamp("2022-11-01T00:00:00"),title="Date",   inline="3")
+i_time_4_txt = input.string("Weekly",                        title="Period", inline="4")
+i_time_4     = input.time(timestamp("2022-11-06T00:00:00"),title="Date",   inline="4")
+i_text_size  = input.string(size.auto, "Text Size", [size.auto, size.tiny, size.small, size.normal, size.large, size.huge])
+
+int ROWS = 30
+int COLS = 10
+int CLOSE_1 = 0, CLOSE_2 = 1, CLOSE_3 = 2, CLOSE_4 = 3
+int CLOSE_PCT_1 = 4, CLOSE_PCT_2 = 5, CLOSE_PCT_3 = 6, CLOSE_PCT_4 = 7
+var matrix<float> data_ = matrix.new<float>(ROWS, COLS, 0.0)
+
+var table table_ = na
+var text_color_ = color.white
+var bg_color_ = color.gray
+
+f_color(val_) => val_ > 0 ? color.green : val_ < 0 ? color.red : color.gray
+f_bg_color(val_) => val_ > 0 ? color.new(color.green,80) : val_ < 0 ? color.new(color.red,80) : color.new(color.black,80)
+
+f_bg_color_price(val_) => 
+    fg_color_ = f_color(val_)
+    abs_val_ = math.abs(val_)
+    transp_ = switch 
+        abs_val_ > .15 => 40 
+        abs_val_ > .10 => 50 
+        abs_val_ > .05 => 60 
+        => 80
+    color.new(fg_color_, transp_)
+
+f_symbol(sector_, idx_) =>
+    switch sector_
+        "Sectors" =>
+            switch idx_
+                1 => "XLY"
+                2 => "XLE"
+                3 => "XLB"
+                4 => "XLK"
+                5 => "XLRE"
+                6 => "XLU"
+                7 => "XLI"
+                8 => "XLV"
+                9 => "XLP"
+                10 => "XLF"
+                11 => "XLC"
+                12 => "TLT"
+                13 => "GLD"
+                14 => "SLV"
+                15 => "VIX"
+                => ""
+        "SPY" =>
+            switch idx_
+                1 => "AAPL"
+                2 => "MSFT"
+                3 => "AMZN"
+                4 => "GOOGL"
+                5 => "TSLA"
+                6 => "BRK.B"
+                7 => "UNH"
+                8 => "GOOG"
+                9 => "XOM"
+                10 => "JNJ"
+                11 => "JPM"
+                12 => "NVDA"
+                13 => "CVX"
+                14 => "V"
+                15 => "PG"    
+                => ""
+        "QQQ" =>
+            switch idx_
+                1 => "AAPL"
+                2 => "MSFT"
+                3 => "AMZN"
+                4 => "TSLA"
+                5 => "GOOG"
+                6 => "GOOGL"
+                7 => "NVDA"
+                8 => "PEP"
+                9 => "COST"
+                10 => "META"
+                11 => "AVGO"
+                12 => "TMUS"
+                13 => "CSCO"
+                14 => "TXN"
+                => ""
+        "AMEX:XLY" =>
+            switch idx_
+                1 => "AMZN"
+                2 => "TSLA"
+                3 => "MCD"
+                4 => "HD"
+                5 => "LOW"
+                6 => "NKE"
+                7 => "SBUX"
+                8 => "TJX"
+                9 => "TGT"
+                10 => "BKNG"
+                11 => "GM"
+                12 => "DG"
+                13 => "F"
+                14 => "ORLY"
+                15 => "AZO"
+                => ""
+        "AMEX:XLE" =>
+            switch idx_
+                1 => "XOM"
+                2 => "CVX"
+                3 => "SLB"
+                4 => "COP"
+                5 => "EOG"
+                6 => "PXD"
+                7 => "MPC"
+                8 => "OXY"
+                9 => "VLO"
+                10 => "PSX"
+                11 => "DVN"
+                12 => "HES"
+                13 => "WMB"
+                14 => "KMI"
+                => ""
+        "AMEX:XLB" =>
+            switch idx_
+                1 => "LIN"
+                2 => "APD"
+                3 => "SHW"
+                4 => "FCX"
+                5 => "CTVA"
+                6 => "DOW"
+                7 => "NUE"
+                8 => "ECL"
+                9 => "ALB"
+                10 => "NEM"
+                11 => "DD"
+                12 => "PPG"
+                13 => "IFF"
+                14 => "VMC"
+                => ""
+        "AMEX:XLK" =>
+            switch idx_
+                1 => "AAPL"
+                2 => "MSFT"
+                3 => "NVDA"
+                4 => "V"
+                5 => "MA"
+                6 => "AVGO"
+                7 => "CSCO"
+                8 => "ACN"
+                9 => "TXN"
+                10 => "CRM"
+                11 => "ADBE"
+                12 => "IBM"
+                13 => "QCOM"
+                14 => "INTC"
+                => ""
+        "AMEX:XLRE" =>
+            switch idx_
+                1 => "PLD"
+                2 => "AMT"
+                3 => "CCI"
+                4 => "EQIX"
+                5 => "PSA"
+                6 => "O"
+                7 => "SPG"
+                8 => "VICI"
+                9 => "SBAC"
+                10 => "WELL"
+                11 => "DLR"
+                12 => "WY"
+                13 => "CBRE"
+                14 => "AVB"              
+                15 => "ARE"              
+                => ""
+        "AMEX:XLU" =>
+            switch idx_
+                1 => "NEE"
+                2 => "DUK"
+                3 => "SO"
+                4 => "D"
+                5 => "SRE"
+                6 => "AEP"
+                7 => "EXC"
+                8 => "XEL"
+                9 => "ED"
+                10 => "CEG"
+                11 => "PEG"
+                12 => "WEC"
+                13 => "ES"
+                14 => "AWK"           
+                => ""
+        "AMEX:XLI" =>
+            switch idx_
+                1 => "RTX"
+                2 => "HON"
+                3 => "UPS"
+                4 => "UNP"
+                5 => "CAT"
+                6 => "LMT"
+                7 => "DE"
+                8 => "BA"
+                9 => "GE"
+                10 => "NOC"
+                11 => "MMMM"
+                12 => "CSX"
+                13 => "ETN"
+                14 => "WM"       
+                => ""
+        "AMEX:XLV" =>
+            switch idx_
+                1 => "UNH"
+                2 => "JNJ"
+                3 => "LLY"
+                4 => "PFE"
+                5 => "ABBV"
+                6 => "MRK"
+                7 => "TMO"
+                8 => "ABT"
+                9 => "BMY"
+                10 => "DHR"
+                11 => "AMGN"
+                12 => "CVS"
+                13 => "ELV"
+                14 => "MDT"     
+                => ""
+        "AMEX:XLP" =>
+            switch idx_
+                1 => "PG"
+                2 => "PEP"
+                3 => "KO"
+                4 => "COST"
+                5 => "WMT"
+                6 => "MDLZ"
+                7 => "PM"
+                8 => "MO"
+                9 => "CL"
+                10 => "ADM"
+                11 => "EL"
+                12 => "GIS"
+                13 => "SYY"
+                14 => "KMB"
+                => ""
+        "AMEX:XLF" =>
+            switch idx_
+                1 => "BRK.B"
+                2 => "JPM"
+                3 => "BAC"
+                4 => "WFC"
+                5 => "GS"
+                6 => "SCHW"
+                7 => "MS"
+                8 => "SPGI"
+                9 => "BLK"
+                10 => "C"
+                11 => "CB"
+                12 => "AXP"
+                13 => "PGR"
+                14 => "PNC"
+                => ""
+        "AMEX:XLC" =>
+            switch idx_
+                1 => "META"
+                2 => "GOOGL"
+                3 => "GOOG"
+                4 => "T"
+                5 => "TMUS"
+                6 => "NFLX"
+                7 => "CHTR"
+                8 => "CMCSA"
+                9 => "DIS"
+                10 => "VZ"
+                11 => "EA"
+                12 => "ATVI"
+                13 => "WBD"
+                14 => "TTWO"
+                15 => "OMC"
+                => ""
+
+f_update_data(idx_, period_, start_time_, bar_time_, close_) =>
+    var time_array_ = array.new<int>(4,0)
+
+    time_ = array.get(time_array_, period_)
+    if time_ == 0 and bar_time_ >= start_time_
+        time_ := start_time_
+        array.set(time_array_, period_, start_time_)
+    if time_ == start_time_ and matrix.get(data_, idx_, period_) == 0.0
+        matrix.set(data_, idx_, period_, close_[1])
+
+    if barstate.islast
+        close_start_ = matrix.get(data_, idx_, period_)
+        close_pct_ = close_/close_start_ -1
+        matrix.set(data_, idx_, 4+period_, close_pct_)
+
+        row_ = idx_
+        col_ = 1 + period_
+        table.cell(table_, col_, row_, str.format("{0,number,0.00%}", close_pct_), text_color = f_color(close_pct_), bgcolor = f_bg_color_price(close_pct_), text_size = i_text_size), col_ += 1
+
+
+f_security(symbol_, idx_) =>
+    var time_1_ = 0
+
+
+    if barstate.isfirst and symbol_ != ""
+        row_ = idx_, col_ = 0
+        table.cell(table_, col_, row_, symbol_, text_color = color.new(color.white,50), bgcolor = color.new(bg_color_,80), text_size = i_text_size, text_halign = text.align_left), col_ += 1
+
+    [close_, bar_time_, high_250d_, low_250d_] = request.security("" + symbol_, timeframe.period, [close, time, ta.highest(high, 250), ta.lowest(low,250)], ignore_invalid_symbol = true)
+    if symbol_ != ""
+        f_update_data(idx_, CLOSE_1, i_time_1, bar_time_, close_)
+        f_update_data(idx_, CLOSE_2, i_time_2, bar_time_, close_)
+        f_update_data(idx_, CLOSE_3, i_time_3, bar_time_, close_)
+        f_update_data(idx_, CLOSE_4, i_time_4, bar_time_, close_)
+
+    if barstate.islast and symbol_ != ""
+        row_ = idx_
+        col_ = 5
+        table.cell(table_, col_, row_, str.format("{0,number,#.00}", close_), text_color = color.new(color.white,50), bgcolor = color.new(bg_color_,80), text_size = i_text_size, text_halign = text.align_right), col_ += 1
+        table.cell(table_, col_, row_, str.format("{0,number,#.00}", high_250d_), text_color = color.new(color.white,50), bgcolor = color.new(bg_color_,80), text_size = i_text_size, text_halign = text.align_right), col_ += 1
+        table.cell(table_, col_, row_, str.format("{0,number,0.00%}", 1 - close_/high_250d_), text_color = color.new(color.white,50), bgcolor = color.new(bg_color_,80), text_size = i_text_size, text_halign = text.align_right), col_ += 1
+        table.cell(table_, col_, row_, str.format("{0,number,#.00}", low_250d_), text_color = color.new(color.white,50), bgcolor = color.new(bg_color_,80), text_size = i_text_size, text_halign = text.align_right), col_ += 1
+        table.cell(table_, col_, row_, str.format("{0,number,0.00%}", close_/low_250d_-1), text_color = color.new(color.white,50), bgcolor = color.new(bg_color_,80), text_size = i_text_size, text_halign = text.align_right), col_ += 1
+
+if barstate.isfirst
+    table_ := table.new(position.middle_center, 20, 30, border_width = 1)
+    row_ = 0, col_ = 0
+    table.cell(table_, col_, row_, "Symbol", text_color = text_color_, bgcolor = bg_color_, text_size = i_text_size), col_ += 1
+    table.cell(table_, col_, row_, str.format("{0}\n{1,date,yyyy-MM-dd}", i_time_1_txt, i_time_1), text_color = text_color_, bgcolor = bg_color_, text_size = i_text_size), col_ += 1
+    table.cell(table_, col_, row_, str.format("{0}\n{1,date,yyyy-MM-dd}", i_time_2_txt, i_time_2), text_color = text_color_, bgcolor = bg_color_, text_size = i_text_size), col_ += 1
+    table.cell(table_, col_, row_, str.format("{0}\n{1,date,yyyy-MM-dd}", i_time_3_txt, i_time_3), text_color = text_color_, bgcolor = bg_color_, text_size = i_text_size), col_ += 1
+    table.cell(table_, col_, row_, str.format("{0}\n{1,date,yyyy-MM-dd}", i_time_4_txt, i_time_4), text_color = text_color_, bgcolor = bg_color_, text_size = i_text_size), col_ += 1
+    table.cell(table_, col_, row_, "Close", text_color = text_color_, bgcolor = bg_color_, text_size = i_text_size), col_ += 1
+    table.cell(table_, col_, row_, "250d High", text_color = text_color_, bgcolor = bg_color_, text_size = i_text_size), col_ += 1
+    table.cell(table_, col_, row_, "% from High", text_color = text_color_, bgcolor = bg_color_, text_size = i_text_size), col_ += 1
+    table.cell(table_, col_, row_, "250d Low", text_color = text_color_, bgcolor = bg_color_, text_size = i_text_size), col_ += 1
+    table.cell(table_, col_, row_, "% from Low", text_color = text_color_, bgcolor = bg_color_, text_size = i_text_size), col_ += 1
+
+idx_ = 1
+f_security(f_symbol(i_sector, idx_), idx_), idx_ +=1
+f_security(f_symbol(i_sector, idx_), idx_), idx_ +=1
+f_security(f_symbol(i_sector, idx_), idx_), idx_ +=1
+f_security(f_symbol(i_sector, idx_), idx_), idx_ +=1
+f_security(f_symbol(i_sector, idx_), idx_), idx_ +=1
+f_security(f_symbol(i_sector, idx_), idx_), idx_ +=1
+f_security(f_symbol(i_sector, idx_), idx_), idx_ +=1
+f_security(f_symbol(i_sector, idx_), idx_), idx_ +=1
+f_security(f_symbol(i_sector, idx_), idx_), idx_ +=1
+f_security(f_symbol(i_sector, idx_), idx_), idx_ +=1
+f_security(f_symbol(i_sector, idx_), idx_), idx_ +=1
+f_security(f_symbol(i_sector, idx_), idx_), idx_ +=1
+f_security(f_symbol(i_sector, idx_), idx_), idx_ +=1
+f_security(f_symbol(i_sector, idx_), idx_), idx_ +=1
+f_security(f_symbol(i_sector, idx_), idx_), idx_ +=1

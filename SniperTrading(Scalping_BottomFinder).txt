@@ -1,0 +1,255 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © GlobalEconomy
+
+//@version=5
+indicator('SniperTrader', overlay = false)
+
+normalize(_src, _min, _max) =>
+// Normalizes series with unknown min/max using historical min/max.
+// _src      : series to rescale.
+// _min, _min: min/max values of rescaled series.
+    var _historicMin = +10e10
+    var _historicMax = -10e10
+    _historicMin := math.min(nz(_src, _historicMin), _historicMin)
+    _historicMax := math.max(nz(_src, _historicMax), _historicMax)
+    _min + (_max - _min) * (_src - _historicMin) / math.max(_historicMax - _historicMin, 10e-10)
+// The RSI divergence is determined by checking if the current RSI value is less than the previous RSI value,
+// and if the current price is less than the previous price.
+
+up1 = 0
+lbp1 = input(defval=21, title="Lookback Period RSI")
+rsiValue = ta.rsi(close, 14)
+
+// Run through historical data
+
+for i = 0 to lbp1 -1
+    if rsiValue[i] < rsiValue[1] and close[i] > close[1] 
+    // or rsiValue[i] > rsiValue[1] and close[i] < close[1]
+        up1 := up1 + 1
+
+// plot
+rsi_smoothing = input(10)
+x1 = ta.sma(up1, rsi_smoothing)
+
+n1 = normalize(x1, 0, 100)
+
+//plot(series=up1, color = color.blue)
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// The RSI divergence is determined by checking if the current RSI value is less than the previous RSI value,
+// and if the current price is less than the previous price.
+
+up2 = 0
+lbp2 = input(defval=21, title="Lookback Period MACD")
+
+[macdLine, signalLine, histLine] = ta.macd(close, 12, 21, 5)
+
+// Run through historical data
+
+for i = 0 to lbp2 -1
+    if macdLine[i] < macdLine[1] and close[i] > close[1] 
+    //or macdLine[i] > macdLine[1] and close[i] < close[1]
+        up2 := up2 + 1
+
+//
+
+// plot
+macd_smoothing = input(10)
+x2 = ta.sma(up2, macd_smoothing)
+
+n2= normalize(x2, 0, 100)
+
+//plot(series=up2, color = color.green)
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// The standard deviation 
+
+up3 = 0
+lbp3 = input(defval=252, title="Lookback Period Stdev")
+
+//
+Stdev = input(2)
+
+// The MA 
+medianLen1 = input(52)
+mma21Value1 = ta.median(close, medianLen1)
+
+// The standard deviation is calculated using the stdev() function.
+stdevValue = ta.stdev(close, 21)
+
+// Run through historical data
+
+for i = 0 to lbp3 -1
+    if close[i] < mma21Value1[i] - Stdev[i] * stdevValue[i]
+        up3 := up3 + 1
+
+// plot
+std_smoothing = input(5)
+x3 = ta.sma(up3, std_smoothing)
+
+n3 = normalize(x3, 0, 100)
+
+//plot(series=up3, color = color.red)
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Fisher
+up4 = 0
+lbp4 = input(defval=21, title="Lookback Period fx")
+f_len = input(defval=10, title="f Len")
+
+// Func
+
+f(_window) =>
+    Length = _window
+    heikon = true
+    heikinashi = request.security(ticker.heikinashi(syminfo.ticker), "", close)
+    xHL2 = heikon ? heikinashi : close
+    xMaxH = ta.highest(xHL2, Length)
+    xMinL = ta.lowest(xHL2, Length)
+    nValue1 = 0.0
+    nValue2 = 0.0
+    nValue1 := 0.33 * 2 * ((xHL2 - xMinL) / (xMaxH - xMinL) - 0.5) + 0.67 * nz(nValue1[1])
+    iff_1 = nValue1 < -.99 ? -.999 : nValue1
+    nValue2 := nValue1 > .99 ? .999 : iff_1
+    nFish = 0.0
+    nFish := 0.5 * math.log(1 * nValue2 / (1 - nValue2)) + 0.5 * nz(nFish[1])
+    k = input(1.70174454109)
+    multiplier = input(1.00)
+    newSigmoid = (1 / k * math.log((1 + nValue2) / (1 - nValue2)) + 0.5 * nz(nFish[1])) * multiplier
+    newSigmoid
+
+// Run through historical data
+
+
+for i = 0 to lbp4 -1
+    if f(f_len)[i] < f(f_len)[1] and close[i] > close[1] 
+    // or rsiValue[i] > rsiValue[1] and close[i] < close[1]
+        up4 := up4 + 1
+
+//plot
+f_smoothing = input(10)
+x4 = ta.sma(up4, f_smoothing)
+
+n4 = normalize(x4, 0, 100)
+
+//plot(series=up4, color = color.purple)
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Getting inputs
+ADXfilter = input(45, title="Defval45, Increase for Higher ADX to filter on lower frames")
+Sentimentfilter = input(30, title="Defval30, Decrease for Lower MarketSentiment to filter on lower frames")
+
+// Threshholds
+wtreshold = input(35, title="Weak Threshold")
+streshold = input(40, title="Strong Threshold")
+
+// adx 
+adxlen = input(5, title="ADX Smoothing")
+dilen = input(5, title="DI Length")
+dirmov(len) =>
+	up = ta.change(high)
+	down = -ta.change(low)
+	plusDM = na(up) ? na : (up > down and up > 0 ? up : 0)
+	minusDM = na(down) ? na : (down > up and down > 0 ? down : 0)
+	truerange = ta.rma(ta.tr, len)
+	plus = fixnan(100 * ta.rma(plusDM, len) / truerange)
+	minus = fixnan(100 * ta.rma(minusDM, len) / truerange)
+	[plus, minus]
+adx(dilen, adxlen) =>
+	[plus, minus] = dirmov(dilen)
+	sum = plus + minus
+	adx = 100 * ta.rma(math.abs(plus - minus) / (sum == 0 ? 1 : sum), 1)
+sig = adx(dilen, adxlen)
+
+//Sentiment
+perioda = 51, periodb= 47, roundingvalue = 4
+
+llow = ta.lowest(low, perioda)
+
+hhigh = ta.highest(high, perioda)
+
+c_ln = close - llow
+
+hn_ln = hhigh - llow
+
+denominator = math.sum(hn_ln, perioda)
+
+numerator = math.sum(c_ln, periodb)
+
+marketsentiment = 100*(numerator/denominator)
+
+up = ta.change(high)
+down = -ta.change(low)
+trur = ta.rma(ta.tr, adxlen)
+plus = fixnan(100 * ta.rma(up > down and up > 0 ? up : 0, dilen) / trur)
+minus = fixnan(100 * ta.rma(down > up and down > 0 ? down : 0, dilen) / trur)
+sum = plus + minus
+adx = 100 * ta.rma(math.abs(plus - minus) / (sum == 0 ? 1 : sum), 1)
+
+//
+
+// Run through historical data
+
+// = sig > ADXfilter and sig > streshold and plus < minus
+
+up5 = 0
+lbp5= input(defval=52, title="Lookback Period adx")
+
+for i = 0 to lbp5 -1
+    if (sig[i] > ADXfilter and sig[i] > streshold and plus[i] < minus[i])
+    // or rsiValue[i] > rsiValue[1] and close[i] < close[1]
+        up5 := up5 + 1
+
+//plot 
+n5 = normalize(up5, 0, 100)
+
+// Run through historical data
+
+// = sig > marketsentiment and marketsentiment < Sentimentfilter
+
+up6 = 0
+lbp6= input(defval=52, title="Lookback Period adx")
+
+for i = 0 to lbp6 -1
+    if (sig[i] > marketsentiment[i] and marketsentiment[i] < Sentimentfilter)
+    // or rsiValue[i] > rsiValue[1] and close[i] < close[1]
+        up6 := up6 + 1
+
+//plot
+n6= normalize(up6, 0, 100)
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+//plot(series=n3, color = color.rgb(255, 82, 82, 85), style=plot.style_area, linewidth = 4)
+//plot(series=n6, color = color.rgb(255, 153, 0, 85), style=plot.style_area, linewidth = 4)
+//plot(series=n5, color = color.rgb(255, 235, 59, 85), style=plot.style_area, linewidth = 4)
+//plot(series=n4, color = color.rgb(255, 255, 255))
+//plot(series=n2, color = color.green)
+//plot(series=n1, color = color.blue)
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+rsi_level = input(65)
+macd_level = input(65)
+mma_level = input(40)
+ft_level = input(50)
+adx1_level = input(50)
+adx2_level = input(50)
+
+top1 = n1 >= rsi_level ? 1 : 0
+top2 = n2 >= macd_level ? 1 : 0
+top3 = n3 >= mma_level ? 1 : 0
+top4 = n4 >= ft_level ? 1 : 0
+top5 = n5 >= adx1_level ? 1 : 0
+top6 = n6 >= adx2_level ? 1 : 0
+
+Trust = (top1 + top2 + top3 + top4 + top5 + top6) 
+avg_len = input(5)
+Trust_avg = math.avg(top1 + top2 + top3 + top4 + top5 + top6, avg_len)
+plot(Trust_avg)
+plot(series=Trust, title="Bull Power Level", style=plot.style_line, color = Trust>=Trust_avg ? color.white : color.blue)
+plot(series=Trust, title="Bull Power Level", style=plot.style_cross, color = Trust>=Trust_avg ? color.white : color.blue)

@@ -1,0 +1,62 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © federalTacos5392b
+//@version=5
+indicator("VIX Statistical Sentiment Index [Nasan]", overlay=false)
+
+length1 = input(13, "ROC Length1")
+length2 = input(21, "ROC Length2")
+length3 = input(34, "ROC Length3")
+cor_len = math.round(length1 + length2 + length3) / 3
+
+// Option to choose between VIX and SPX
+showROC_VIX = input(true, "Show ROC of VIX")
+showROC_SPX = input(false, "Show ROC of SPX")
+
+src_VIX = request.security("VIX", "", close)
+src_SPX = request.security("SPX", "", close)
+
+// VIX ROC Calculation
+roc_VIX1 = ta.roc(src_VIX, length1)
+roc_VIX2 = ta.roc(src_VIX, length2)
+roc_VIX3 = ta.roc(src_VIX, length3)
+roc_VIX = (roc_VIX1 + roc_VIX2 + roc_VIX3) / 3
+
+// SPX ROC Calculation
+roc_SPX1 = ta.roc(src_SPX, length1)
+roc_SPX2 = ta.roc(src_SPX, length2)
+roc_SPX3 = ta.roc(src_SPX, length3)
+roc_SPX = (roc_SPX1 + roc_SPX2 + roc_SPX3) / 3
+
+// Splitting the ROC calculation to avoid syntax conflict
+rocCondition = roc_VIX < 0
+rocHistogramColor = rocCondition ? color.green : color.red
+
+rocCondition1 = roc_SPX > 0
+rocHistogramColor1 = rocCondition1 ? color.purple : color.orange
+
+// Plot the ROC based on user choice
+plot(showROC_VIX ? roc_VIX : na, title="ROC of VIX", color=rocHistogramColor, linewidth=4, style=plot.style_histogram)
+plot(showROC_SPX ? roc_SPX : na, title="ROC of SPX", color=rocHistogramColor1, linewidth=4, style=plot.style_histogram)
+
+hline(0)
+
+// Calculate VIX VS SPX Correlation
+VIX_vs_SPX = ta.correlation(src_VIX, src_SPX, cor_len)
+Stock_vs_SPX = ta.correlation(src_SPX, close, cor_len)
+x= (math.abs(VIX_vs_SPX) * math.abs(Stock_vs_SPX))
+Reliability= math.sqrt(x)
+
+// Plot correlation values
+plot(VIX_vs_SPX, color=color.rgb(255, 255, 255, 100), title="VIX vs SPX Correlation" )
+plot(Stock_vs_SPX, color=color.rgb(255, 235, 59, 100), title="Stock vs SPX Correlation")
+
+// Display correlation values in a table
+var tableValues = table.new(position.top_right, 3, 2)
+table.cell(tableValues, 0, 0, "VIX vs SPX Correlation", text_color = color.white)
+table.cell(tableValues, 0, 1, str.tostring(VIX_vs_SPX, "#.####"), text_color = color.white)
+
+table.cell(tableValues, 1, 0, "Stock vs SPX Correlation",text_color = color.white)
+table.cell(tableValues, 1, 1, str.tostring(Stock_vs_SPX, "#.####"),text_color = color.yellow)
+
+table.cell(tableValues, 2, 0, "Reliability",text_color = color.white)
+table.cell(tableValues, 2, 1, str.tostring(Reliability, "#.####"),text_color = color.white)

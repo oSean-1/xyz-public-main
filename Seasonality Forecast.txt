@@ -1,0 +1,265 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Dmytro Svarytsevych
+
+//@version=5
+indicator("Seasonality Forecast", shorttitle = "Seasonality", overlay = true, max_lines_count = 500, precision = 0)
+
+// Input for lookback period and future projection settings
+lookbackYears = input.int(group = "All timeframes", title = "Lookback period in years", minval = 1, maxval = 1000, defval = 5)
+plotFutureBars = input.int(group = "All timeframes", title = "Forecast days", minval = 5, maxval = 1000, defval = 21)
+smoothPeriod = input.int(group = "All timeframes", title = "Smoothing Period", defval = 3, minval = 1)
+
+// Fetching 10 years of daily data
+resolution = "D" // Daily resolution
+tradingDaysInYear = 252
+lookbackPeriod = lookbackYears * tradingDaysInYear // Approximate days in 10 years
+
+// Seasonality chart appearance settings
+lineColor = color.new(color.gray,75)
+lineWidth = 4
+
+// Initialize variables to track trading days and weeks
+var int tradingDayOfMonth = na
+var int tradingDayOfYear = na
+
+var bool alertTopPivot = false
+var bool alertBottomPivot = false
+var bool alertPivot = false
+
+// Reset counters on new year or month
+if bool(ta.change(year(time_close))) and timeframe.isdaily and timeframe.multiplier == 1
+    tradingDayOfYear := 0
+if bool(ta.change(month(time_close))) and timeframe.isdaily and timeframe.multiplier == 1
+    tradingDayOfMonth := 0
+
+// Increment counters for each trading day
+if not na(tradingDayOfYear)
+    tradingDayOfYear := tradingDayOfYear + 1
+if not na(tradingDayOfMonth)
+    tradingDayOfMonth := tradingDayOfMonth + 1
+
+// Determine the trading week of the year
+int tradingWeekOfYear = weekofyear(time_close)
+
+// Initialize variables for the number of bins and the current slot
+var int numBins = na
+var int currentSlot = na
+
+// Calculate the number of bins and current slot based on timeframe
+if timeframe.multiplier == 1
+    if timeframe.isdaily
+        numBins := 252
+        currentSlot := tradingDayOfYear
+    else if timeframe.isweekly
+        numBins := 52
+        currentSlot := tradingWeekOfYear
+    else if timeframe.ismonthly
+        numBins := 12
+        currentSlot := month(time_close)
+
+// Calculate lookback period in milliseconds (1 year = 52.18 weeks * 7 days * 86400000 ms)
+var int yearsLookback = lookbackYears
+var int earliestDate = time_close
+var int startDate = math.max(earliestDate, timenow - yearsLookback * 31558464000)
+if barstate.isfirst and (timenow - startDate)/31558464000 < yearsLookback
+    yearsLookback := math.floor((timenow - startDate)/31558464000)
+    startDate := timenow - yearsLookback * 31558464000
+
+// Arrays to store trading days/weeks/months, lows, and highs for all bars
+var dayWeekMonthArray = array.new_int(0)
+var slotArray = array.new_int(0)
+var lowsArray = array.new_float(0)
+var highsArray = array.new_float(0)
+
+// Arrays to store seasonal values, contribution years, and Y coordinate of the line
+var seasonalValuesArray = array.new_float(numBins, 0)
+var contributionYearsArray = array.new_int(numBins, 0)
+var lineYCoordArray = array.new_float(numBins, 0)
+
+// Push current slot, low, and high values into arrays
+array.push(slotArray, currentSlot)
+array.push(lowsArray, low)
+array.push(highsArray, high)
+
+// Determine the bin for the current bar based on its timeframe
+int currentBin = na
+if timeframe.isdaily
+    currentBin := tradingDayOfYear - 1
+else if timeframe.isweekly
+    currentBin := tradingWeekOfYear - 1
+else if timeframe.ismonthly
+    currentBin := month(time_close) - 1
+
+// Initialize variables for seasonal price change
+var float priceChange = na
+
+// If the bar falls within the lookback period, update seasonal values
+if time > startDate and bar_index > 0 and currentBin < array.size(seasonalValuesArray)
+    priceChange := close - close[1]
+    array.set(seasonalValuesArray, currentBin, array.get(seasonalValuesArray, currentBin) + priceChange)
+    array.set(contributionYearsArray, currentBin, array.get(contributionYearsArray, currentBin) + 1)
+    // Keep track of the number of trading days in the previous year
+    if tradingDayOfYear < tradingDayOfYear[1]
+        array.push(dayWeekMonthArray, tradingDayOfYear[1])
+
+// Variables for visible chart area
+var int leftVisibleBar = na
+var int rightVisibleBar = na
+
+// Visible chart area
+rightVisibleBar := bar_index
+leftVisibleBar := rightVisibleBar - 252
+
+// Variables for drawing the seasonal chart
+var int usedBins = 0
+var int bin1 = na
+var int bin2 = na
+var float scaleAdjustmentFactor = na
+var float highestHigh = na
+var float lowestLow = na
+var float seasonalTop = na
+var float seasonalBottom = na
+
+var float leftVisibleBarPrice = na // Initialize with the actual price at leftVisibleBar
+
+// Calculate potentialUpside and potentialDownside from the leftVisibleBar
+var float potentialUpside = na
+var float potentialDownside = na
+var string trendDirection = "Neutral"
+
+// Draw the seasonal chart on the last bar
+if barstate.islast and not na(numBins)
+    // Process seasonal values for drawing
+    for int i = 0 to array.size(seasonalValuesArray)-1
+        if array.get(contributionYearsArray, i) > 0
+            usedBins := i
+            // Average price change per bin
+            array.set(seasonalValuesArray, i, array.get(seasonalValuesArray, i) / array.get(contributionYearsArray, i))
+        // Calculate cumulative seasonal change
+        if i > 0
+            array.set(lineYCoordArray, i, array.get(lineYCoordArray, i-1) + array.get(seasonalValuesArray, i))
+
+    // Detrend the seasonal chart
+    float firstValue = 0
+    float lastValue = array.get(lineYCoordArray, usedBins) - firstValue
+    float step = lastValue / usedBins
+    for int i = 1 to usedBins
+        array.set(lineYCoordArray, i, array.get(lineYCoordArray, i) - step * i)
+
+    // Apply smoothing to lineYCoordArray
+    var smoothedLineYCoordArray = array.new_float(size = array.size(lineYCoordArray))
+    for i = 0 to array.size(lineYCoordArray) - 1
+        float sum = 0.0
+        for j = -smoothPeriod to smoothPeriod
+            int idx = math.max(math.min(i + j, array.size(lineYCoordArray) - 1), 0)
+            sum := sum + array.get(lineYCoordArray, idx)
+        array.set(smoothedLineYCoordArray, i, sum / (2 * smoothPeriod + 1))
+
+    // Determine visible chart area for seasonal projection
+    int leftBin = math.min(usedBins, array.get(slotArray, leftVisibleBar) - 1)
+    int rightBin = math.min(usedBins, array.get(slotArray, rightVisibleBar) - 1)
+    float offset = 0
+    int projectionBin = leftBin // Start with the left-most visible bin
+
+    // Calculate the top and bottom of the seasonal projection
+    for int i = leftVisibleBar to rightVisibleBar + (rightVisibleBar == last_bar_index ? plotFutureBars - 1 : 0)
+        projectionBin := ((projectionBin + 1) > usedBins) ? 0 : (projectionBin + 1)
+        seasonalTop := (na(seasonalTop) or array.get(lineYCoordArray, projectionBin) > seasonalTop) ? array.get(lineYCoordArray, projectionBin) : seasonalTop
+        seasonalBottom := (na(seasonalBottom) or array.get(lineYCoordArray, projectionBin) < seasonalBottom) ? array.get(lineYCoordArray, projectionBin) : seasonalBottom
+
+    // Adjust seasonality to start at 0
+    seasonalTop := seasonalTop - seasonalBottom
+    seasonalBottom := 0
+
+    // Find the height of the visible chart
+    for int i = leftVisibleBar to rightVisibleBar
+        highestHigh := na(highestHigh) or array.get(highsArray, i) > highestHigh ? array.get(highsArray, i) : highestHigh
+        lowestLow := na(lowestLow) or array.get(lowsArray, i) < lowestLow ? array.get(lowsArray, i) : lowestLow
+
+    // Adjust the scale of seasonality to match the price scale
+    scaleAdjustmentFactor := (highestHigh - lowestLow) / (seasonalTop - seasonalBottom)
+
+    // Assuming the last value in smoothedLineYCoordArray corresponds to the current time
+    //float mostRecentSeasonalValue = array.get(smoothedLineYCoordArray, array.size(smoothedLineYCoordArray) - 1)
+    float mostRecentSeasonalValue = array.get(smoothedLineYCoordArray, math.min(usedBins, array.get(slotArray, rightVisibleBar)-1))
+    //line.new(x1 = leftVisibleBar, y1 = mostRecentSeasonalValue, x2 = rightVisibleBar, y2 = mostRecentSeasonalValue, xloc = xloc.bar_index, color = color.blue, width = 1)
+
+    // Recalculate the offset based on the most recent seasonal value and the current price
+    offset := close - mostRecentSeasonalValue
+    mostRecentSeasonalValue := mostRecentSeasonalValue + offset
+    //offset := 0
+
+    // Draw the seasonal trend for the past
+    var trendPastUp = false
+    var trendPastDown = false
+    var float maxRecentSeasonalValue = na
+    var float minRecentSeasonalValue = na
+    for int i = math.max(leftVisibleBar, 1) to rightVisibleBar
+        bin1 := math.min(usedBins, array.get(slotArray, i - 1) - 1)
+        bin2 := math.min(usedBins, array.get(slotArray, i) - 1)
+        float y1 = offset + array.get(smoothedLineYCoordArray, bin1) * scaleAdjustmentFactor
+        float y2 = offset + array.get(smoothedLineYCoordArray, bin2) * scaleAdjustmentFactor
+        line.new(x1 = i - 1, y1 = y1, x2 = i, y2 = y2, xloc = xloc.bar_index, color = lineColor, width = lineWidth)
+
+        if i > rightVisibleBar - plotFutureBars
+            maxRecentSeasonalValue := na(maxRecentSeasonalValue) ? y2 : math.max(maxRecentSeasonalValue, y2)
+            minRecentSeasonalValue := na(minRecentSeasonalValue) ? y2 : math.min(minRecentSeasonalValue, y2)
+
+    if maxRecentSeasonalValue < mostRecentSeasonalValue
+        trendPastUp := true
+    else if minRecentSeasonalValue > mostRecentSeasonalValue
+        trendPastDown := true
+
+    // Draw the seasonal trend into the future
+    var trendFutureUp = false
+    var trendFutureDown = false
+    var float maxFutureSeasonalValue = na
+    var float minFutureSeasonalValue = na
+    if rightVisibleBar == last_bar_index // If the right-most visible bar is the last bar
+        int lastBarIndex = last_bar_index
+        for int i = 1 to plotFutureBars
+            bin1 := (rightBin - 1 + i) % usedBins // Ensure bin1 cycles through the array
+            bin2 := (bin1 + 1) % usedBins
+            float y1 = offset + array.get(smoothedLineYCoordArray, bin1) * scaleAdjustmentFactor
+            float y2 = offset + array.get(smoothedLineYCoordArray, bin2) * scaleAdjustmentFactor
+            
+            // Draw future trend lines
+            line.new(x1 = lastBarIndex + i - 1, y1 = y1, x2 = lastBarIndex + i, y2 = y2, xloc = xloc.bar_index, color = lineColor, width = lineWidth)
+
+            maxFutureSeasonalValue := na(maxFutureSeasonalValue) ? y2 : math.max(maxFutureSeasonalValue, y2)
+            minFutureSeasonalValue := na(minFutureSeasonalValue) ? y2 : math.min(minFutureSeasonalValue, y2)
+
+        if minFutureSeasonalValue > mostRecentSeasonalValue
+            trendFutureUp := true
+        else if maxFutureSeasonalValue < mostRecentSeasonalValue
+        //else if (mostRecentSeasonalValue - minFutureSeasonalValue) / mostRecentSeasonalValue - 1 > 0.05
+            trendFutureDown := true
+
+    //label.new(bar_index, high, text = "Recent: " + str.tostring(mostRecentSeasonalValue) + "\nMin: " + str.tostring(minFutureSeasonalValue) + "\nMax: " + str.tostring(maxFutureSeasonalValue), color=color.gray, style=label.style_label_left, size=size.normal)
+
+    // Calculate potentialUpside and potentialDownside based on the projection's start and end
+    potentialUpside := math.abs(maxFutureSeasonalValue / mostRecentSeasonalValue - 1)
+    potentialDownside := math.abs(minFutureSeasonalValue / mostRecentSeasonalValue - 1)
+
+    var labelColor = color.new(color.white, 50)
+    trendDirection := "Sideways"
+    if trendPastUp and trendFutureDown
+        labelColor := color.new(color.red, 20)
+        alertTopPivot := true
+        alertPivot := true
+        label.new(bar_index, high, text = "Top pivot" + "\nPotential downside: " + str.tostring(potentialDownside, '%'), textcolor=color.white, color=labelColor, yloc=yloc.abovebar, style=label.style_label_down, size=size.normal)
+    else if trendPastDown and trendFutureDown
+        labelColor := color.new(color.red, 50)
+        label.new(bar_index, high, text = "Downward" + "\nPotential downside: " + str.tostring(potentialDownside, '%'), textcolor=color.white, color=labelColor, yloc=yloc.abovebar, style=label.style_label_down, size=size.normal)
+    else if trendPastDown and trendFutureUp
+        labelColor := color.new(color.green, 20)
+        alertBottomPivot := true
+        alertPivot := true
+        label.new(bar_index, low, text = "Bottom pivot" + "\nPotential upside: " + str.tostring(potentialUpside, '%'), textcolor=color.white, color=labelColor, yloc=yloc.belowbar, style=label.style_label_up, size=size.normal)
+    else if trendPastUp and trendFutureUp
+        labelColor := color.new(color.green, 50)
+        label.new(bar_index, low, text = "Upward" + "\nPotential upside: " + str.tostring(potentialUpside, '%'), textcolor=color.white, color=labelColor, yloc=yloc.belowbar, style=label.style_label_up, size=size.normal)
+
+alertcondition(alertPivot, title='Pivot', message='{{ticker}} - Pivot seasonality ({{timenow}})')
+alertcondition(alertTopPivot, title='Top Pivot', message='{{ticker}} - Top pivot seasonality ({{timenow}})')
+alertcondition(alertBottomPivot, title='Bottom Pivot', message='{{ticker}} - Bottom pivot seasonality ({{timenow}})')

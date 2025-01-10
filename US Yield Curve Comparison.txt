@@ -1,0 +1,79 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © bronko791
+
+//@version=5
+indicator("US Yield Curve Comparison", overlay = false)
+
+resolution = input.string('1 Year', "Comparison Date (Past)", options=['5 Days', '1 Month','3 Month', '6 Month', '1 Year', '2 Year'], display = display.none)
+
+getBarOffsetByString(string s) =>
+    barOffset = switch resolution
+        "5 Days" => 5
+        "1 Month" => 21
+        "3 Month" => 63
+        "6 Month" => 126
+        "1 Year" => 252
+        "2 Year" => 504
+    barOffset
+
+getUSYieldData(int offset, string timeframePeriod) =>
+    array<float> yieldData = array.new_float(0)
+    array.push(yieldData, request.security("US30Y", timeframePeriod, close[offset]))
+    array.push(yieldData, request.security("US20Y", timeframePeriod, close[offset]))
+    array.push(yieldData, request.security("US10Y", timeframePeriod, close[offset]))
+    array.push(yieldData, request.security("US07Y", timeframePeriod, close[offset]))
+    array.push(yieldData, request.security("US05Y", timeframePeriod, close[offset]))
+    array.push(yieldData, request.security("US03Y", timeframePeriod, close[offset]))
+    array.push(yieldData, request.security("US02Y", timeframePeriod, close[offset]))
+    array.push(yieldData, request.security("US01Y", timeframePeriod, close[offset]))
+    array.push(yieldData, request.security("US06MY", timeframePeriod, close[offset]))
+    array.push(yieldData, request.security("US03MY", timeframePeriod, close[offset]))
+    array.push(yieldData, request.security("US02MY", timeframePeriod, close[offset]))
+    array.push(yieldData, request.security("US01MY", timeframePeriod, close[offset]))
+    yieldData
+
+if barstate.islast
+    color lineColor = color.rgb(165, 165, 165) 
+    int compareBarOffset = getBarOffsetByString(resolution)
+    points0 = array.new<chart.point>()
+    points1 = array.new<chart.point>()
+    int stepSize = 10   
+    array<float> yieldData0 = getUSYieldData(0, "D")
+    array<float> yieldData1 = getUSYieldData(compareBarOffset, "D")
+    
+    for i = 0 to array.size(yieldData1) - 1
+        points0.push(chart.point.from_index(bar_index - (stepSize * i), array.get(yieldData0, i)))
+        points1.push(chart.point.from_index(bar_index - (stepSize * i), array.get(yieldData1, i)))
+
+    int labelPricePosition = int(math.min(array.min(yieldData0), array.min(yieldData1)))
+    int maxPricePosition = int(math.round(math.max(array.max(yieldData0), array.max(yieldData1)) + 0.5))
+
+    label.new(array.last(points0), "Current", textcolor = color.white, style = label.style_label_right)
+    label.new(array.last(points1), resolution, color = color.gray, textcolor = color.white, style = label.style_label_right)
+    line.new(chart.point.new(na, bar_index, labelPricePosition), chart.point.new(na, bar_index, maxPricePosition), color = lineColor, style = line.style_dashed)
+    label.new(chart.point.new(na, bar_index, labelPricePosition), "30Y\n Sp: " + str.tostring(math.round(array.get(yieldData0, 0) - array.get(yieldData1, 0), 2)) + "%", color = color.gray, textcolor = color.white, style = label.style_label_up)
+    line.new(chart.point.new(na, bar_index - (stepSize * 1), labelPricePosition), chart.point.new(na, bar_index - (stepSize * 1), maxPricePosition), color = lineColor, style = line.style_dashed)
+    label.new(chart.point.new(na, bar_index - (stepSize * 1), labelPricePosition), "20Y\n Sp: " + str.tostring(math.round(array.get(yieldData0, 1) - array.get(yieldData1, 1), 2)) + "%", color = color.gray, textcolor = color.white, style = label.style_label_up)
+    line.new(chart.point.new(na, bar_index - (stepSize * 2), labelPricePosition), chart.point.new(na, bar_index - (stepSize * 2), maxPricePosition), color = lineColor, style = line.style_dashed)
+    label.new(chart.point.new(na, bar_index - (stepSize * 2), labelPricePosition), "10Y\n Sp: " + str.tostring(math.round(array.get(yieldData0, 3) - array.get(yieldData1, 3), 2)) + "%", color = color.gray, textcolor = color.white, style = label.style_label_up)
+    line.new(chart.point.new(na, bar_index - (stepSize * 3), labelPricePosition), chart.point.new(na, bar_index - (stepSize * 3), maxPricePosition), color = lineColor, style = line.style_dashed)
+    label.new(chart.point.new(na, bar_index - (stepSize * 3), labelPricePosition), "7Y\n Sp: " + str.tostring(math.round(array.get(yieldData0, 4) - array.get(yieldData1, 4), 2)) + "%", color = color.gray, textcolor = color.white, style = label.style_label_up)
+    line.new(chart.point.new(na, bar_index - (stepSize * 4), labelPricePosition), chart.point.new(na, bar_index - (stepSize * 4), maxPricePosition), color = lineColor, style = line.style_dashed)
+    label.new(chart.point.new(na, bar_index - (stepSize * 4), labelPricePosition), "5Y\n Sp: " + str.tostring(math.round(array.get(yieldData0, 5) - array.get(yieldData1, 5), 2)) + "%", color = color.gray, textcolor = color.white, style = label.style_label_up)
+    line.new(chart.point.new(na, bar_index - (stepSize * 5), labelPricePosition), chart.point.new(na, bar_index - (stepSize * 5), maxPricePosition), color = lineColor, style = line.style_dashed)
+    label.new(chart.point.new(na, bar_index - (stepSize * 5), labelPricePosition), "3Y\n Sp: " + str.tostring(math.round(array.get(yieldData0, 6) - array.get(yieldData1, 6), 2)) + "%", color = color.gray, textcolor = color.white, style = label.style_label_up)
+    line.new(chart.point.new(na, bar_index - (stepSize * 6), labelPricePosition), chart.point.new(na, bar_index - (stepSize * 6), maxPricePosition), color = lineColor, style = line.style_dashed)
+    label.new(chart.point.new(na, bar_index - (stepSize * 6), labelPricePosition), "2Y\n Sp: " + str.tostring(math.round(array.get(yieldData0, 7) - array.get(yieldData1, 7), 2)) + "%", color = color.gray, textcolor = color.white, style = label.style_label_up)
+    line.new(chart.point.new(na, bar_index - (stepSize * 7), labelPricePosition), chart.point.new(na, bar_index - (stepSize * 7), maxPricePosition), color = lineColor, style = line.style_dashed)
+    label.new(chart.point.new(na, bar_index - (stepSize * 7), labelPricePosition), "1Y\n Sp: " + str.tostring(math.round(array.get(yieldData0, 8) - array.get(yieldData1, 8), 2)) + "%", color = color.gray, textcolor = color.white, style = label.style_label_up)
+    line.new(chart.point.new(na, bar_index - (stepSize * 8), labelPricePosition), chart.point.new(na, bar_index - (stepSize * 8), maxPricePosition), color = lineColor, style = line.style_dashed)
+    label.new(chart.point.new(na, bar_index - (stepSize * 8), labelPricePosition), "6M\n Sp: " + str.tostring(math.round(array.get(yieldData0, 9) - array.get(yieldData1, 9), 2)) + "%", color = color.gray, textcolor = color.white, style = label.style_label_up)
+    line.new(chart.point.new(na, bar_index - (stepSize * 9), labelPricePosition), chart.point.new(na, bar_index - (stepSize * 9), maxPricePosition), color = lineColor, style = line.style_dashed)
+    label.new(chart.point.new(na, bar_index - (stepSize * 9), labelPricePosition), "3M\n Sp: " + str.tostring(math.round(array.get(yieldData0, 10) - array.get(yieldData1, 10), 2)) + "%", color = color.gray, textcolor = color.white, style = label.style_label_up)
+    line.new(chart.point.new(na, bar_index - (stepSize * 10), labelPricePosition), chart.point.new(na, bar_index - (stepSize * 10), maxPricePosition), color = lineColor, style = line.style_dashed)
+    label.new(chart.point.new(na, bar_index - (stepSize * 10), labelPricePosition), "2M\n Sp: " + str.tostring(math.round(array.get(yieldData0, 11) - array.get(yieldData1, 11), 2)) + "%", color = color.gray, textcolor = color.white, style = label.style_label_up)
+    line.new(chart.point.new(na, bar_index - (stepSize * 11), labelPricePosition), chart.point.new(na, bar_index - (stepSize * 11), maxPricePosition), color = lineColor, style = line.style_dashed)
+    label.new(chart.point.new(na, bar_index - (stepSize * 11), labelPricePosition), "1M\n Sp: " + str.tostring(math.round(array.get(yieldData0, 11) - array.get(yieldData1, 11), 2)) + "%", color = color.gray, textcolor = color.white, style = label.style_label_up)
+
+    polyline.new(points0)
+    polyline.new(points1, line_color = color.gray)

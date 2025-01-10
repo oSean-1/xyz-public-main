@@ -1,0 +1,265 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © sabricat
+
+//@version=5
+indicator("Volume Calendar", overlay=true)
+
+int max_month = input.int(4, "Number of months", minval=1, maxval=6)
+string show_volume = input.string("All", "Volume Type", ["All", "Bullish", "Bearish"], tooltip="- All -> display all days\n- Bullish -> display days with Bullish volume\n- Bearish -> display days with Bearish volume")
+string cell_color_mode = input.string("Volume", "Cell color is based on", ["Volume", "Volume Change", "Volume Spike"], tooltip="- Volume -> the brighter a cell is, the higher its volume is\n- Volume Change -> the brigher a cell is, the greater is its change in volume compared to the previous day\n- Volume Spike -> if current volume is N times greater than average volume of last X candles, then the cell will be colored (the brighter a cell is the larger is the spike)")
+string cell_color_mode_tf = input.string("Monthly", "Cell color timeframe", ["Weekly", "Monthly"], tooltip="- Weekly -> the volume of each cell will be compared to the Weekly volume\n- Monthly -> to the Monthly volume\n\nThis parameter has no effect if the 'Cell color is based on' is equal to 'Volume Spike'")
+bool use_volume_sentiment = input.bool(true, "Use Volume for Sentiment", tooltip="If checked, the volume will be taken into account when calculating monthly sentiment, otherwise the sentiment will be calculated based on number of Bullish and Bearish days in the month")
+int spike_length = input.int(10, "Spike Average Period", minval=2, tooltip="Period of the volume average")
+float spike_factor = input.float(2.0, "Spike Threshold", minval=1.1, step=0.1, tooltip="If current volume is this many times greater than the average volume, then the current cell has a volume spike")
+string table_size = input.string("Small", "Table Size", ["Small", "Normal"], tooltip="Has an effect only if the 'Number of months' is below 4")
+string theme = input.string("Auto", "Theme", ["Dark", "Light", "Auto", "Auto Inversed"], inline="theme")
+color light_color = input.color(#F0EFF4, "", inline="theme")
+color dark_color = input.color(#11292C, "", inline="theme")
+color bull_color = input.color(color.rgb(11, 153, 129), "", inline="theme")
+color bear_color = input.color(color.rgb(242, 54, 69), "", inline="theme")
+
+bool display_borders = max_month != 6 
+string font_size = switch max_month
+    1 => table_size == "Normal" ? size.normal : size.small
+    2 => table_size == "Normal" ? size.normal : size.small
+    3 => table_size == "Normal" ? size.normal : size.small
+    4 => size.small
+    5 => size.tiny
+    6 => size.tiny
+
+method is_dark(color col) => (color.r(col) + color.g(col) + color.b(col)) / 3 < 128
+
+color chart_fg = chart.bg_color.is_dark() ? light_color : dark_color
+color chart_bg = chart.bg_color.is_dark() ? dark_color : light_color
+color chart_fg_text = chart.bg_color.is_dark() ? #ffffff : #111111
+color chart_bg_text = chart.bg_color.is_dark() ? #111111 : #ffffff
+color border_color = color.new(theme == "Dark" ? light_color : theme == "Light" ? dark_color : theme == "Auto" ? chart_fg : chart_bg, 100)
+color text_color = theme == "Dark" ? light_color : theme == "Light" ? dark_color : theme == "Auto" ? chart_fg_text : chart_bg_text
+color text_color_days = chart.bg_color.is_dark() ? #ffffff : #111111
+color bg_color_days = chart.bg_color.is_dark() ? dark_color : light_color
+color bg_color = theme == "Dark" ? dark_color : theme == "Light" ? light_color : theme == "Auto" ? chart_bg : chart_fg
+int cbc = 366
+
+const array<string> days_of_week = array.from("Su", "Mo", "Tu", "We", "Th", "Fr", "Sa")
+
+type VolStat
+    float hgst
+    float hgst_change
+    float total
+
+get_stats(string tf) =>
+    var array<float> hgst = array.new<float>(0, na)
+    var array<float> hgst_change = array.new<float>(0, na)
+    var array<float> total = array.new<float>(0, na)
+    var array<float> total_bull = array.new<float>(0, na)
+    var array<int> total_days = array.new<int>(0, na)
+    var array<int> bull_days = array.new<int>(0, na)
+    var array<float> hgst_spike = array.new<float>(0, na)
+
+    float volume_spike = volume / ta.sma(volume, spike_length)[1]
+
+    if (tf == "W" and weekofyear(time) != weekofyear(time[1])) or (tf == "M" and month(time) != month(time[1])) or (tf == "Y" and year(time) != year(time[1]))
+        hgst.unshift(volume)
+        hgst_change.unshift(volume - volume[1])
+        total.unshift(volume)
+        total_bull.unshift(volume * (close >= open ? 1 : 0))
+        total_days.unshift(1)
+        bull_days.unshift(close >= open ? 1 : 0)
+        hgst_spike.unshift(volume_spike)
+    else
+        if hgst.size() > 0
+            hgst.set(0, math.max(nz(hgst.get(0)), volume))
+            hgst_change.set(0, math.max(nz(hgst_change.get(0)), volume - volume[1]))
+            total.set(0, total.get(0) + volume)
+            total_bull.set(0, total_bull.get(0) + volume * (close >= open ? 1 : 0))
+            total_days.set(0, total_days.get(0) + 1)
+            bull_days.set(0, bull_days.get(0) + (close >= open ? 1 : 0))
+            hgst_spike.set(0, math.max(nz(hgst_spike.get(0)), volume_spike))
+    if (tf == "W" and hgst.size() == 45) or (tf == "M" and hgst.size() == 9) or (tf == "Y" and hgst.size() == 3)
+        hgst.pop()
+        hgst_change.pop()
+        total.pop()
+        total_bull.pop()
+        total_days.pop()
+        bull_days.pop()
+        hgst_spike.pop()
+    [hgst, hgst_change, total, total_bull, total_days, bull_days, hgst_spike]
+
+[wh, wch, wt, wtb, wtd, wbd, whs] = request.security(syminfo.tickerid, "D", get_stats("W"), lookahead=barmerge.lookahead_on, calc_bars_count=cbc)
+[mh, mch, mt, mtb, mtd, mbd, mhs] = request.security(syminfo.tickerid, "D", get_stats("M"), lookahead=barmerge.lookahead_on, calc_bars_count=cbc)
+[yh, ych, yt, ytb, ytm, ybm, yhs] = request.security(syminfo.tickerid, "M", get_stats("Y"), lookahead=barmerge.lookahead_on, calc_bars_count=cbc)
+    
+type T1
+    int rid
+    int cid
+    float vol
+    float vol_change
+    float vol_avg
+    int week_id
+    int month_id
+    int year_id
+    color col_base
+    string content
+    string tooltip
+
+type T2
+    string month_string
+    array<T1> arr
+
+f() =>
+    var array<int> fdom = array.new<int>(0, na)
+    if month(time) != month(time[1])
+        int val = dayofweek(time) - 1
+        int day = dayofmonth(time)
+        if day > 1
+            val := val - day + 1
+            if val < 0
+                val := 6 - val
+        fdom.unshift(val)
+    if fdom.size() == 18
+        fdom.pop()
+
+    float avg = ta.sma(volume, spike_length)
+
+    array<T1> tmp = array.new<T1>(0, na)
+    array<T2> arr = array.new<T2>(0, na)
+
+    int week_id = 0
+    int month_id = 0
+    int year_id = 0
+    float sent = 0.0
+
+    for i = 0 to cbc
+        if month_id == max_month
+            break
+        if month_id <= fdom.size() - 1
+            int dom = dayofmonth(time[i])
+            int rid = int((dom - 1 + fdom.get(month_id)) / 7)
+            int cid = dayofweek(time[i]) - 1
+            float vol = volume[i]
+            float vol_change = volume[i] - volume[i + 1]
+            float vol_avg = avg[i + 1]
+            //
+            color col_base = cell_color_mode == "Volume Change" ? (vol_change >= 0 ? bull_color : bear_color) : (close[i] >= open[i] ? bull_color : bear_color)
+            string month_name = str.format_time(time[i], "MMM")
+            string tooltip = str.format_time(time[i], "E d MMM yyyy") + "\n"
+            tooltip += "Volume: " + str.tostring(volume[i], format.volume)
+            if cell_color_mode == "Volume Spike"
+                tooltip += " (" + str.tostring(math.round(vol / vol_avg, 1)) + "x Avg.)"
+            tooltip += "\n"
+            if cell_color_mode == "Volume Spike"
+                tooltip += "Avg. Volume: " + str.tostring(vol_avg, format.volume) + "\n"
+            tooltip += "Change: " + str.tostring(volume[i] - volume[i + 1], format.volume) + "\n"
+            tmp.push(T1.new(rid, cid, vol, vol_change, vol_avg, week_id, month_id, year_id, col_base, str.tostring(dom), tooltip))
+            //
+            if month(time[i]) != month(time[i + 1])
+                arr.unshift(T2.new(str.format_time(time[i], "MMM yyyy"), array.copy(tmp)))
+                tmp.clear()
+            //
+            if weekofyear(time[i]) != weekofyear(time[i + 1])
+                week_id += 1
+            if month(time[i]) != month(time[i + 1])
+                month_id += 1
+            if year(time[i]) != year(time[i + 1])
+                year_id += 1 
+
+    arr
+
+array<T2> data = request.security(syminfo.tickerid, "D", f(), lookahead=barmerge.lookahead_on, calc_bars_count=cbc)
+
+if barstate.islast
+    table t = table.new(position.top_right, 7, 100, color.new(chart.bg_color, 100), border_color=border_color, border_width=display_borders ? 1 : 0)
+
+    int grid = 0
+    int data_size = data.size()
+
+    for [month_id, j] in data
+        int month_id_real = data_size - month_id - 1
+        // Total numbers of days, number of bullish and bearish days
+        int total_days = mtd.get(month_id_real)
+        int bull_days = mbd.get(month_id_real)
+        int bear_days = total_days - bull_days
+        // Total, bullish and bearish volume
+        float total = mt.get(month_id_real)
+        float total_bull = mtb.get(month_id_real)
+        float total_bear = total - total_bull
+        // Calculate sentiment
+        float sentiment = na
+        if use_volume_sentiment
+            sentiment := math.round((total_bull > total_bear ? total_bull : total_bull < total_bear ? -total_bear : 0.0) / total * 100)
+        else
+            sentiment := math.round((bull_days > bear_days ? bull_days : bull_days < bear_days ? -bear_days : 0.0) / total_days * 100)
+        string sentiment_string = sentiment > 0 ? "Bullish" : sentiment < 0 ? "Bearish" : "Neutral"
+        string monthly_sentiment = sentiment_string != "Neutral" ? str.tostring(math.abs(sentiment)) + "% " + sentiment_string : sentiment_string
+        color sentiment_color = sentiment > 0 ? bull_color : sentiment < 0 ? bear_color : text_color
+        color sentiment_bg_color = sentiment > 0 ? bull_color : sentiment < 0 ? bear_color : bg_color
+
+        // Display month and year
+        string month_tooltip="Volume: " + str.tostring(total, format.volume)
+        t.merge_cells(0, grid, 2, grid)
+        t.cell(0, grid, j.month_string, text_size=font_size, text_color=text_color, bgcolor=sentiment_bg_color, tooltip=month_tooltip)
+        
+        // Display sentiment
+        t.merge_cells(3, grid, 6, grid)
+        t.cell(3, grid, monthly_sentiment, text_size=font_size, text_color=sentiment_color, bgcolor=bg_color)
+
+        // Display days of week
+        for [m, n] in days_of_week
+            t.cell(m, grid + 1, n, text_size=font_size, text_color=text_color, bgcolor=bg_color)
+
+        // Fill all the cells with background color (not only the days with data)
+        for i = 0 to j.arr.first().rid
+            for k = 0 to 6
+                t.cell(k, grid + 2 + i, text_size=font_size, bgcolor=bg_color_days)
+
+        // Add days where data is missing
+        int last_month_day = int(str.tonumber(j.arr.first().content))
+        int cid = j.arr.first().cid
+        int rid = j.arr.first().rid
+        for i = last_month_day to 1
+            t.cell(cid, grid + 2 + rid, str.tostring(i), text_size=font_size, text_color=color.new(text_color_days, 60), bgcolor=bg_color_days)
+            cid -= 1
+            if cid == -1
+                cid := 6
+                rid -= 1
+
+        // Fill days with data
+        for i in j.arr  
+            float col_opacity = na
+            if cell_color_mode != "Volume Spike"
+                if cell_color_mode_tf == "Weekly"
+                    col_opacity := cell_color_mode == "Volume" ? (1 - i.vol / wh.get(i.week_id)) : (1 - math.abs(i.vol_change / wch.get(i.week_id)))
+                else
+                    col_opacity := cell_color_mode == "Volume" ? (1 - i.vol / mh.get(i.month_id)) : (1 - math.abs(i.vol_change / mch.get(i.month_id)))
+            else
+                float vol_spike = i.vol / i.vol_avg
+                if vol_spike >= spike_factor
+                    col_opacity := (1 - vol_spike / mhs.get(i.month_id))
+                else
+                    col_opacity := 100.0
+            color col = color.new(i.col_base, col_opacity * 80)
+            if cell_color_mode == "Volume Spike" and col_opacity == 100
+                col := bg_color_days
+            if show_volume == "Bullish"
+                if i.col_base != bull_color
+                    col := bg_color_days
+            if show_volume == "Bearish"
+                if i.col_base != bear_color
+                    col := bg_color_days
+            //
+            tooltip = i.tooltip
+            tooltip += "of Weekly: " + str.tostring(math.round(i.vol / wt.get(i.week_id) * 100, 2)) + "%\n"
+            tooltip += "of Monthly: " + str.tostring(math.round(i.vol / mt.get(i.month_id) * 100, 2)) + "%\n"
+            tooltip += "of Yearly: " + str.tostring(math.round(i.vol / yt.get(i.year_id) * 100, 3)) + "%\n"
+            //
+            color text_color_i = text_color_days
+            if (show_volume == "Bullish" and i.col_base != bull_color) or (show_volume == "Bearish" and i.col_base != bear_color)
+                text_color_i := color.new(text_color_i, 60)
+            t.cell(i.cid, grid + 2 + i.rid, i.content, text_size=font_size, text_color=text_color_i, bgcolor=col, tooltip=tooltip)
+        
+        grid += 2 + j.arr.first().rid + 2
+
+        // Add separator row between months
+        if month_id < data.size() - 1
+            t.merge_cells(0, grid - 1, 6, grid - 1)
+            t.cell(0, grid - 1, "", height=1)

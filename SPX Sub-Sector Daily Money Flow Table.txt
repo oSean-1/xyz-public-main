@@ -1,0 +1,163 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © barnabygraham
+
+
+//@version=5
+// Credit to LucF for the daily reset
+// © barnabygraham
+// Enjoy!   
+
+indicator(title='SPY Sub-Sector Daily Money Flow Table', shorttitle='Sub-Sector Flow', precision=0, max_bars_back=500, overlay=true)
+
+resetTime = input.session('0930-1000', 'Reset time')
+maLength = input(title='Moving Average', defval=9)
+
+XLU = request.security('XLU', timeframe.period, volume)
+XLK = request.security('XLK', timeframe.period, volume)
+XLP = request.security('XLP', timeframe.period, volume)
+XLI = request.security('XLI', timeframe.period, volume)
+XLV = request.security('XLV', timeframe.period, volume)
+XLY = request.security('XLY', timeframe.period, volume)
+XLRE = request.security('XLRE', timeframe.period, volume)
+XLC = request.security('XLC', timeframe.period, volume)
+XLF = request.security('XLF', timeframe.period, volume)
+XLB = request.security('XLB', timeframe.period, volume)
+XLE = request.security('XLE', timeframe.period, volume)
+SPY = request.security('SPY', timeframe.period, volume)
+
+
+oXLU = request.security('XLU', timeframe.period, open)
+oXLK = request.security('XLK', timeframe.period, open)
+oXLP = request.security('XLP', timeframe.period, open)
+oXLI = request.security('XLI', timeframe.period, open)
+oXLV = request.security('XLV', timeframe.period, open)
+oXLY = request.security('XLY', timeframe.period, open)
+oXLRE = request.security('XLRE', timeframe.period, open)
+oXLC = request.security('XLC', timeframe.period, open)
+oXLF = request.security('XLF', timeframe.period, open)
+oXLB = request.security('XLB', timeframe.period, open)
+oXLE = request.security('XLE', timeframe.period, open)
+oSPY = request.security('SPY', timeframe.period, open)
+
+
+cXLU = request.security('XLU', timeframe.period, close)
+cXLK = request.security('XLK', timeframe.period, close)
+cXLP = request.security('XLP', timeframe.period, close)
+cXLI = request.security('XLI', timeframe.period, close)
+cXLV = request.security('XLV', timeframe.period, close)
+cXLY = request.security('XLY', timeframe.period, close)
+cXLRE = request.security('XLRE', timeframe.period, close)
+cXLC = request.security('XLC', timeframe.period, close)
+cXLF = request.security('XLF', timeframe.period, close)
+cXLB = request.security('XLB', timeframe.period, close)
+cXLE = request.security('XLE', timeframe.period, close)
+cSPY = request.security('SPY', timeframe.period, close)
+
+
+XLUvol = cXLU > oXLU ? XLU * ((cXLU+oXLU)/2) : (XLU*((cXLU+oXLU)/2)) * -1
+XLKvol = cXLK > oXLK ? XLK * ((cXLK+oXLK)/2) : (XLK*((cXLU+oXLU)/2)) * -1
+XLPvol = cXLP > oXLP ? XLP * ((cXLP+oXLP)/2) : (XLP*((cXLP+oXLP)/2)) * -1
+XLIvol = cXLI > oXLI ? XLI * ((cXLI+oXLI)/2) : (XLI*((cXLI+oXLI)/2)) * -1
+XLVvol = cXLV > oXLV ? XLV * ((cXLV+oXLV)/2) : (XLV*((cXLV+oXLV)/2)) * -1
+XLYvol = cXLY > oXLY ? XLY * ((cXLY+oXLY)/2) : (XLY*((cXLY+oXLY)/2)) * -1
+XLREvol = cXLRE > oXLRE ? XLRE * ((cXLRE+oXLRE)/2) : (XLRE*((cXLRE+oXLRE)/2)) * -1
+XLCvol = cXLC > oXLC ? XLC * ((cXLC+oXLC)/2) : (XLC*((cXLC+oXLC)/2)) * -1
+XLFvol = cXLF > oXLF ? XLF * ((cXLF+oXLF)/2) : (XLF*((cXLF+oXLF)/2)) * -1
+XLBvol = cXLB > oXLB ? XLB * ((cXLB+oXLB)/2) : (XLB*((cXLB+oXLB)/2)) * -1
+XLEvol = cXLE > oXLE ? XLE * ((cXLE+oXLE)/2) : (XLE*((cXLE+oXLE)/2)) * -1
+SPYvol = cSPY > oSPY ? SPY * ((cSPY+oSPY)/2) : (SPY*((cSPY+oSPY)/2)) * -1
+
+
+fin = XLUvol + XLKvol + XLPvol + XLIvol + XLVvol + XLYvol + XLREvol + XLCvol + XLFvol + XLBvol + XLEvol
+
+trigger = not na(time(timeframe.period, resetTime))
+reset = trigger and not trigger[1]
+var cti = 0.
+cti := reset ? 0. : cti + fin
+var XLUcti = 0.
+var XLKcti = 0.
+var XLPcti = 0.
+var XLIcti = 0.
+var XLVcti = 0.
+var XLYcti = 0.
+var XLREcti = 0.
+var XLCcti = 0.
+var XLFcti = 0.
+var XLBcti = 0.
+var XLEcti = 0.
+XLUcti := reset ? 0. : XLUcti + XLUvol
+XLKcti := reset ? 0. : XLKcti + XLKvol
+XLPcti := reset ? 0. : XLPcti + XLPvol
+XLIcti := reset ? 0. : XLIcti + XLIvol
+XLVcti := reset ? 0. : XLVcti + XLVvol
+XLYcti := reset ? 0. : XLYcti + XLYvol
+XLREcti := reset ? 0. : XLREcti + XLREvol
+XLCcti := reset ? 0. : XLCcti + XLCvol
+XLFcti := reset ? 0. : XLFcti + XLFvol
+XLBcti := reset ? 0. : XLBcti + XLBvol
+XLEcti := reset ? 0. : XLEcti + XLEvol
+
+ma = ta.ema(cti, maLength)
+
+
+var SPYcti = 0.
+SPYcti := reset ? 0. : SPYcti + SPYvol
+condition = ((SPYcti > 0) and (cti > 0)) or ((SPYcti < 0) and (cti < 0)) ? color.new(color.white,100) : ((SPYcti > 0) and (cti < 0)) ? color.new(color.red,0) : color.new(color.green,0)
+
+my_sma(price, length) =>
+    sum = price
+    for i = 1 to length - 1 by 1
+        sum += price[i]
+        sum
+    sum / length
+
+showGap = input(defval=true, title='Show Gap')
+gap = math.round((cti - ma) / cti * 1000) / 10
+avggap = my_sma(gap, 5)
+
+fincolor=fin > 0 ? color.new(color.green,0) : fin < 0 ? color.new(color.red,0) :  color.new(color.white,0)
+//plot(fin,'per candle',style=plot.style_histogram, color=fincolor)
+
+var divTable = table.new(position.bottom_left, 14, 3, color.new(#ffffff, 100), color.new(#ff0000, 50), 1, color.new(#aaee55, 0), 0)
+if barstate.islast
+    table.cell(divTable, 0, 0, 'XLU', text_color=XLUvol>0?color.new(color.green,0):color.new(color.red,0))
+    table.cell(divTable, 0, 1, str.tostring(XLUvol/1000000, "#,###,###.#") + "M", text_color=XLUvol>0?color.new(color.green,0):color.new(color.red,0))
+    table.cell(divTable, 0, 2, str.tostring(XLUcti/1000000, "#,###,###.#") + "M", text_color=XLUcti>0?color.new(color.green,0):color.new(color.red,0))
+    table.cell(divTable, 1, 0, 'XLK', text_color=XLKvol>0?color.new(color.green,0):color.new(color.red,0))
+    table.cell(divTable, 1, 1, str.tostring(XLKvol/1000000, "#,###,###.#") + "M", text_color=XLKvol>0?color.new(color.green,0):color.new(color.red,0))
+    table.cell(divTable, 1, 2, str.tostring(XLKcti/1000000, "#,###,###.#") + "M", text_color=XLKcti>0?color.new(color.green,0):color.new(color.red,0))
+    table.cell(divTable, 2, 0, 'XLP', text_color=XLPvol>0?color.new(color.green,0):color.new(color.red,0))
+    table.cell(divTable, 2, 1, str.tostring(XLPvol/1000000, "#,###,###.#") + "M", text_color=XLPvol>0?color.new(color.green,0):color.new(color.red,0))
+    table.cell(divTable, 2, 2, str.tostring(XLPcti/1000000, "#,###,###.#") + "M", text_color=XLPcti>0?color.new(color.green,0):color.new(color.red,0))
+    table.cell(divTable, 3, 0, 'XLI', text_color=XLIvol>0?color.new(color.green,0):color.new(color.red,0))
+    table.cell(divTable, 3, 1, str.tostring(XLIvol/1000000, "#,###,###.#") + "M", text_color=XLIvol>0?color.new(color.green,0):color.new(color.red,0))
+    table.cell(divTable, 3, 2, str.tostring(XLIcti/1000000, "#,###,###.#") + "M", text_color=XLIcti>0?color.new(color.green,0):color.new(color.red,0))
+    table.cell(divTable, 4, 0, 'XLV', text_color=XLVvol>0?color.new(color.green,0):color.new(color.red,0))
+    table.cell(divTable, 4, 1, str.tostring(XLVvol/1000000, "#,###,###.#") + "M", text_color=XLVvol>0?color.new(color.green,0):color.new(color.red,0))
+    table.cell(divTable, 4, 2, str.tostring(XLVcti/1000000, "#,###,###.#") + "M", text_color=XLVcti>0?color.new(color.green,0):color.new(color.red,0))
+    table.cell(divTable, 5, 0, 'XLY', text_color=XLYvol>0?color.new(color.green,0):color.new(color.red,0))
+    table.cell(divTable, 5, 1, str.tostring(XLYvol/1000000, "#,###,###.#") + "M", text_color=XLYvol>0?color.new(color.green,0):color.new(color.red,0))
+    table.cell(divTable, 5, 2, str.tostring(XLYcti/1000000, "#,###,###.#") + "M", text_color=XLYcti>0?color.new(color.green,0):color.new(color.red,0))
+    table.cell(divTable, 6, 0, 'XLRE', text_color=XLREvol>0?color.new(color.green,0):color.new(color.red,0))
+    table.cell(divTable, 6, 1, str.tostring(XLREvol/1000000, "#,###,###.#") + "M", text_color=XLREvol>0?color.new(color.green,0):color.new(color.red,0))
+    table.cell(divTable, 6, 2, str.tostring(XLREcti/1000000, "#,###,###.#") + "M", text_color=XLREcti>0?color.new(color.green,0):color.new(color.red,0))
+    table.cell(divTable, 7, 0, 'XLC', text_color=XLCvol>0?color.new(color.green,0):color.new(color.red,0))
+    table.cell(divTable, 7, 1, str.tostring(XLCvol/1000000, "#,###,###.#") + "M", text_color=XLCvol>0?color.new(color.green,0):color.new(color.red,0))
+    table.cell(divTable, 7, 2, str.tostring(XLCcti/1000000, "#,###,###.#") + "M", text_color=XLCcti>0?color.new(color.green,0):color.new(color.red,0))
+    table.cell(divTable, 8, 0, 'XLF', text_color=XLFvol>0?color.new(color.green,0):color.new(color.red,0))
+    table.cell(divTable, 8, 1, str.tostring(XLFvol/1000000, "#,###,###.#") + "M", text_color=XLFvol>0?color.new(color.green,0):color.new(color.red,0))
+    table.cell(divTable, 8, 2, str.tostring(XLFcti/1000000, "#,###,###.#") + "M", text_color=XLFcti>0?color.new(color.green,0):color.new(color.red,0))
+    table.cell(divTable, 9, 0, 'XLB', text_color=XLBvol>0?color.new(color.green,0):color.new(color.red,0))
+    table.cell(divTable, 9, 1, str.tostring(XLBvol/1000000, "#,###,###.#") + "M", text_color=XLBvol>0?color.new(color.green,0):color.new(color.red,0))
+    table.cell(divTable, 9, 2, str.tostring(XLBcti/1000000, "#,###,###.#") + "M", text_color=XLBcti>0?color.new(color.green,0):color.new(color.red,0))
+    table.cell(divTable, 10, 0, 'XLE', text_color=XLEvol>0?color.new(color.green,0):color.new(color.red,0))
+    table.cell(divTable, 10, 1, str.tostring(XLEvol/1000000, "#,###,###.#") + "M", text_color=XLEvol>0?color.new(color.green,0):color.new(color.red,0))
+    table.cell(divTable, 10, 2, str.tostring(XLEcti/1000000, "#,###,###.#") + "M", text_color=XLEcti>0?color.new(color.green,0):color.new(color.red,0))
+    table.cell(divTable, 11, 0, 'Total', text_color=fin>0?color.new(color.green,0):color.new(color.red,0))
+    table.cell(divTable, 11, 1, str.tostring(fin/1000000, "#,###,###.#") + "M", text_color=fin>0?color.new(color.green,0):color.new(color.red,0))
+    table.cell(divTable, 11, 2, str.tostring(cti/1000000, "#,###,###.#") + "M", text_color=cti>0?color.new(color.green,0):color.new(color.red,0))
+    table.cell(divTable, 12, 0, 'SPY', text_color=SPYvol>0?color.new(color.green,0):color.new(color.red,0))
+    table.cell(divTable, 12, 1, str.tostring(SPYvol/1000000, "#,###,###.#") + "M", text_color=SPYvol>0?color.new(color.green,0):color.new(color.red,0))
+    table.cell(divTable, 12, 2, str.tostring(SPYcti/1000000, "#,###,###.#") + "M", text_color=SPYcti>0?color.new(color.green,0):color.new(color.red,0))
+    
+

@@ -1,0 +1,89 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © ILuvMarkets
+
+
+//@version=5
+//Author @ILuvMarkets
+indicator("ILM Overnight Gaps", "Overnight Gaps")
+
+if not timeframe.isdaily
+    runtime.error("Please switch timeframe to Daily")
+
+i_year_start = input.int(2000, "Start Year")
+i_gap_pct = input.float(0.5, "Gaps >=")
+i_text_size = input.string(size.auto, "Text Size", [size.auto, size.tiny, size.small, size.normal, size.large, size.huge])
+
+var year_start_ = math.max(year, i_year_start)
+var no_years_ = year(timenow) - year_start_ + 1
+var matrix<float> data_  =  matrix.new<float>(no_years_,14,0.0)
+var matrix<string> tt_data_  =  matrix.new<string>(no_years_,14,"")
+var table table_ = na
+var text_color_ = color.white
+var bg_color_ = color.gray
+
+//Debug
+// plotchar(dow_,"DOW","", location.top)  // Sun-1 .... Sat- 7 
+dow_ = dayofweek(time_close)
+
+gap_ = ((open > open[1] and open > close[1]) or (open < open[1] and open < close[1])) ? 1 : 0
+gap_pct_ = gap_ ? open/close[1] - 1 : 0
+
+    
+
+if year >= year_start_ and gap_ >= 1 and math.abs(gap_pct_) * 100 >= i_gap_pct
+// if year >= 2022 and month >= 10 and dayofmonth >= 1  and gap_ >= 1 and math.abs(gap_pct_) * 100 >= i_gap_pct
+    gap_cur_val_ = matrix.get(data_, year-year_start_, 2*(dow_-1))
+    matrix.set(data_, year-year_start_, 2*(dow_-1), gap_cur_val_ + gap_)
+    gap_pct_cur_val_ = matrix.get(data_, year-year_start_, 2*(dow_-1)+1)
+    matrix.set(data_, year-year_start_, 2*(dow_-1)+1, gap_pct_cur_val_ + gap_pct_)
+    //Tooltip data
+    gap_cur_str_ = matrix.get(tt_data_, year-year_start_, 2*(dow_-1))
+    matrix.set(tt_data_, year-year_start_, 2*(dow_-1), str.format("{0}{1,number,####}-{2,number,##}-{3,number,##} {4,number,###}\t", gap_cur_str_, year(time), month(time), dayofmonth(time), gap_))
+    gap_pct_cur_str_ = matrix.get(tt_data_, year-year_start_, 2*(dow_-1)+1)
+    matrix.set(tt_data_, year-year_start_, 2*(dow_-1)+1, str.format("{0}{1,number,####}-{2,number,##}-{3,number,##} {4,number,#.##%}\t", gap_pct_cur_str_, year(time), month(time), dayofmonth(time), gap_pct_))
+
+if barstate.islast
+    table_ := table.new(position.middle_center, 15, year - year_start_ + 4, border_width = 1)
+    table.cell(table_, 1, 0, "Sun", text_color = text_color_, bgcolor = bg_color_, text_size = i_text_size)
+    table.cell(table_, 3, 0, "Mon", text_color = text_color_, bgcolor = bg_color_, text_size = i_text_size)
+    table.cell(table_, 5, 0, "Tue", text_color = text_color_, bgcolor = bg_color_, text_size = i_text_size)
+    table.cell(table_, 7, 0, "Wed", text_color = text_color_, bgcolor = bg_color_, text_size = i_text_size)
+    table.cell(table_, 9, 0, "Thu", text_color = text_color_, bgcolor = bg_color_, text_size = i_text_size)
+    table.cell(table_, 11, 0, "Fri", text_color = text_color_, bgcolor = bg_color_, text_size = i_text_size)
+    table.cell(table_, 13, 0, "Sat", text_color = text_color_, bgcolor = bg_color_, text_size = i_text_size)
+    table.merge_cells(table_,1,0,2,0)
+    table.merge_cells(table_,3,0,4,0)
+    table.merge_cells(table_,5,0,6,0)
+    table.merge_cells(table_,7,0,8,0)
+    table.merge_cells(table_,9,0,10,0)
+    table.merge_cells(table_,11,0,12,0)
+    table.merge_cells(table_,13,0,14,0)
+
+    for col_ = 0 to 6
+        table.cell(table_, 1+col_*2, 1, "Gaps", text_color = text_color_, bgcolor = bg_color_, text_size = i_text_size, tooltip = "Gaps Count")
+        table.cell(table_, 1+col_*2+1, 1, "%", text_color = text_color_, bgcolor = bg_color_, text_size = i_text_size, tooltip = "Gaps Percent Total")
+
+
+    for row_ = 0 to no_years_ - 1
+        table.cell(table_, 0, 2+row_, str.tostring(row_ + year_start_), text_color = text_color_, bgcolor = bg_color_, text_size = i_text_size)
+        for col_ = 0 to 6
+            gap_val_ = matrix.get(data_, row_, col_*2) 
+            gap_pct_val_ = matrix.get(data_, row_, col_*2+1) 
+            val_color_ = gap_pct_val_ > 0 ? color.green : gap_pct_val_ < 0 ? color.red : color.gray 
+            tt_str_ = matrix.get(tt_data_, row_, col_*2+1) 
+            table.cell(table_, 1+col_*2, 2+row_, str.format("{0,number,###}", gap_val_), bgcolor = color.new(val_color_,80), text_color = val_color_, text_size = i_text_size)
+            table.cell(table_, 1+col_*2+1, 2+row_, str.format("{0,number,###.##%}", gap_pct_val_), bgcolor = color.new(val_color_,80), text_color = val_color_, text_size = i_text_size, tooltip = tt_str_)
+            true
+
+    //Aggregates
+    row_ = no_years_ + 1 + 1
+    table.cell(table_, 0, row_, "SUM", text_color = text_color_, bgcolor = bg_color_, text_size = i_text_size)
+    for col_ = 0 to 6
+        gap_arr_ = matrix.col(data_, col_*2) 
+        gap_val_ = array.sum(gap_arr_)
+        gap_pct_arr_ = matrix.col(data_, col_*2+1) 
+        gap_pct_val_ = array.sum(gap_pct_arr_)
+        val_color_ = gap_pct_val_ > 0 ? color.green : gap_pct_val_ < 0 ? color.red : color.gray 
+        table.cell(table_, 1+col_*2, row_, str.format("{0,number,###}", gap_val_), bgcolor = color.new(val_color_,50), text_color = val_color_, text_size = i_text_size)
+        table.cell(table_, 1+col_*2+1, row_, str.format("{0,number,###.##%}", gap_pct_val_), bgcolor = color.new(val_color_,50), text_color = val_color_, text_size = i_text_size)
+        true

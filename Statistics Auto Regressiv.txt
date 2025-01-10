@@ -1,0 +1,226 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Sigaud
+
+//      #####   #######   ##     ##  
+//    ##       ##         ###   ###  
+//    ##      ##          #### ####  
+//    #####   ##    ####  ## ### ##  
+//        ##  ##      ##  ##  #  ##  
+//        ##   ##     ##  ##     ##  
+//    #####     #######   ##     ##  
+
+///////////////////////////////
+// definition and dependency //
+///////////////////////////////
+
+//@version=6
+indicator("[SGM Auto Regressiv - significant lags only]","[SGM AR(p)]", overlay=false, max_labels_count = 500)
+import Sigaud/QuantifyPS/1 as Qps
+
+// -------------
+
+////////////
+// inputs //
+////////////
+
+conf_lvl = input.int(95, "Confidence level (define how to exclude H0 hypothesis)", options = [99,98,97,96,95,94,93,92,91,90]) 
+ponderation = input.string("equally weighted", "weighting", options = ["equally weighted","t stat weighting"])
+mean_len = input.int(50, "mean length")
+sigma_len = input.int(15, "stdv length")
+
+// -------------
+
+///////////////
+// functions //
+///////////////
+
+f_process_lag(y, lag, alpha_array, beta_array, t_stat_array, p_value_array) =>
+    [n, alpha, beta, t_stat, p_value, rsquared, skew, kurt] = Qps.regression(y, y, lag)
+    array.set(alpha_array, lag - 1, alpha)
+    array.set(beta_array, lag - 1, beta)
+    array.set(t_stat_array, lag - 1, t_stat)
+    array.set(p_value_array, lag - 1, p_value)
+
+f_update_significant_params(lag, alpha, beta, p_value, significant_alpha, significant_beta, H0) =>
+    if p_value < H0
+        array.set(significant_alpha, lag - 1, alpha)
+        array.set(significant_beta, lag - 1, beta)
+
+
+f_recalculate_ar_p(y, significant_alpha, significant_beta, start_lag, end_lag) =>
+    var float[] ar_p_history_recalculated = array.new_float(10000, na)  // Historique recalculé
+    for i = 0 to array.size(ar_p_history_recalculated) - 1
+        ar_p_value = 0.0
+        for lag = start_lag to end_lag
+            alpha = array.get(significant_alpha, lag - 1)
+            beta = array.get(significant_beta, lag - 1)
+            if not na(alpha) and not na(beta)
+                term = alpha + beta * y[i + lag]
+                ar_p_value += term
+        array.set(ar_p_history_recalculated, i, ar_p_value)
+    ar_p_history_recalculated
+
+// -------------
+
+////////////
+// arrays //
+////////////
+
+var float[] alpha_array = array.new_float(10)
+var float[] beta_array = array.new_float(10)
+var float[] t_stat_array = array.new_float(10)
+var float[] p_value_array = array.new_float(10)
+var float[] significant_alpha = array.new_float(10, na)
+var float[] significant_beta = array.new_float(10, na)
+
+// -------------
+
+//////////////////
+// calculations //
+//////////////////
+
+y = (close / close[1]) - 1
+H0 = 1-(conf_lvl/100)
+
+f_process_lag(y, 1, alpha_array, beta_array, t_stat_array, p_value_array)
+f_process_lag(y, 2, alpha_array, beta_array, t_stat_array, p_value_array)
+f_process_lag(y, 3, alpha_array, beta_array, t_stat_array, p_value_array)
+f_process_lag(y, 4, alpha_array, beta_array, t_stat_array, p_value_array)
+f_process_lag(y, 5, alpha_array, beta_array, t_stat_array, p_value_array)
+f_process_lag(y, 6, alpha_array, beta_array, t_stat_array, p_value_array)
+f_process_lag(y, 7, alpha_array, beta_array, t_stat_array, p_value_array)
+f_process_lag(y, 8, alpha_array, beta_array, t_stat_array, p_value_array)
+f_process_lag(y, 9, alpha_array, beta_array, t_stat_array, p_value_array)
+f_process_lag(y, 10, alpha_array, beta_array, t_stat_array, p_value_array)
+
+var float ar_p = na
+var float[] ar_p_history = array.new_float(0)
+
+// Calculate AR(p) model
+if bar_index > 10
+    ar_p := 0.0
+    weight_sum = 0.0  
+
+    for lag = 1 to 10
+        p_value = array.get(p_value_array, lag - 1)
+        alpha = array.get(alpha_array, lag - 1)
+        beta = array.get(beta_array, lag - 1)
+        t_stat = array.get(t_stat_array, lag - 1)  
+
+        // Appliquer le filtre de significativité
+        if p_value < H0
+            // Déterminer la pondération selon l'option sélectionnée
+            weight = if ponderation == "t stat weighting" and not na(t_stat)
+                math.abs(t_stat)
+            else
+                1.0  // Pondération égale par défaut
+
+            // Ajouter le terme pondéré
+            term = (alpha + beta * y[lag]) * weight
+            ar_p += term
+            weight_sum += weight
+
+    // Normalisation si pondération par t-stat
+    if ponderation == "t stat weighting" and weight_sum != 0
+        ar_p := ar_p / weight_sum
+
+mean = ta.sma(ar_p, mean_len)
+
+ar_p := ar_p - mean
+
+upper = +ta.stdev(ar_p, sigma_len)
+lower = -ta.stdev(ar_p, sigma_len)
+
+[nb, a, b, t, p, r2, s, k] = Qps.regression(y, ar_p, 1)
+
+jb = Qps.jarqueBera(nb,s,k)
+// -------------
+
+////////////////////
+// table and plot //
+////////////////////
+
+var table lag_table = table.new(position.bottom_right, 11, 5, border_width=1, force_overlay = true)  
+
+table.cell(lag_table, 0, 0, "Lag", bgcolor=color.rgb(120, 123, 134, 75))
+table.cell(lag_table, 0, 1, "T-Stat", bgcolor=color.rgb(255, 153, 0, 75))
+table.cell(lag_table, 0, 2, "P-Value", bgcolor=color.rgb(33, 149, 243, 75))
+table.cell(lag_table, 0, 3, "Alpha", bgcolor=color.rgb(75, 75, 75, 75))
+table.cell(lag_table, 0, 4, "Beta", bgcolor=color.rgb(75, 75, 75, 75))
+
+for lag = 1 to 10
+    // Récupération des valeurs des tableaux
+    alpha = array.get(alpha_array, lag - 1)
+    beta = array.get(beta_array, lag - 1)
+    t_stat = array.get(t_stat_array, lag - 1)
+    p_value = array.get(p_value_array, lag - 1)
+
+    // Détection de la significativité (P-value < seuil)
+    is_significant = p_value < H0
+
+    // Couleurs conditionnelles basées sur la significativité
+    bg_color = if is_significant
+        color.new(color.green, 80)  
+    else
+        color.new(color.red, 90)   
+
+    // Remplissage des cellules du tableau
+    table.cell(lag_table, lag, 0, str.tostring(lag), bgcolor=color.rgb(120, 123, 134, 75))
+    table.cell(lag_table, lag, 1, str.tostring(t_stat, "#.#####"), bgcolor=bg_color)
+    table.cell(lag_table, lag, 2, str.tostring(p_value, "#.#####"), bgcolor=bg_color)
+    table.cell(lag_table, lag, 3, str.tostring(alpha, "#.#####"), bgcolor=bg_color)
+    table.cell(lag_table, lag, 4, str.tostring(beta, "#.#####"), bgcolor=bg_color)
+
+var table result_table = table.new(position.top_right, 2, 11, border_width=1, force_overlay = true)  
+
+table.cell(result_table, 0, 0, "AR stats", bgcolor=color.rgb(120, 123, 134, 75))
+table.merge_cells(result_table, 0, 0, 1, 0)
+
+table.cell(result_table, 0, 1, "n", bgcolor=color.rgb(255, 153, 0, 75))
+table.cell(result_table, 0, 2, "T-Stat", bgcolor=color.rgb(255, 153, 0, 75))
+table.cell(result_table, 0, 3, "P-Value", bgcolor=color.rgb(33, 149, 243, 75))
+table.cell(result_table, 0, 4, "Alpha", bgcolor=color.rgb(75, 75, 75, 75))
+table.cell(result_table, 0, 5, "Beta", bgcolor=color.rgb(75, 75, 75, 75))
+table.cell(result_table, 0, 6, "r squared", bgcolor=color.rgb(75, 75, 75, 75))
+table.cell(result_table, 0, 7, "skewness", bgcolor=color.rgb(75, 75, 75, 75))
+table.cell(result_table, 0, 8, "kurtosis", bgcolor=color.rgb(75, 75, 75, 75))
+table.cell(result_table, 0, 9, "jarque-Bera", bgcolor=color.rgb(75, 75, 75, 75))
+
+table.cell(result_table, 1, 1,  str.tostring(nb), bgcolor=color.rgb(255, 153, 0, 75))
+table.cell(result_table, 1, 2,  str.tostring(t, "#.#####"), bgcolor = p < H0 ? color.rgb(0, 255, 0, 75) : color.rgb(255, 0, 0, 85))
+table.cell(result_table, 1, 3,  str.tostring(p, "#.#####"), bgcolor = p < H0 ? color.rgb(0, 255, 0, 75) : color.rgb(255, 0, 0, 85))
+table.cell(result_table, 1, 4,  str.tostring(a, "#.#####"), bgcolor=color.rgb(255, 153, 0, 75))
+table.cell(result_table, 1, 5,  str.tostring(b, "#.#####"), bgcolor = b > 0 ? color.rgb(0, 255, 0, 75) : color.rgb(255, 0, 0, 85))
+table.cell(result_table, 1, 6,  str.tostring(r2, "#.#####"), bgcolor= r2 > 0.05 ? color.rgb(0, 255, 0, 75) : color.rgb(255, 0, 0, 85))
+table.cell(result_table, 1, 7,  str.tostring(s, "#.###"), bgcolor = jb < 5.99 ? color.rgb(0, 255, 0, 75) : color.rgb(255, 0, 0, 85))
+table.cell(result_table, 1, 8,  str.tostring(k, "#.###"), bgcolor = jb < 5.99 ? color.rgb(0, 255, 0, 75) : color.rgb(255, 0, 0, 85))
+table.cell(result_table, 1, 9,  str.tostring(jb, "#.##"), bgcolor = jb < 5.99 ? color.rgb(0, 255, 0, 75) : color.rgb(255, 0, 0, 85))
+
+var string condition_message = ""
+txt_bg_color = color.rgb(0, 0, 0, 0)
+
+if p > H0
+    condition_message := "Non significant"
+    txt_bg_color := color.rgb(255, 0, 0, 85)
+else if b < 0
+    condition_message := "Against the hypothesis"
+    txt_bg_color := color.rgb(255, 0, 0, 85)
+else if jb > 5.99
+    condition_message := "Non robust"
+    txt_bg_color := color.rgb(255, 166, 0, 85)
+else
+    condition_message := "good"
+    txt_bg_color := color.rgb(0, 255, 0, 75)
+
+table.cell(result_table, 0, 10, condition_message, bgcolor = txt_bg_color)
+table.merge_cells(result_table, 0, 10, 1, 10)
+
+if p < H0
+    if (ar_p > upper)
+        label.new(bar_index,low,"Buy",color=color.rgb(76, 175, 79, 80),style = label.style_label_up,textcolor=color.white,size=size.tiny, force_overlay = true)
+    if (ar_p < lower)
+        label.new(bar_index,high,"sell",color=color.rgb(255, 82, 82, 80), textcolor=color.white,size=size.tiny, force_overlay = true)
+
+plot(ar_p, "Auto Regressiv Value", color = color.blue)
+plot(upper, "Auto Regressiv Value", color = color.blue)
+plot(lower, "Auto Regressiv Value", color = color.blue)
