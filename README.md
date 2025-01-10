@@ -2,6 +2,7 @@
 All code in this repository is open-source and licensed under MPL 2.0 and/or CC BY-NC-SA 4.0.
 
 Commercial use is prohibited without explicit permission from the original author.
+
 This repository is for educational and personal use only.
 
 -Author attribution is included in script files (©)
