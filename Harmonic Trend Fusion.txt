@@ -1,0 +1,124 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © kikfraben
+// Updated last on Nov 16 2023
+// @version = 5
+
+indicator("Harmonic Trend Fusion [kikfraben]", shorttitle = "HTF",  overlay = false, precision = 2)
+
+// Baseline
+src = input.source(close, "Source", group = "Base Inputs")
+
+// Plot Options
+plot_signal = input.bool(true, "Plot Signal?", group = "Plot Options")
+plot_table = input.bool(true, "Plot Table?", group = "Plot Options")
+plot_aroon = input.bool(false, "Plot Aroon?", group = "Plot Options")
+plot_dmi = input.bool(false, "Plot DMI?", group = "Plot Options")
+plot_macd_ma = input.bool(false, "Plot MACD MA's?", group = "Plot Options", inline = "5")
+plot_macd_hist = input.bool(false, "Plot MACD Hist?", group = "Plot Options", inline = "5")
+plot_parabolic_sar = input.bool(false, "Plot Parabolic SAR?", group = "Plot Options")
+plot_rsi = input.bool(false, "Plot RSI?", group = "Plot Options")
+plot_supertrend = input.bool(false, "Plot Supertrend?", group = "Plot Options")
+plot_smi_ergodic = input.bool(false, "Plot SMI Ergodic?", group = "Plot Options")
+
+// Color Inputs
+color_bull = input.color(#3fa8c9, title = "Bullish Color", group = "Color Inputs", inline = "1")
+color_bear = input.color(#c93f3f, title = "Bearish Color", group = "Color Inputs", inline = "1")
+
+// Input 1 -> Aroon
+aroon_length = input.int(14, "Aroon Length", group = "Aroon Inputs")
+aroon_upper = 100 * (ta.highestbars(high, aroon_length + 1) + aroon_length) / aroon_length
+aroon_lower = 100 * (ta.lowestbars(low, aroon_length + 1) + aroon_length) / aroon_length
+plot(plot_aroon ? aroon_upper : na, "Aroon Up", color = color_bull)
+plot(plot_aroon ? aroon_lower : na, "Aroon Down", color = color_bear)
+binary_aroon = aroon_upper > aroon_lower ? 1 : -1
+
+// Input 2 -> DMI
+dmi_length = input.int(14, "DMI Length", group = "DMI Inputs")
+dmi_up = ta.change(high)
+dmi_down = -ta.change(low)
+plusDM = na(dmi_up) ? na : (dmi_up > dmi_down and dmi_up > 0 ? dmi_up : 0)
+minusDM = na(dmi_down) ? na : (dmi_down > dmi_up and dmi_down > 0 ? dmi_down : 0)
+dmi_trur = ta.rma(ta.tr, dmi_length)
+dmi_plus = fixnan(100 * ta.rma(plusDM, dmi_length) / dmi_trur)
+dmi_minus = fixnan(100 * ta.rma(minusDM, dmi_length) / dmi_trur)
+plot(plot_dmi ? dmi_plus : na, "DMI+", color = color_bull)
+plot(plot_dmi ? dmi_minus : na, "DMI-", color = color_bear)
+binary_dmi = dmi_plus > dmi_minus ? 1 : -1
+
+// Input 3 -> MACD
+macd_fast_length = input(12, "MACD Fast Length", group = "MACD Inputs")
+macd_slow_length = input(26, "MACD Slow Length", group = "MACD Inputs")
+macd_signal_length = input(9, "MACD Signal Length", group = "MACD Inputs")
+macd_ma_source = input.string("EMA", "Oscillator MA Type", options = ["SMA", "EMA"], group = "MACD Inputs")
+macd_ma_signal = input.string("EMA", "Signal MA Type", options = ["SMA", "EMA"], group = "MACD Inputs")
+macd_fast_ma = macd_ma_source == "SMA" ? ta.sma(src, macd_fast_length) : ta.ema(src, macd_fast_length)
+macd_slow_ma = macd_ma_source == "SMA" ? ta.sma(src, macd_slow_length) : ta.ema(src, macd_slow_length)
+macd = macd_fast_ma - macd_slow_ma
+macd_signal = macd_ma_signal == "SMA" ? ta.sma(macd, macd_signal_length) : ta.ema(macd, macd_signal_length)
+macd_hist = macd - macd_signal
+hline(plot_macd_hist ? 0 : na, "Zero Line", color = color.new(#787B86, 50))
+plot(plot_macd_hist ? macd_hist : na, "Histogram", style = plot.style_columns, color = (macd_hist >= 0 ? (macd_hist[1] <
+ macd_hist ? color_bull : color.new(color_bull, 50)) : (macd_hist[1] < macd_hist ? color.new(color_bear, 50) : color_bear)))
+plot(plot_macd_ma ? macd : na, "MACD",   color = color_bull)
+plot(plot_macd_ma ? macd_signal : na, "Signal", color = color_bear)
+binary_macd = macd_hist > 0 ? 1 : -1
+
+// Input 4 -> Parabolic SAR
+sar_start = input(0.02, "SAR Start", group = "Parabolic SAR Inputs")
+sar_increment = input(0.02, "SAR Increment", group = "Parabolic SAR Inputs")
+sar_maximum = input(0.2, "SAR Maximum", group = "Parabolic SAR Inputs")
+sar = ta.sar(sar_start, sar_increment, sar_maximum)
+plot(plot_parabolic_sar ? sar : na, "Parabolic SAR", style = plot.style_cross, color = sar < src ? color_bull : color_bear)
+binary_sar = sar < src ? 1 : -1
+
+// Input 5 -> RSI
+rsi_len = input.int(22, title="RSI Length", group="RSI Inputs")
+rsi_up = ta.rma(math.max(ta.change(src), 0), rsi_len)
+rsi_down = ta.rma(-math.min(ta.change(src), 0), rsi_len)
+rsi = rsi_down == 0 ? 100 : rsi_up == 0 ? 0 : 100 - (100 / (1 + rsi_up / rsi_down))
+rsi_col = rsi > 50 ? color_bull : color_bear
+rsiPlot = plot(plot_rsi ? rsi : na, "RSI", color = rsi_col)
+rsiUpperBand = hline(plot_rsi ? 70 : na, "RSI Upper Band", color=#787B86)
+midline = hline(plot_rsi ? 50 : na, "RSI Middle Band", color=color.new(#787B86, 50))
+rsiLowerBand = hline(plot_rsi ? 30 : na, "RSI Lower Band", color=#787B86)
+fill(rsiUpperBand, rsiLowerBand, color=color.rgb(126, 87, 194, 90), title="RSI Background Fill")
+binary_rsi = rsi > 50 ? 1 : -1
+
+// Input 6 -> Supertrend
+st_length = input(22, "Supertrend Length", group = "Supertrend Inputs")
+st_factor = input.float(2.22, "Supertrend Factor", step = 0.01, group = "Supertrend Inputs")
+[supertrend, direction] = ta.supertrend(st_factor, st_length)
+bodyMiddle = plot(plot_supertrend ? (open + close) / 2 : na, display=display.none)
+upTrend = plot(plot_supertrend ? direction < 0 ? supertrend : na : na, "Up Trend", color = color_bull, style=plot.style_linebr)
+downTrend = plot(plot_supertrend ? direction < 0 ? na : supertrend : na, "Down Trend", color = color_bear, style=plot.style_linebr)
+fill(bodyMiddle, upTrend, color.new(color_bull, 90), fillgaps=false)
+fill(bodyMiddle, downTrend, color.new(color_bear, 90), fillgaps=false)
+binary_st = direction < 0 ? 1 : -1
+
+// Input 7 -> SMI Ergodic Oscillator
+smi_longlen = input.int(20, "SMI Long Length", group = "SMI Ergodic Oscillator Inputs")
+smi_shortlen = input.int(5, "SMI Short Length", group = "SMI Ergodic Oscillator Inputs")
+smi_siglen = input.int(5, "SMI Signal Line Length", group = "SMI Ergodic Oscillator Inputs")
+smi_erg = ta.tsi(close, smi_shortlen, smi_longlen)
+smi_sig = ta.ema(smi_erg, smi_siglen)
+smi_osc = smi_erg - smi_sig
+plot(plot_smi_ergodic ? smi_osc : na, "SMI Ergodic Oscillator", style = plot.style_columns, color = (smi_osc >= 0 ? (smi_osc[1] < smi_osc
+ ? color_bull : color.new(color_bull, 50)) : (smi_osc[1] < smi_osc ? color.new(color_bear, 50) : color_bear)))
+binary_smi = smi_osc > 0 ? 1 : -1
+
+// Signal
+signal = math.avg(binary_aroon, binary_dmi, binary_macd, binary_sar, binary_rsi, binary_st, binary_smi)
+plot(plot_signal ? signal : na, "SMI Ergodic Oscillator", style = plot.style_columns, color = (signal >= 0 ? (signal[1] < signal ? color_bull
+ : color.new(color_bull, 50)) : (signal[1] < signal ? color.new(color_bear, 50) : color_bear)))
+
+// Table 
+if plot_table == true
+    table = table.new(position = position.top_right, columns = 2, rows = 2, bgcolor = color.new(color.white, 95), border_width = 1, border_color
+     = color.new(color.white, 80), frame_width = 1, frame_color = color.new(color.white, 80))
+
+    table.cell(table_id = table, column = 0, row = 0, text = "HTF", text_color = color.new(color.white, 25))
+    table.cell(table_id = table, column = 1, row = 0, text = str.tostring(signal, format = "#.##"), text_color = signal > 0 ? color_bull : color_bear)
+    table.cell(table_id = table, column = 0, row = 1, text = "Trend", text_color = color.new(color.white, 25))
+    table.cell(table_id = table, column = 1, row = 1, text = signal > 0 ? "Bullish" : "Bearish", text_color = signal > 0 ? color_bull : color_bear)
+
+barcolor( signal >= 0 ? color.blue : signal <= 0 ? color.red : na)

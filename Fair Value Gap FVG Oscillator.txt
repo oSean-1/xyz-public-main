@@ -1,0 +1,55 @@
+// This Pine Script™ code is subject to the terms of the Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0) https://creativecommons.org/licenses/by-nc-sa/4.0/
+// © UAlgo
+
+//@version=5
+indicator("Fair Value Gap (FVG) Oscillator [UAlgo]", shorttitle ="Fair Value Gap (FVG) Oscillator [UAlgo]", overlay = false)
+
+// Inputs
+lookbackPeriod = input(50, "Lookback Period", group = "Fair Value Gap (FVG) Oscillator [UAlgo]")
+atrMultiplier = input.float(1.618, "ATR Multiplier", group = "Fair Value Gap (FVG) Oscillator [UAlgo]")
+volumeSmaPeriod = input.int(8, "Volume SMA Period", group = "Fair Value Gap (FVG) Oscillator [UAlgo]")
+positiveColor = input.color(#089981, "Positive/Negative Color", group = "Visual", inline = "v")
+negativeColor = input.color(#f23645, " ", group = "Visual", inline = "v")
+displayAreas = input.bool(true, "Show Areas", group = "Visual")
+
+// Functions to determine FVG and volume conditions
+isBullishFVG() =>
+    low > high[2]
+
+isBearishFVG() =>
+    high < low[2]
+
+isHighVolume() =>
+    volume > ta.sma(volume, volumeSmaPeriod)
+
+isBullishATR() =>
+    low - high[2] > ta.sma(low - high[2], lookbackPeriod) * atrMultiplier
+
+isBearishATR() =>
+    high - low[2] > ta.sma(high - low[2], lookbackPeriod) * atrMultiplier
+
+// Counters for bullish and bearish FVG
+bullishFVGCount = math.sum(isBullishFVG() ? 1 : 0, lookbackPeriod)
+bearishFVGCount = math.sum(isBearishFVG() ? -1 : 0, lookbackPeriod)
+
+// Verification of patterns
+verifyBullish = (isBullishFVG() and isHighVolume()[1]) or (isBullishFVG() and isBullishATR())
+verifyBearish = (isBearishFVG() and isHighVolume()[1]) or (isBearishFVG() and isBearishATR())
+
+// Normalized values for plotting
+normalizedBullish = ((low - high[2]) * bullishFVGCount * 0.75) / ta.highest(low - high[2], lookbackPeriod)
+normalizedBearish = ((high - low[2]) * bearishFVGCount * 0.75) / ta.lowest(high - low[2], lookbackPeriod)
+
+// Total count and max value calculation
+totalFVGCount = bullishFVGCount + bearishFVGCount
+maxValue = math.max(ta.highest(bullishFVGCount, 200), ta.highest(math.abs(bearishFVGCount), 200))
+
+// Plotting
+bullishPlot = plot(bullishFVGCount, "Bullish FVG", positiveColor, display = display.none)
+bearishPlot = plot(bearishFVGCount, "Bearish FVG", negativeColor, display = display.none)
+zeroLine = plot(0, "", color.new(color.gray, 100), display = display.none, editable = false)
+plot(totalFVGCount, "Net Value", color.new(color.gray, 50))
+fill(bullishPlot, zeroLine, maxValue, 0, displayAreas ? positiveColor : na, color.new(chart.bg_color, 100))
+fill(zeroLine, bearishPlot, -maxValue, 0, displayAreas ? negativeColor : na, color.new(chart.bg_color, 100))
+plot(verifyBullish ? normalizedBullish : na, "Bullish Pattern Width", positiveColor, 1, plot.style_histogram)
+plot(verifyBearish ? normalizedBearish : na, "Bearish Pattern Width", negativeColor, 1, plot.style_histogram)

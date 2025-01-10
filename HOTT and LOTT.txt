@@ -1,0 +1,175 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// ©
+
+//created by: Anil_Ozeksi
+//developer: ANIL ÖZEKŞİ
+//author: KIVANÇ ÖZBİLGİÇ
+//adapted by: hassonya
+
+//@version=4
+strategy("Trend","Trend", overlay=true)
+length=input(2, "OTT Period", minval=1)
+percent=input(0.6, "OTT Percent", type=input.float, step=0.1, minval=0)
+hLen = input(title="High Length", type=input.integer, defval=10)
+lLen = input(title="Low Length", type=input.integer, defval=10)
+extCand = input(false, title="Extra Plot Candle")
+
+highs = highest(high, hLen)
+lows = lowest(low, lLen)
+
+mav = input(title="Moving Average Type", defval="VAR", options=["SMA", "EMA", "WMA", "TMA", "VAR", "WWMA", "ZLEMA", "TSF"])
+Var_Func(src,length)=>
+    valpha=2/(length+1)
+    vud1=src>src[1] ? src-src[1] : 0
+    vdd1=src<src[1] ? src[1]-src : 0
+    vUD=sum(vud1,9)
+    vDD=sum(vdd1,9)
+    vCMO=nz((vUD-vDD)/(vUD+vDD))
+    VAR=0.0
+    VAR:=nz(valpha*abs(vCMO)*src)+(1-valpha*abs(vCMO))*nz(VAR[1])
+
+VAR1=Var_Func(highs,length)
+VAR2=Var_Func(lows,length)
+
+Wwma_Func(src,length)=>
+    wwalpha = 1/ length
+    WWMA = 0.0
+    WWMA := wwalpha*src + (1-wwalpha)*nz(WWMA[1])
+
+WWMA1=Wwma_Func(highs,length)
+WWMA2=Wwma_Func(lows,length)
+
+Zlema_Func(src,length)=>
+    zxLag = length/2==round(length/2) ? length/2 : (length - 1) / 2
+    zxEMAData = (src + (src - src[zxLag]))
+    ZLEMA = ema(zxEMAData, length)
+
+ZLEMA1=Zlema_Func(highs,length)
+ZLEMA2=Zlema_Func(lows,length)
+
+Tsf_Func(src,length)=>
+    lrc = linreg(src, length, 0)
+    lrc1 = linreg(src,length,1)
+    lrs = (lrc-lrc1)
+    TSF = linreg(src, length, 0)+lrs
+
+TSF1=Tsf_Func(highs,length)
+TSF2=Tsf_Func(lows,length)
+
+getMA(src, length, x) =>
+    ma1 = 0.0
+    ma2 = 0.0
+    if mav == "SMA" and x == "m1"
+        ma1 := sma(src, length)
+        ma1
+
+    if mav == "SMA" and x == "m2"
+        ma2 := sma(src, length)
+        ma2
+
+    if mav == "EMA" and x == "m1"
+        ma1 := ema(src, length)
+        ma1
+
+    if mav == "EMA" and x == "m2"
+        ma2 := ema(src, length)
+        ma2
+
+    if mav == "WMA" and x == "m1"
+        ma1 := wma(src, length)
+        ma1
+
+    if mav == "WMA" and x == "m2"
+        ma2 := wma(src, length)
+        ma2
+
+    if mav == "TMA" and x == "m1"
+        ma1 := sma(sma(src, ceil(length / 2)), floor(length / 2) + 1)
+        ma1    
+
+    if mav == "TMA" and x == "m2"
+        ma2 := sma(sma(src, ceil(length / 2)), floor(length / 2) + 1)
+        ma2
+
+    if mav == "VAR" and x == "m1"
+        ma1 := VAR1
+        ma1
+
+    if mav == "VAR" and x == "m2"
+        ma2 := VAR2
+        ma2
+
+    if mav == "WWMA" and x == "m1"
+        ma1 := WWMA1
+        ma1
+
+    if mav == "WWMA" and x == "m2"
+        ma2 := WWMA2
+        ma2
+
+    if mav == "ZLEMA" and x == "m1"
+        ma1 := ZLEMA1
+        ma1   
+
+    if mav == "ZLEMA" and x == "m2"
+        ma2 := ZLEMA2
+        ma2
+
+    if mav == "TSF" and x == "m1"
+        ma1 := TSF1
+        ma1
+    
+    if mav == "TSF" and x == "m2"
+        ma2 := TSF2
+        ma2
+        
+    if x == "m1"
+        ma1
+    else 
+        ma2
+
+MAvg1=getMA(highs, length, "m1")
+fark1=MAvg1*percent*0.01
+longStop1 = MAvg1 - fark1
+longStopPrev1 = nz(longStop1[1], longStop1)
+longStop1 := MAvg1 > longStopPrev1 ? max(longStop1, longStopPrev1) : longStop1
+shortStop1 =  MAvg1 + fark1
+shortStopPrev1 = nz(shortStop1[1], shortStop1)
+shortStop1 := MAvg1 < shortStopPrev1 ? min(shortStop1, shortStopPrev1) : shortStop1
+dir1 = 1
+dir1 := nz(dir1[1], dir1)
+dir1 := dir1 == -1 and MAvg1 > shortStopPrev1 ? 1 : dir1 == 1 and MAvg1 < longStopPrev1 ? -1 : dir1
+MT1 = dir1==1 ? longStop1 : shortStop1
+
+MAvg2=getMA(lows, length, "m2")
+fark2=MAvg2*percent*0.01
+longStop2 = MAvg2 - fark2
+longStopPrev2 = nz(longStop2[1], longStop2)
+longStop2 := MAvg2 > longStopPrev2 ? max(longStop2, longStopPrev2) : longStop2
+shortStop2 =  MAvg2 + fark2
+shortStopPrev2 = nz(shortStop2[1], shortStop2)
+shortStop2 := MAvg2 < shortStopPrev2 ? min(shortStop2, shortStopPrev2) : shortStop2
+dir2 = 1
+dir2 := nz(dir2[1], dir2)
+dir2 := dir2 == -1 and MAvg2 > shortStopPrev2 ? 1 : dir2 == 1 and MAvg2 < longStopPrev2 ? -1 : dir2
+MT2 = dir2==1 ? longStop2 : shortStop2
+
+HOTT=MAvg1>MT1 ? MT1*(200+percent)/200 : MT1*(200-percent)/200
+LOTT=MAvg2>MT2 ? MT2*(200+percent)/200 : MT2*(200-percent)/200 
+
+pALLH=plot(nz(HOTT[2]), color=color.aqua, linewidth=1, style=plot.style_line, title="HOTT")
+pALLL=plot(nz(LOTT[2]), color=color.purple, linewidth=1, style=plot.style_line, title="LOTT")
+barcolor(high > nz(HOTT[2]) ? color.aqua : low < nz(LOTT[2]) ? color.purple : color.gray)
+
+plotcandle(open, high, low, close, title='ExtraCandles', color = extCand ? high > nz(HOTT[2]) ? color.aqua : low < nz(LOTT[2]) ? color.purple : color.gray : na, wickcolor=extCand ? high > nz(HOTT[2]) ? color.aqua : low < nz(LOTT[2]) ? color.purple : color.gray : na, bordercolor=extCand ? high > nz(HOTT[2]) ? color.aqua : low < nz(LOTT[2]) ? color.purple : color.gray : na)
+
+alertcondition(crossover(high, HOTT[2]), title='Over HOTT Alarm', message='BUY SIGNAL!')
+alertcondition(crossunder(low, LOTT[2]), title='Under LOTT Alarm', message='SELL SIGNAL!')
+ 
+if crossover(high, HOTT[1])
+    strategy.entry("Long", strategy.long,comment = "Long")
+
+if crossunder(low, LOTT[1])
+    strategy.entry("Short", strategy.short,comment = "Short")
+
+  

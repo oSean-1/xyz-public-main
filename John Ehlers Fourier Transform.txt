@@ -1,0 +1,130 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+
+// Discrete Fourier Transform
+// Copyright (c) 2006 John F. Ehlers
+// modified by Ricardo Santos.
+
+//@version=5
+
+// @description Fourier Transform for Traders By John Ehlers, slightly modified to allow to inspect other than the 8-50 frequency spectrum.
+// reference:
+//      https://www.mesasoftware.com/papers/FourierTransformForTraders.pdf
+library(title='JohnEhlersFourierTransform')
+
+// @function Detrended version of the data by High Pass Filtering with a 40 Period cutoff
+// @param source float, data source.
+// @returns float.
+export high_pass_filter (float source=hl2) => //{
+    float _alpha = 1.0 - math.sin(2.0 * math.pi / 40.0) / math.cos(2.0 * math.pi / 40.0)
+    float _hp = 0.0
+    float _cleaned = 0.0
+    if bar_index > 5
+        _hp := .5 * (1.0 + _alpha) * (source - source[1]) + _alpha * _hp[1]
+        _cleaned := (_hp + 2.0 * _hp[1] + 3.0 * _hp[2] + 3.0 * _hp[3] + 2.0 * _hp[4] + _hp[5]) / 12.0
+    _cleaned
+//}
+
+// @function DFT by John Elhers.
+// @param source float, data source.
+// @param start_frequency int, lower bound of the frequency window, must be a positive number >= 0, window must be less than or 30.
+// @param end_frequency int, upper bound of the frequency window, must be a positive number >= 0, window must be less than or 30.
+// @returns tuple with float, float array.
+export transformed_dft (float source=hl2, int start_frequency=10, int end_frequency=40) =>
+    float _pi2 = 2.0 * math.pi
+    float _cleaned = high_pass_filter(source)
+    int _window = end_frequency - start_frequency
+    //
+    switch
+        (_window < 1) => runtime.error('-> transformed_dft(): window(end_freq.-start_freq.) must be a positive number > 1') 
+        // (_window > 30) => runtime.error('-> transformed_dft(): window(end_freq.-start_freq.) must be less than number of possible plots(30).')
+    //
+    float[] _cosine_part = array.new_float(_window+1, 0.0)
+    float[] _sine_part = array.new_float(_window+1, 0.0)
+    float[] _pwr = array.new_float(_window+1, 0.0)
+    float[] _db = array.new_float(_window+1, 0.0)
+    //
+    for _period = start_frequency to end_frequency
+        array.set(_cosine_part, _period-start_frequency, 0.0)
+        array.set(_sine_part, _period-start_frequency, 0.0)
+        for _n = 0 to (_window - 1)
+            float _cosf =  math.cos(_pi2 * _n / _period)
+            float _sinf =  math.sin(_pi2 * _n / _period)
+            float _cosp = array.get(_cosine_part, _period-start_frequency)
+            float _sinp = array.get(_sine_part, _period-start_frequency)
+            array.set(_cosine_part, _period-start_frequency, _cosp + _cleaned[_n] * _cosf)
+            array.set(_sine_part, _period-start_frequency, _sinp + _cleaned[_n] * _sinf)
+        array.set(_pwr, _period-start_frequency, math.pow(array.get(_cosine_part, _period-start_frequency), 2.0) + math.pow(array.get(_sine_part, _period-start_frequency), 2.0))
+    //Find Maximum Power Level for Normalization
+    float _max_pwr = array.max(_pwr)
+    //Normalize Power Levels and Convert to Decibels
+    for _period = start_frequency to end_frequency
+        float _pwrp = array.get(_pwr, _period-start_frequency)
+        if (_max_pwr > 0.0) and (_pwrp > 0.0)
+            float _clamp = math.min(20.0, -10.0 * math.log(0.01 / (1.0 - 0.99 * _pwrp / _max_pwr)) / math.log(10.0))
+            array.set(_db, _period-start_frequency, _clamp)
+    //Find Dominant Cycle using CG algorithm
+    float _num = 0.0
+    float _denom = 0.0
+    for _period = start_frequency to end_frequency
+        float _dbp = array.get(_db, _period-start_frequency)
+        if (_dbp < 3)
+            _num += _period * (3.0 - _dbp)
+            _denom += (3.0 - _dbp)
+    float _dominant_cycle = _denom != 0 ? _num / _denom : 0.0
+    [_dominant_cycle, _db]
+//
+
+// @function converts the frequency decibels to rgb.
+// @param db float, decibels value.
+// @param transparency float, transparency value.
+// @returns color.
+export db_to_rgb(float db, float transparency) => //{
+    if db > 10
+        color.rgb(255.0 * (2.0 - db / 10.0), 0.0, 0.0, transparency)
+    else
+        color.rgb(255.0, 255.0 * (1.0 - db / 10.0), 0.0, transparency)
+//}
+
+// example usage:
+source = input.source(hl2)
+startf = input(10)
+endf = input(40)
+[dominant_cycle, db] = transformed_dft(source, startf, endf)
+
+plot(series=startf + 00, title='S00', color=db_to_rgb(array.get(db, 00), 0.0), linewidth=4)
+plot(series=startf + 01, title='S01', color=db_to_rgb(array.get(db, 01), 0.0), linewidth=4)
+plot(series=startf + 02, title='S02', color=db_to_rgb(array.get(db, 02), 0.0), linewidth=4)
+plot(series=startf + 03, title='S03', color=db_to_rgb(array.get(db, 03), 0.0), linewidth=4)
+plot(series=startf + 04, title='S04', color=db_to_rgb(array.get(db, 04), 0.0), linewidth=4)
+plot(series=startf + 05, title='S05', color=db_to_rgb(array.get(db, 05), 0.0), linewidth=4)
+plot(series=startf + 06, title='S06', color=db_to_rgb(array.get(db, 06), 0.0), linewidth=4)
+plot(series=startf + 07, title='S07', color=db_to_rgb(array.get(db, 07), 0.0), linewidth=4)
+plot(series=startf + 08, title='S08', color=db_to_rgb(array.get(db, 08), 0.0), linewidth=4)
+plot(series=startf + 09, title='S09', color=db_to_rgb(array.get(db, 09), 0.0), linewidth=4)
+plot(series=startf + 10, title='S10', color=db_to_rgb(array.get(db, 10), 0.0), linewidth=4)
+plot(series=startf + 11, title='S11', color=db_to_rgb(array.get(db, 11), 0.0), linewidth=4)
+plot(series=startf + 12, title='S12', color=db_to_rgb(array.get(db, 12), 0.0), linewidth=4)
+plot(series=startf + 13, title='S13', color=db_to_rgb(array.get(db, 13), 0.0), linewidth=4)
+plot(series=startf + 14, title='S14', color=db_to_rgb(array.get(db, 14), 0.0), linewidth=4)
+plot(series=startf + 15, title='S15', color=db_to_rgb(array.get(db, 15), 0.0), linewidth=4)
+plot(series=startf + 16, title='S16', color=db_to_rgb(array.get(db, 16), 0.0), linewidth=4)
+plot(series=startf + 17, title='S17', color=db_to_rgb(array.get(db, 17), 0.0), linewidth=4)
+plot(series=startf + 18, title='S18', color=db_to_rgb(array.get(db, 18), 0.0), linewidth=4)
+plot(series=startf + 19, title='S19', color=db_to_rgb(array.get(db, 19), 0.0), linewidth=4)
+plot(series=startf + 20, title='S20', color=db_to_rgb(array.get(db, 20), 0.0), linewidth=4)
+plot(series=startf + 21, title='S21', color=db_to_rgb(array.get(db, 21), 0.0), linewidth=4)
+plot(series=startf + 22, title='S22', color=db_to_rgb(array.get(db, 22), 0.0), linewidth=4)
+plot(series=startf + 23, title='S23', color=db_to_rgb(array.get(db, 23), 0.0), linewidth=4)
+plot(series=startf + 24, title='S24', color=db_to_rgb(array.get(db, 24), 0.0), linewidth=4)
+plot(series=startf + 25, title='S25', color=db_to_rgb(array.get(db, 25), 0.0), linewidth=4)
+plot(series=startf + 26, title='S26', color=db_to_rgb(array.get(db, 26), 0.0), linewidth=4)
+plot(series=startf + 27, title='S27', color=db_to_rgb(array.get(db, 27), 0.0), linewidth=4)
+plot(series=startf + 28, title='S28', color=db_to_rgb(array.get(db, 28), 0.0), linewidth=4)
+plot(series=startf + 29, title='S29', color=db_to_rgb(array.get(db, 29), 0.0), linewidth=4)
+plot(series=startf + 30, title='S30', color=db_to_rgb(array.get(db, 30), 0.0), linewidth=4)
+
+plot(dominant_cycle)
+plot(ta.cum(dominant_cycle) / (bar_index + 1))
+
+hline(price=0, title='start')
+hline(price=0, title='end')

@@ -1,0 +1,23 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © alexgrover
+
+//@version=4
+study(title="Zero-Lag Smoothed Cycle", shorttitle="Frequency")
+length = input(20)
+//
+filt(x) =>
+    k = linreg(x,length,0)
+a(x) =>
+    c = x - filt(x)
+l(x) =>
+    c = a(x) + (a(x)-filt(a(x)))
+//
+x = close
+lco = l(l(l(x)))
+filter = (-sma(sma(lco,length/2),length/2))*2
+//
+
+//plot(lco,color=orange,transp=0)
+
+color1 = color.from_gradient(filter, -10, 10, color.blue, color.red)
+plot(ema(filter,5), "RSI", color = color1, linewidth = 3)

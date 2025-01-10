@@ -1,0 +1,22 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © barnabygraham
+
+//@version=5
+indicator("Intraday Accumulator [close-open]",overlay=true,scale=scale.none)
+
+var x = 0.
+if barstate.isfirst
+    x := close    
+x := x + (close-open)
+plot(x,'Out',color=color.white)
+
+palette = close >= open ? #22ab94 : #ff5252
+
+candles     = input(true, title="Show Candles")
+
+c = request.security(syminfo.tickerid, "", close)
+o = request.security(syminfo.tickerid, "", open)
+h = request.security(syminfo.tickerid, "", high)
+l = request.security(syminfo.tickerid, "", low)
+
+plotcandle(candles?x[1]:na, candles?x:na, candles?x[1]:na, candles?x:na, title='flow', color = palette, wickcolor=#ffffff, bordercolor = #434651)

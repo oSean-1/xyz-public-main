@@ -1,0 +1,57 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Uldisbebris
+
+//@version=5
+indicator("Hybrid EMA AlgoLearner", shorttitle="Hybrid EMA AlgoLearner", overlay=false)
+
+// Parameters for EMAs
+shortTermPeriod = 50
+longTermPeriod = 200
+
+// k-NN parameter
+k = input.int(5, 'K - Number of neighbors')
+
+// Calculate EMAs
+shortTermEma = ta.ema(close, shortTermPeriod)
+longTermEma = ta.ema(close, longTermPeriod)
+
+// Custom k-NN Algorithm for weighted EMA
+var float[] distances = array.new_float(0)
+array.clear(distances)
+for i = 1 to 100by 1  // Loop through past 100 data points
+    distance = math.abs(shortTermEma - longTermEma[i])
+    array.push(distances, distance)
+array.sort(distances)
+
+k_distances = array.new_float(0)
+for i = 0 to k - 1 by 1
+    array.push(k_distances, array.get(distances, i))
+
+// Calculate weighted EMA based on closest k distances
+weightShortTermEma = 0.0
+totalWeight = 0.0
+for i = 0 to k - 1 by 1
+    weight = array.get(k_distances, i)
+    weightShortTermEma += shortTermEma[i] * weight
+    totalWeight += weight
+weightShortTermEma /= totalWeight
+
+// Scale weightShortTermEma between 0 - 100
+var float minEma = na
+var float maxEma = na
+// Instead of all the history, only look at the last N bars.
+lookbackPeriod = input.int(400, 'lookbackPeriod')
+minEma := ta.lowest(weightShortTermEma, lookbackPeriod)
+maxEma := ta.highest(weightShortTermEma, lookbackPeriod)
+scaledWeightShortTermEma = (weightShortTermEma - minEma) / (maxEma - minEma) * 100
+
+//== plot
+emaplot = plot(scaledWeightShortTermEma, title='Scaled Weighted Short-Term EMA', color = color.new(#a6a8a3, 0), linewidth = 1)
+midLinePlot = plot(50, color = na, editable = false, display = display.none)
+
+// Fill between plots and add horizontal lines
+fill(emaplot, midLinePlot, 105, 85, top_color = color.new(#057ec4, 0), bottom_color = color.new(#6ca800, 100), title = "Overbought Gradient Fill")
+fill(emaplot, midLinePlot, 15,  -5, top_color = color.new(#a83c91, 100), bottom_color = color.new(#fcf801, 0), title = "Oversold Gradient Fill")
+hline(15, color = color.new(#8b3131, 50))
+hline(50, color = color.new(color.gray, 50))
+hline(85, color = color.new(#2c5c2e, 50))

@@ -1,0 +1,208 @@
+fi(ki)=>'ra' 
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © fikira
+//@version=6
+
+indicator('Intrabar BoxPlot'
+ , max_labels_count=500
+ , max_lines_count=500
+ , overlay=true
+ ),n=bar_index
+________________________________________________________________________________________________________________________                                                                                                                                                                                                 ='
+ ⎞  Settings  ⎛
+ (__--------__)                                                                                                                                                                                                                                                                                                                        '
+
+GREEN=#089981,ORANGE=#ff5d00,RED=#f23645,BLUE=#2157f3,GRAY=#b2b5be80
+tt1='Up\n-> bullish candle and + Delta\n\nUp -\n-> bullish candle and - Delta'
+tt2='Down\n-> bearish candle and - Delta\n\nDown +\n-> bearish candle and + Delta'
+res       = input.timeframe(   '1'     ,    'LTF'    , group='LTF'              )
+auto      = input.bool     (  true     ,     ''      , group='LTF', inline='auto'   )
+mlt       = input.int      (  1500     , ' Auto   '  , group='LTF', inline='auto'       )
+prem      = input.bool     (  false    , 'Premium'   , tooltip='Premium Plan or higher'     )
+colUp     = input.color    (  GREEN    , 'Up     '   , inline='u', group='Intrabar Delta'         )
+colUp_    = input.color    (  ORANGE   , 'Up -     ' , inline='u', group='Intrabar Delta', tooltip=tt1)
+colDn     = input.color    (  RED      , 'Down'      , inline='d', group='Intrabar Delta'                 )
+colDn_    = input.color    (  BLUE     , 'Down +'    , inline='d', group='Intrabar Delta', tooltip=tt2)
+showTab   = input.bool     (  true     , 'Show Table', group='Table'                          )
+showTF    = input.bool     (  true     , 'Show TF'   , group='Table'                  )
+tabCol    = input.color    (  GRAY     , 'Text Color', group='Table'         )
+sizeT     = input.string   (size.small , 'Size Table', options     = 
+           [size.tiny, size.small, size.normal, size.large]
+          ,                 group='Table')
+
+________________________________________________________________________________________________________________________                                                                                                                                                                                                 :='
+ ⎞  Basics  ⎛
+ (__------__)                                                                                                                                                                                                                                                                                                                        '
+
+INV       = color.new( na ,  na )
+avg       = math.avg(close, open)
+bull      = close >  open
+bear      = close <  open
+neut      = close == open
+
+________________________________________________________________________________________________________________________                                                                                                                                                                                                 :='
+ ⎞  Variable  ⎛
+ (__--------__)                                                                                                                                                                                                                                                                                                                        '
+
+float maxV = na
+
+________________________________________________________________________________________________________________________                                                                                                                                                                                                 :='
+ ⎞  Methods  ⎛
+ (__-------__)                                                                                                                                                                                                                                                                                                                        '
+
+method n(float piv) => bool out = not na(piv)
+
+method clean(array <line> aL) =>
+    while aL.size() > 500
+        aL.shift().delete()
+
+method clean(array <label> aL) =>
+    while aL.size() > 500
+        aL.shift().delete()
+
+method fill(table t, bool ok, int row, string txt, float val) => 
+    if ok and val.n()
+        t.cell(0, row, text=    txt          , text_color=color.silver, text_size=sizeT)
+        t.cell(1, row, text=str.tostring(val), text_color=color.silver, text_size=sizeT)
+
+________________________________________________________________________________________________________________________                                                                                                                                                                                                 :='
+ ⎞  Exec  ⎛
+ (__----__)                                                                                                                                                                                                                                                                                                                        '
+
+tfS  = timeframe.in_seconds  (      res        )
+tfC  = timeframe.in_seconds  (timeframe.period )
+rs   = auto ? tfC / mlt : tfS 
+rs  := prem ? rs  : math.max (60  , rs         )
+res := timeframe.from_seconds(math.min(tfC, rs))
+
+[bV, sV, nV, tV, aCl] = request.security_lower_tf(
+  syminfo.tickerid,  res  , 
+ [
+   bull ? volume : 0
+ , bear ? volume : 0
+ , neut ? volume : 0
+ , volume
+ , close
+ ]                                               )
+
+vSize   = tV.size()       ,    ltf_Vtt = tV.sum () 
+ltf_Vup = bV.sum ()       ,    ltf_Vdn = sV.sum () 
+
+isAllowed   = vSize > 0
+if isAllowed and not isAllowed[1]
+    line.new(n, close, n, close + syminfo.mintick, color=color.silver, style=line.style_dotted, extend=extend.both)
+
+indices = tV.sort_indices(order.descending)
+
+maxV   := indices.size() > 0 ? aCl.get(indices.first()) : na
+
+pMx     = aCl.max()
+p75     = aCl.percentile_nearest_rank(75)
+p25     = aCl.percentile_nearest_rank(25)
+pMn     = aCl.min()
+
+median  = aCl.median()
+avg_    = math.avg(p25, p75)
+
+aCl.sort()
+
+iqr     = p75 - p25
+iqr1_5  = iqr * 1.5
+iqr3    = iqr * 3
+
+posMxMax1_5 = aCl.binary_search_leftmost (p75 + iqr1_5)
+posMnMin1_5 = aCl.binary_search_rightmost(p25 - iqr1_5)
+
+posMxMax3   = aCl.binary_search_leftmost (p75 + iqr3  )
+posMnMin3   = aCl.binary_search_rightmost(p25 - iqr3  )
+
+max1_5      = isAllowed ? aCl.get(posMxMax1_5) : na
+min1_5      = isAllowed ? aCl.get(posMnMin1_5) : na 
+
+max3        = isAllowed ? aCl.get(posMxMax3) : na
+min3        = isAllowed ? aCl.get(posMnMin3) : na
+
+posLeft3    = aCl.binary_search_leftmost (max3)
+posRight3   = aCl.binary_search_rightmost(min3)
+Left3       = isAllowed ? aCl.get(posLeft3 ) : na
+Right3      = isAllowed ? aCl.get(posRight3) : na
+
+//Intrabar Delta
+delta   = ltf_Vup - ltf_Vdn
+sumV    = ltf_Vup + ltf_Vdn // volume without neutral volume
+norm    = delta   / sumV
+value   = avg     + norm * math.abs(close - open) / 2
+css     =           bull ? colUp : bear ? colDn: chart.fg_color 
+colIB   = norm >0 ? bull ? colUp : colDn_ : bear ? colDn : colUp_ 
+
+________________________________________________________________________________________________________________________                                                                                                                                                                                                 :='
+ ⎞  Cleanse  ⎛
+ (__-------__)                                                                                                                                                                                                                                                                                                                        '
+
+line.all .clean() 
+label.all.clean() 
+
+________________________________________________________________________________________________________________________                                                                                                                                                                                                 :='
+ ⎞  Drawings  ⎛
+ (__--------__)                                                                                                                                                                                                                                                                                                                        '
+
+if isAllowed
+    line.new(n , p75 , n, max1_5, color=colIB, style=line.style_dashed)
+    line.new(n , p25 , n, min1_5, color=colIB, style=line.style_dashed)
+    
+    label.new(n, max1_5, text='⎯–', textcolor=colIB, style=label.style_label_center, color=INV)
+    label.new(n, min1_5, text='⎯–', textcolor=colIB, style=label.style_label_center, color=INV)
+
+    if pMx > max3 
+        label.new(n, pMx, text='X', textcolor=color.white, style=label.style_label_center, color=INV)
+    if not na(Left3)
+        if Left3 > p75 + iqr1_5
+            label.new(n, Left3, text='•', textcolor=color.white, style=label.style_label_center, color=INV)
+    if pMn < min3 
+        label.new(n, pMn, text='X', textcolor=color.white, style=label.style_label_center, color=INV)
+    if not na(Right3)
+        if Right3 < p25 - iqr1_5
+            label.new(n, Right3, text='•', textcolor=color.white, style=label.style_label_center, color=INV)
+
+________________________________________________________________________________________________________________________                                                                                                                                                                                                 :='
+ ⎞  Table  ⎛
+ (__-----__)                                                                                                                                                                                                                                                                                                                        '
+
+//Table Last Bar
+var table tab  = table.new(position.top_right   , 2, 10, bgcolor=INV, frame_color=tabCol, frame_width=1, border_color=tabCol, border_width=1)
+var table tab2 = table.new(position.bottom_right, 1,  1, bgcolor=INV, frame_color=tabCol, frame_width=1, border_color=tabCol, border_width=1)
+
+tab.clear(0, 0, 1, 9)
+
+if barstate.islast 
+    if showTab  
+        arr = array.from(pMx, Left3, max1_5, p75, median, avg_, p25, min1_5, Right3, pMn)
+        arr.sort(   order.descending                                                    )
+        tab.fill(     pMx > max3      , arr.indexof( pMx  ),    'Extreme High'  ,  pMx  )
+        tab.fill(Left3 > p75 + iqr1_5 , arr.indexof(Left3 ), 'Max Outlier High' , Left3 )
+        tab.fill(        true         , arr.indexof(max1_5),        'max'       , max1_5)
+        tab.fill(        true         , arr.indexof( p75  ),        'p75'       ,  p75  )
+        tab.fill(        true         , arr.indexof(median),      'median'      , median)
+        tab.fill(        true         , arr.indexof( avg_ ),        'avg '      ,  avg_ )
+        tab.fill(        true         , arr.indexof( p25  ),        'p25'       ,  p25  )
+        tab.fill(        true         , arr.indexof(min1_5),        'min'       , min1_5)
+        tab.fill(Right3 < p25 - iqr1_5, arr.indexof(Right3),  'Min Outlier Low' , Right3)
+        tab.fill(     pMn < min3      , arr.indexof( pMn  ),    'Extreme Low'   ,  pMn  )
+    if showTF
+        tab2.cell(0, 0, res, text_color=tabCol)
+
+________________________________________________________________________________________________________________________                                                                                                                                                                                                 :='
+ ⎞  Plot  ⎛
+ (__----__)                                                                                                                                                                                                                                                                                                                        '
+
+barcolor  (isAllowed ? INV : na) // use 'Bar's style' "Bars" 
+plotcandle(p25 , p25 , p75 , p75 , color = color.new(colIB, 75), wickcolor = na , bordercolor = color.new(colIB, 25) , display = display.all - display.status_line)
+plotcandle(maxV, maxV, maxV, maxV, color =           colIB     , wickcolor = na , bordercolor =           colIB      , display = display.all - display.status_line)
+plot      (median                , color = bull ? color.lime : #FF0000 , style=plot.style_circles, linewidth=2   , display = display.all - display.status_line)
+plot      (pMx  ,     'max'      , color = colIB                                                                     , display = display.data_window              )
+plot      (p75  ,     'p75'      , color = colIB                                                                     , display = display.data_window              )
+plot      (p25  ,     'p25'      , color = colIB                                                                     , display = display.data_window              )
+
+________________________________________________________________________________________________________________________                                                                                                                                                                                                 :='
+ ⎞  End  ⎛
+ (__---__)                                                                                                                                                                                                                                                                                                                        '

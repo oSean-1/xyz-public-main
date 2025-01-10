@@ -1,0 +1,113 @@
+// @version=5
+// Creative Commons Attribution-NonCommercial (CC BY-NC)
+// ©djmad
+
+indicator("[MAD] Gaussian silence detector", overlay=false)
+
+// Inputs begin {
+
+S03 = 'Main Settings'
+S02 = "Hline Color"
+S04 = 'Main colors'
+S01 = 'Plot colors'
+
+src                     = input.source(close, "Source for Calculation")
+
+deviation_length_input  = input.int(75, "Base Deviation Length", minval=25, group = S03)
+pow_level               = input.float(0.6, "Compression of display", minval=0.001, step=0.01, group = S03)
+
+alertlevel              = input.float(0.04, "Alertlevel for Breakout possible", minval=0.0, step=0.001, group = S02)
+alertamount             = input.int(4, "number of Values over Limit", minval=0, group = S02)
+color_hline             = input.color(color.rgb(255, 255, 000), group = S02)
+bg_color                = input.color(color.new(color.red,80),"Background Alert", group = S02)
+// Inputs for Colors
+transparency_lines      = input.int(00, "Transparency for lines", minval=0, maxval=100, step=10, group = S01)
+transparency_fills      = input.int(80, "Transparency for fills", minval=0, maxval=100, step=10, group = S01)
+
+color_average           = input.color(color.rgb(120, 123, 134), "Average color", group = S01)
+color_red               = input.color(color.rgb(255, 000, 000), "Red Color", group = S01)
+color_orange            = input.color(color.rgb(255, 165, 000), "Orange Color", group = S01)
+color_yellow            = input.color(color.rgb(255, 255, 000), "Yellow Color", group = S01)
+color_yellowgreen       = input.color(color.rgb(173, 255, 047), "Yellow-Green Color", group = S01)
+color_green             = input.color(color.rgb(000, 128, 000), "Green Color", group = S01)
+color_cyan              = input.color(color.rgb(000, 255, 255), "Cyan Color", group = S01)
+color_skyblue           = input.color(color.rgb(135, 206, 235), "Sky-Blue Color", group = S01)
+color_blue              = input.color(color.rgb(000, 000, 255), "Blue Color", group = S01)
+color_indigo            = input.color(color.rgb(075, 000, 130), "Indigo Color", group = S01)
+color_violet            = input.color(color.rgb(138, 043, 226), "Violet Color", group = S01)
+// Inputs end }
+
+// Functions begin {
+gaussian_distribution_function(_x, src, deviation_length) =>
+    _sigma = ta.stdev(_x, deviation_length)
+    _1_over_sigma_root_2pi = 1 / (_sigma * math.sqrt(2 * math.pi))
+    _exponent = -0.5 * math.pow((_x - src) / _sigma, 2)
+    _1_over_sigma_root_2pi * math.exp(_exponent)
+// Functions end }
+
+// Variables and arrays begin {
+var distribution_values = array.new_float(10)
+var color[] spectrumColors = array.new_color(10)
+
+// Set the spectrumColors values:
+spectrumColors.set(0, color_red)
+spectrumColors.set(1, color_orange)
+spectrumColors.set(2, color_yellow)
+spectrumColors.set(3, color_yellowgreen)
+spectrumColors.set(4, color_green)
+spectrumColors.set(5, color_cyan)
+spectrumColors.set(6, color_skyblue)
+spectrumColors.set(7, color_blue)
+spectrumColors.set(8, color_indigo)
+spectrumColors.set(9, color_violet)
+
+// Variables and arrays end }
+
+// Calculations begin {
+
+// Calculate and store values in the array
+for i = 0 to 9
+    distribution_values.set(i, gaussian_distribution_function(close, src, math.floor(deviation_length_input * (1 - i * 0.1))))
+
+// Calculate average
+average_value = array.avg(distribution_values)
+// Calculations end }
+
+// Plot and Design begin {
+avg_plot = plot(math.pow(average_value,pow_level), color=color_average, linewidth=1)
+hline(math.pow(alertlevel,pow_level), color=color_hline)
+
+// Plot each level
+p0 = plot(math.pow(distribution_values.get(0),pow_level), color=color.new(spectrumColors.get(0),transparency_lines))
+p1 = plot(math.pow(distribution_values.get(1),pow_level), color=color.new(spectrumColors.get(1),transparency_lines))
+p2 = plot(math.pow(distribution_values.get(2),pow_level), color=color.new(spectrumColors.get(2),transparency_lines))
+p3 = plot(math.pow(distribution_values.get(3),pow_level), color=color.new(spectrumColors.get(3),transparency_lines))
+p4 = plot(math.pow(distribution_values.get(4),pow_level), color=color.new(spectrumColors.get(4),transparency_lines))
+p5 = plot(math.pow(distribution_values.get(5),pow_level), color=color.new(spectrumColors.get(5),transparency_lines))
+p6 = plot(math.pow(distribution_values.get(6),pow_level), color=color.new(spectrumColors.get(6),transparency_lines))
+p7 = plot(math.pow(distribution_values.get(7),pow_level), color=color.new(spectrumColors.get(7),transparency_lines))
+p8 = plot(math.pow(distribution_values.get(8),pow_level), color=color.new(spectrumColors.get(8),transparency_lines))
+p9 = plot(math.pow(distribution_values.get(9),pow_level), color=color.new(spectrumColors.get(9),transparency_lines))
+
+// Fill areas between each plot and the average
+fill(p0, avg_plot, color=color.new(spectrumColors.get(0),transparency_fills))
+fill(p1, avg_plot, color=color.new(spectrumColors.get(1),transparency_fills))
+fill(p2, avg_plot, color=color.new(spectrumColors.get(2),transparency_fills))
+fill(p3, avg_plot, color=color.new(spectrumColors.get(3),transparency_fills))
+fill(p4, avg_plot, color=color.new(spectrumColors.get(4),transparency_fills))
+fill(p5, avg_plot, color=color.new(spectrumColors.get(5),transparency_fills))
+fill(p6, avg_plot, color=color.new(spectrumColors.get(6),transparency_fills))
+fill(p7, avg_plot, color=color.new(spectrumColors.get(7),transparency_fills))
+fill(p8, avg_plot, color=color.new(spectrumColors.get(8),transparency_fills))
+fill(p9, avg_plot, color=color.new(spectrumColors.get(9),transparency_fills))
+// Plot and Design end }
+
+// Alerts begin {
+above_alert_count = 0
+for i = 0 to distribution_values.size() -1
+    above_alert_count := distribution_values.get(i) > alertlevel ? above_alert_count + 1 : above_alert_count
+alert_condition = above_alert_count >= alertamount
+
+alertcondition(alert_condition, title="Breakout Alert", message="More than 4 values exceeded the alert level!")
+bgcolor(alert_condition?bg_color:na)
+// Alerts end }

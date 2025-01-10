@@ -1,0 +1,124 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © PrometheusAnalytics
+
+
+//@version=5
+indicator(title = "Prometheus Analytics Hurst Exponent", shorttitle = "Hurst Exponent" , max_bars_back = 5000)
+
+L = input.int(50, "Lookback length")
+
+show_hurst = input.bool(true, "Show the Hurst Exponent?", group = "Long Memory")
+
+show_sma = input.bool(true, "Show the sma?", group = "Moving Average")
+show_length = input.int(25, "SMA Lookback", group = "Moving Average")
+
+color  textColorInput   = color.rgb(53, 140, 255)
+color  bgColorInput     = color.rgb(20, 3, 50)
+
+color  HColorInput   = color.rgb(91, 40, 209)
+color  smaColorInput     = color.rgb(53, 140, 255)
+
+
+//Get the line
+polyfit(x, y) =>
+
+    // get the covariance of x and y, then the variance of x
+    cov_xy = array.covariance(x, y)
+    var_x = array.variance(x)
+
+    // divide them to get a line to best estimate our slope
+    slope = cov_xy / var_x
+
+    slope
+
+//Get Rescaled Range
+rescaled_range_analysis(chunk) =>
+
+    //find the mean of the chunk
+    mean_ts = array.avg(chunk)
+
+    //find the cumulative deviation of each chunk
+    deviations = array.new<float>()
+    for i=0 to array.size(chunk)-1
+        array.push(deviations, chunk.get(i) - mean_ts[i])
+
+    cumulative_sum = 0.0
+    cumulative_deviation = array.new<float>()
+    for i=0 to array.size(deviations)-1
+        cumulative_sum += array.get(deviations, i)
+        array.push(cumulative_deviation, cumulative_sum)
+
+    //range of the cumulative deviation
+    R = array.max(cumulative_deviation) - array.min(cumulative_deviation)
+
+    //standard deviation of each chunk
+    S = array.stdev(chunk)
+
+    //divide them to get the rescaled range
+    R_S = R / S
+
+    R_S
+
+//Get Hurst Exponent
+hurst_exponent(time_series, L) =>
+    N = L
+    // Maximum number of divisions
+    max_k = int(math.log10(N) / math.log10(2))
+
+    //init arrays
+    R_S_values = array.new<float>()
+    n_values = array.new<float>()
+
+    //iterate through to max_k to get our chunks
+    for k=1 to max_k + 1
+        n = math.pow(2, k)
+        if n > N
+            break
+        num_chunks = math.floor(N/n)
+        R_S_avg = 0.0
+        
+        //get the rescaled range of each chunk
+        for i=0 to num_chunks
+            chunk = array.new<float>()
+            for j=i * n to (i + 1) * n
+                array.push(chunk, time_series[j])
+            R_S_avg += rescaled_range_analysis(chunk)
+
+        //average RS, sum of every RS over how many chunks
+        R_S_avg /= num_chunks
+
+        //save it, Long Memory
+        R_S_values.push(R_S_avg)
+
+        //save it's index
+        n_values.push(n)
+
+    //populate arrays with the log of each n and the log of each average RS
+    log_n = array.new<float>()
+    for i=0 to array.size(n_values)-1
+        array.push(log_n, math.log(n_values.get(i)))
+
+    log_R_S = array.new<float>()
+    for i=0 to array.size(R_S_values)-1
+        array.push(log_R_S, math.log(R_S_values.get(i)))
+    
+    //the hurst exponent is the polyfit of these two arrays
+    hurst_exponent = polyfit(log_n, log_R_S)
+
+    hurst_exponent
+
+
+//Hurst Exponent
+H = show_hurst ? hurst_exponent(close-open, L) : na
+H_SMA = show_sma ? ta.sma(H, show_length) : na
+mid_line = show_hurst ? 0.5 : na
+plot(H, color= HColorInput)
+plot(H_SMA, color= smaColorInput)
+plot(mid_line, color=color.gray, style = plot.style_stepline)
+
+var table waterMark = table.new(position.top_right, 1, 1, bgcolor = bgColorInput, frame_width = 2, frame_color = bgColorInput)
+
+str_1 = "Prometheus Analytics"
+
+if barstate.islast
+    table.cell(waterMark, 0, 0, str_1, text_color = textColorInput)

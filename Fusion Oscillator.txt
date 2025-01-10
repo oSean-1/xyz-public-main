@@ -1,0 +1,105 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © wbburgin
+
+//@version=5
+indicator("Fusion Oscillator (RSI+MFI+MACD+CCI+TSI+RVI)",shorttitle="Fusion Oscillator",overlay=false,timeframe="")
+
+overallLength = input.int(3,"Overall Length",group="Central")
+filter = input.float(-0.25,"[-1,1] ND Buy/Sell Threshold",group="Central")
+filter2 = input.float(1.25,"Directional Sell Threshold",group="Central")
+filter3 = input.float(-1.25,"Directional Buy Threshold",group="Central")
+correlationLength = input.int(50,"Correlation Length",group="Central")
+plotNonDir = input.bool(false,"Plot Nondirectionals",group="Central")
+plotDir = input.bool(true,"Plot Directionals",group="Central")
+
+rsiLength = input.int(14,"RSI",group="Directionals")
+mfiLength = input.int(14,"MFI",group="Directionals")
+macdLength = input.int(12,"MACD",group="Directionals")
+cciLength = input.int(20,"CCI",group="Directionals")
+tsiLength = input.int(13,"TSI",group="Directionals")
+rviLength = input.int(10,"RVI",group="Directionals")
+atrLength = input.int(14,"ATR",group="Nondirectionals")
+adxLength = input.int(14,"ADX",group="Nondirectionals")
+
+//Directional Inputs
+
+rsi = (ta.rsi(close,rsiLength)-50)/20
+mfi = (ta.mfi(close,mfiLength)-50)/20
+[macdRaw, _, _] = ta.macd(close, macdLength*overallLength, macdLength*2*overallLength, 9)
+mHighest = ta.highest(macdRaw,macdLength*overallLength)
+mLowest = ta.lowest(macdRaw,macdLength*overallLength)
+
+macd = switch  
+    macdRaw > 0 => macdRaw/mHighest
+    macdRaw < 0 => macdRaw/math.abs(mLowest)
+    => 0
+
+cci = ta.cci(close,cciLength*overallLength)/100
+tsiRaw = ta.tsi(close,tsiLength*overallLength,tsiLength*2*overallLength)
+tHighest = ta.highest(tsiRaw,tsiLength*overallLength)
+tLowest = ta.lowest(tsiRaw,tsiLength*overallLength)
+tsi = switch
+    tsiRaw > 0 => tsiRaw/tHighest
+    tsiRaw < 0 => tsiRaw/math.abs(tLowest)
+    => 0
+
+offset = 0
+maTypeInput = "SMA"
+maLengthInput = 14
+bbMultInput = 2
+src = close
+len = 14
+stddev = ta.stdev(src, rviLength*overallLength)
+upper = ta.ema(ta.change(src) <= 0 ? 0 : stddev, len)
+lower = ta.ema(ta.change(src) > 0 ? 0 : stddev, len)
+rvi = ((upper / (upper + lower) * 100)-50)/20
+
+super_dir = math.avg(rsi,mfi,macd,cci,tsi,rvi)
+signal = ta.sma(super_dir,5)
+hline(0)
+highman=hline(1)
+lowman=hline(-1)
+
+plot(plotDir==true?super_dir:na,color=color.white,title="Directional Jumper",linewidth=1)
+fill(highman,lowman,color.new(color.purple,95))
+
+
+
+//Nondirectionals
+atrRaw = ta.atr(atrLength)
+atrStdev = ta.stdev(atrRaw,atrLength)
+atrEMA = ta.ema(atrRaw,atrLength)
+atr = (((atrRaw/atrEMA)-1)*(1+atrStdev))-1
+
+[_, _, adxRaw] = ta.dmi(17, adxLength)
+adxStdev = ta.stdev(adxRaw,adxLength)
+adxEMA = ta.ema(adxRaw,adxLength)
+adx = (((adxRaw/adxEMA)-1)*(1+adxStdev))
+
+super_nondirRough = math.avg(atr,adx)
+highestNondir = ta.highest(super_nondirRough,200)
+lowestNondir = ta.lowest(super_nondirRough,200)
+
+super_nondir = switch
+    super_nondirRough > 0 => super_nondirRough/highestNondir
+    super_nondirRough < 0 => super_nondirRough/math.abs(lowestNondir)
+    => 0
+
+correlation_nondir = ta.correlation(atr,adx,correlationLength)
+col_nondir = switch
+    correlation_nondir >= .75 => color.new(color.yellow,35)
+    correlation_nondir >= .66 => color.new(color.yellow,40)
+    correlation_nondir >= .5 => color.new(color.yellow,45)
+    => color.new(color.yellow,50)
+
+nonDirPlot=plot(plotNonDir==true?super_nondir:na,"Nondirectional Average",color=col_nondir)
+
+buySignal = ta.crossover(super_dir,filter3) and super_nondir>=filter
+sellSignal = ta.crossunder(super_dir,filter2) and super_nondir>=filter
+
+signalcolor = switch
+    buySignal == true => color.new(color.green,75)
+    sellSignal == true => color.new(color.red,75)
+    => na
+
+bgcolor(signalcolor)

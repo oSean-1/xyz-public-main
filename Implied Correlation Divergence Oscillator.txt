@@ -1,0 +1,30 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © DarklyEnergized
+
+
+//@version=5
+indicator(title="Implied Correlation Divergence Oscillator", shorttitle="ICDO", overlay=false, timeframe="D", timeframe_gaps=true)
+
+// INPUTS
+ic_sma_len = input.int(24, minval=1, title="MA Length", tooltip = "This is the MA for the implied correlation sigal that is used to determine the current signal divergence.  Longer MA length tend to produce higher divergences.")
+ic_symbol   = input.string(title = "COR Symbol", defval = "COR3M", options=["COR1M", "COR3M", "COR6M", "COR9M", "COR1Y", "COR10D", "COR30D", "COR70D", "COR90D"], group="IC Seleciton")
+ic_signal = request.security(ic_symbol, "D", close)
+
+// Optionally shows the original signal
+plot(ic_signal, "IC Signal", color = color.red, display = display.none)
+ic_ma = ta.sma(ic_signal, ic_sma_len)
+plot(ic_ma, "IC MA", color = color.white, display = display.none)
+
+divergence_signal = ic_ma - ic_signal
+ic_div_max = ta.max(divergence_signal)
+
+oscillator_gradient_color(signal, high_color, low_color) =>
+    signal_max = ta.max(signal)
+    signal_min = ta.min(signal)
+    bull_color = color.from_gradient(signal, 0, signal_max, color.new(high_color, 60), color.new(high_color, 0))
+    bear_color = color.from_gradient(signal, signal_min, 0, color.new(low_color,   0), color.new(low_color, 60))
+    osc_color  = signal < 0 ? bear_color : bull_color
+
+plot(divergence_signal, color = oscillator_gradient_color(divergence_signal, color.green, color.red), title="IC Oscillator Signal", style = plot.style_columns)
+
+hline(0)

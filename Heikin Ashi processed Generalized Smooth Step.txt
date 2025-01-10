@@ -1,0 +1,104 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Kazo_
+ 
+
+//@version=5
+indicator("Heikin Ashi processed Generalized Smooth Step", overlay=false)
+
+// Inputs
+hknAsh = input.bool(true, title = "Heiking ashi candleplot(else plot regular colored candles?")
+HAfact = input.float(1.0, title="Heikin Ashi factor")
+existingBars  = input.bool(false, title = "Use existing bars as is (else force normal bars)?")
+useModif4HA = input.bool(false, title="Use modified calculation?")
+twiceHA = input.bool(false, title="Do HA 2nd time?")
+useModif4HA2 = input.bool(false, title="Use modified calculation (2nd time)?")
+enableHAPlot = input.bool(false, title="Enable Heikin Ashi Candle Plot")  // New input
+
+// Heikin Ashi Calculation
+mkHA0(o_, h_, l_, c_, useModif) =>
+    cl = math.round(((o_ + h_ + l_ + c_)/4) / syminfo.mintick) * syminfo.mintick
+    op = float(na)
+    if useModif == true
+        op := na(o_[1]) ? (o_ + HAfact*c_)/(1+HAfact) : (nz(op[1]) + HAfact*nz(cl[1]))/(1+HAfact)
+    else
+        op := na(o_[1]) ? (o_ + HAfact*c_)/(1+HAfact) : (nz(o_[1]) + HAfact*nz(c_[1]))/(1+HAfact)
+    op := math.round(op / syminfo.mintick) * syminfo.mintick
+    hi = math.round(math.max(h_, op, cl) / syminfo.mintick) * syminfo.mintick
+    lo = math.round(math.min(l_, op, cl) / syminfo.mintick) * syminfo.mintick
+    [op, hi, lo, cl]
+
+mkHA(o_, h_, l_, c_, useModif_, twice, useModif2) =>
+    [op, hi, lo, cl] = mkHA0(o_, h_, l_, c_, useModif_)
+    if twice
+        [op2, hi2, lo2, cl2] = mkHA0(op, hi, lo, cl, useModif2)
+        op := op2
+        hi := hi2
+        lo := lo2
+        cl := cl2
+    [op, hi, lo, cl]
+
+t = ticker.new(syminfo.prefix, syminfo.ticker, session.regular, adjustment.splits)
+ono = request.security(t, timeframe.period, open, gaps=barmerge.gaps_on) // Official Normal Open
+onh = request.security(t, timeframe.period, high, gaps=barmerge.gaps_on)
+onl = request.security(t, timeframe.period, low, gaps=barmerge.gaps_on)
+onc = request.security(t, timeframe.period, close, gaps=barmerge.gaps_on)
+open_ = existingBars ? open : ono
+high_ = existingBars ? high : onh
+low_ = existingBars ? low :onl
+close_ = existingBars ? close : onc
+
+[O, H, L, C] = mkHA(open_, high_, low_, close_, useModif4HA, twiceHA, useModif4HA2)
+if not hknAsh
+    O := open_
+    H := high_
+    L := low_
+    C := close_
+
+upBar      = C > O
+upBarOpen  = upBar ? O : na
+upBarHigh  = upBar ? H : na
+upBarLow   = upBar ? L : na
+upBarClose = upBar ? C : na
+dnBarOpen  = upBar ? na : O
+dnBarHigh  = upBar ? na : H
+dnBarLow   = upBar ? na : L
+dnBarClose = upBar ? na : C
+
+// Input for Smooth Step calculation
+p = input(36, "Lookback")
+eq_order = input.int(5, "Order of the equation (1-18)", 0, 18)
+a1 = input.float(0.5,minval = 0, maxval = 1,step = 0.01)
+
+// Pascal triangle
+pascal_triangle(a, b) =>
+    float result = 1.0
+    for i = 0 to b
+        if i != b
+            result *= (a - i) / (i + 1)
+    result
+
+// Smoothstep of Nth order equation
+general_smoothstep(N, x) =>
+    array<string> nums = array.new<string>(0)
+    result = 0.0
+    for n = 0 to N
+        result += pascal_triangle(-N - 1, n) * pascal_triangle(2 * N + 1, N - n) * math.pow(x, N + n + 1)
+    result
+
+// Calculations
+h = ta.highest(C, p)
+l = ta.lowest(C, p)
+osc = (C - l) / (h - l)
+smooth_step = general_smoothstep(eq_order, osc)
+col = smooth_step > a1 ? #00FF00 : #FF0000
+
+// Plotting
+plotcandle(enableHAPlot ? upBarOpen : na, enableHAPlot ? upBarHigh : na, enableHAPlot ? upBarLow : na, enableHAPlot ? upBarClose : na, "Heikin Ashi Candle", col, col, display = enableHAPlot ? display.all : display.none)
+plotcandle(enableHAPlot ? dnBarOpen : na, enableHAPlot ? dnBarHigh : na, enableHAPlot ? dnBarLow : na, enableHAPlot ? dnBarClose : na, "Heikin Ashi Candle", col, col, display = enableHAPlot ? display.all : display.none)
+
+plot(smooth_step, "Smooth Step", col)
+hline(a1)
+barcolor(col)
+
+// Alerts
+alertcondition(col != col[1], "Trend Change!", "Smooth's Step Trend change!")

@@ -1,0 +1,99 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// ©Daveatt
+//@version=5
+indicator("Economic Seasons", "ES", true, max_boxes_count=500, max_lines_count=500)
+
+// Constants for time periods
+LOOKBACK = input.int(2, "Lookback", group = "General")
+
+CENTER_RADIUS = 25
+SEGMENTS = 72
+
+// Input parameters for sensitivity and visuals
+inf_smooth = input.int(3, "Inflation Smoothing")
+int_smooth = input.int(3, "Interest Rate Smoothing")
+show_arrows = input.bool(true, "Show Middle Arrows", inline="viz")
+
+// Add input for offset
+plot_offset = input.int(20, "Plot Offset (bars)", 1, 100)
+
+// Colors
+GOLDILOCKS_COLOR = input.color(color.new(#00ff00, 85), title="Goldilocks Color", group="Colors", inline="colors")
+REFLATION_COLOR = input.color(color.new(#00ff00, 85), title="Reflation Color", group="Colors", inline="colors")
+DEFLATION_COLOR = input.color(color.new(#ffcdd2, 85), title="Deflation Color", group="Colors", inline="colors 2")
+INFLATION_COLOR = input.color(color.new(#ffcdd2, 85), title="Inflation Color", group="Colors", inline="colors 2")
+
+// Get economic data
+smoothed_inf = request.security("USINTR", "3M", ta.sma(close, inf_smooth))
+smoothed_int = request.security("USIRYY", "3M", ta.sma(close, int_smooth))
+
+drawCircularArrows() =>
+   
+    var start_x = bar_index + plot_offset
+
+    line.new(start_x + 75, 1.5, start_x + 100, 0, color=color.red, width=3, style = line.style_arrow_right)
+    line.new(start_x + 100, 0, start_x + 75, -1.5, color=color.red, width=3, style = line.style_arrow_right)
+    line.new(start_x + 75, -1.5, start_x + 50, 0, color=color.red, width=3, style = line.style_arrow_right)
+    line.new(start_x + 50, 0, start_x + 75, 1.5, color=color.red, width=3, style = line.style_arrow_right)
+        
+// Calculate normalized coordinates for the quadrant plot
+norm_inflation = (smoothed_inf - ta.sma(smoothed_inf, LOOKBACK)) / ta.stdev(smoothed_inf, LOOKBACK)
+norm_growth = (smoothed_int - ta.sma(smoothed_int, LOOKBACK)) / ta.stdev(smoothed_int, LOOKBACK)
+
+// Determine current economic season
+var economic_season = "Unknown"
+
+if norm_growth >= 0 and norm_inflation < 0
+    economic_season := "Goldilocks"
+else if norm_growth >= 0 and norm_inflation >= 0
+    economic_season := "Reflation"
+else if norm_growth < 0 and norm_inflation < 0
+    economic_season := "Deflation"
+else if norm_growth < 0 and norm_inflation >= 0
+    economic_season := "Inflation"
+
+// Draw quadrant background boxes if it's the last bar
+if barstate.islast
+    var start_x = bar_index + plot_offset
+    var top_left = box.new(start_x, 2, start_x + 150, 0, bgcolor=GOLDILOCKS_COLOR, border_color=na)
+    var top_right = box.new(start_x + 75, 2, start_x + 150, 0, bgcolor=REFLATION_COLOR, border_color=na)
+    var bottom_left = box.new(start_x, 0, start_x + 75, -2, bgcolor=DEFLATION_COLOR, border_color=na)
+    var bottom_right = box.new(start_x + 75, 0, start_x + 150, -2, bgcolor=INFLATION_COLOR, border_color=na)
+
+    // Draw axis lines
+    var h_line = line.new(start_x, 0, start_x + 150, 0, color=color.gray, width=2)
+    var v_line = line.new(start_x + 75, -2, start_x + 75, 2, color=color.gray, width=2)
+    
+    label.new(start_x + 20, 1.5, "Goldilocks", color=na, textcolor=color.new(#228B22, 0), style=label.style_label_center, size=size.large, text_font_family=font.family_monospace)
+    label.new(start_x + 130, 1.5, "Reflation", color=na, textcolor=color.new(#228B22, 0), style=label.style_label_center, size=size.large, text_font_family=font.family_monospace   )
+    label.new(start_x + 20, -1.5, "Deflation", color=na, textcolor=color.new(#FF0000, 0), style=label.style_label_center, size=size.large, text_font_family=font.family_monospace)
+    label.new(start_x + 130, -1.5, "Inflation", color=na, textcolor=color.new(#0000FF, 0), style=label.style_label_center, size=size.large, text_font_family=font.family_monospace)
+    
+    // Axis labels
+    label.new(start_x + 75, 2, "More Growth ↑", color=na, textcolor=color.black, style=label.style_label_up, size=size.normal, text_font_family=font.family_monospace)
+    label.new(start_x + 75, -2, "Less Growth ↓", color=na, textcolor=color.black, style=label.style_label_down, size=size.normal, text_font_family=font.family_monospace)
+    label.new(start_x, 0, "← Slower Inflation", color=na, textcolor=color.black, style=label.style_label_left, size=size.normal, text_font_family=font.family_monospace)
+    label.new(start_x + 150, 0, "Faster Inflation →", color=na, textcolor=color.black, style=label.style_label_right, size=size.normal, text_font_family=font.family_monospace)
+
+    // Draw circular arrows in the middle if enabled
+    if show_arrows
+        drawCircularArrows()
+
+// Plot current position
+// Calculate quadrant center coordinates
+var float quad_x = 0.0
+var float quad_y = 0.0
+
+start_x = bar_index + plot_offset
+// Map normalized values to quadrant coordinates
+_quad_x = start_x + 75 + (norm_inflation >= 0 ? 37.5 : -37.5)  // Center of left or right half
+_quad_y = norm_growth >= 0 ? 1 : -1  // Center of top or bottom half
+    
+plotshape(barstate.islast ? _quad_y : na, "Current Position", shape.circle, location.absolute, color.blue, size=size.normal, offset=int(_quad_x - bar_index))
+
+var table t = table.new(position.top_right, 1, 2, bgcolor=color.new(chart.bg_color, 0), border_color=color.black, border_width=1, frame_color=color.black, frame_width=1)
+
+// Plot a table showing current economic season
+if barstate.islast
+    table.cell(t, 0, 0, "Economic Season", bgcolor=color.new(color.orange, 50), text_color=color.black)
+    table.cell(t, 0, 1, economic_season, bgcolor=color.new(chart.bg_color, 0), text_color=color.black)

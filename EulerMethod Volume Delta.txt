@@ -1,0 +1,130 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Haft
+
+
+//@version=5
+
+//Name: 	Delta
+//Version: 	1.9
+//Date: 	03.06.2020
+//Autor: 	Haft (by EulerMethod)
+//https://ru.tradingview.com/u/EulerMethod/
+
+//|————————————————————————————————————————————————————————————————————————————————————————————————————
+//| Title    | Variable           | Type    | Description         | Описание
+//|————————————————————————————————————————————————————————————————————————————————————————————————————
+//| VSA      | input_approx       | boolean | VSA approximation   | VSA аппроксимация
+//| M        | input_res_monthly  | options | Monthly Resolution  | Разрешение Месяца
+//| W        | input_res_weekly   | options | Weekly Resolution   | Разрешение Недели
+//| D        | input_res_daily    | options | Daily Resolution    | Разрешение Дня
+//| H        | input_res_intraday | options | Intraday Resolution | Разрешение Интрадей 
+//| A/D      | input_ad           | boolean | A/D                 | Накопление/Распределение
+//|————————————————————————————————————————————————————————————————————————————————————————————————————
+
+
+
+indicator(title='EulerMethod: Delta', shorttitle='EM Delta', format=format.volume, precision=2, overlay=false)
+
+
+
+//- INTERFACE | ИНТЕРФЕЙС -
+
+//VSA approximation | VSA аппроксимация
+bool input_approx = input(title='VSA', defval=true)
+
+//Resolution | Разрешение
+string input_res_monthly = input.string(title='M', defval='720', options=['360', '720', 'D'])
+string input_res_weekly = input.string(title='W', defval='240', options=['240', '360', '720'])
+string input_res_daily = input.string(title='D', defval='60', options=['30', '60', '120'])
+string input_res_intraday = input.string(title='H', defval='1', options=['1', '5', '15'])
+
+//A/D
+bool input_ad = input(title='A/D', defval=false)
+
+
+//- DATA | ДАННЫЕ -
+
+//Palette | Палитра
+var cu_haft = #26c6da
+var cd_haft = color.red
+var cr_haft = color.white
+
+
+
+//- CALCULATIONS | ВЫЧИСЛЕНИЯ -
+
+//Resolution | Разрешение
+var string RES = timeframe.ismonthly ? input_res_monthly : timeframe.isweekly ? input_res_weekly : timeframe.isdaily ? input_res_daily : timeframe.isintraday ? timeframe.period == '1' or timeframe.period == '3' or timeframe.period == '5' or timeframe.period == '15' ? '1' : input_res_intraday : '1'
+
+
+//Σ(Δ)
+get_Delta(tf) =>
+    var float D = 0
+    float V = nz(volume, 0)
+    if input_approx
+        V *= (2 * nz((close - low) / (high - low), 0.5) - 1)
+        V
+    else
+        V *= math.sign(close - open)
+        V
+    D := V * (input_ad ? hlc3 : 1) + (ta.change(time(tf)) ? 0 : D)
+    D
+
+
+//Switch | Переключатель запроса
+Delta() =>
+    timeframe.period == 'M' ? request.security(syminfo.tickerid, RES, get_Delta('M')) : timeframe.period == 'W' ? request.security(syminfo.tickerid, RES, get_Delta('W')) : timeframe.period == 'D' ? request.security(syminfo.tickerid, RES, get_Delta('D')) : timeframe.period == '720' ? request.security(syminfo.tickerid, RES, get_Delta('720')) : timeframe.period == '360' ? request.security(syminfo.tickerid, RES, get_Delta('360')) : timeframe.period == '240' ? request.security(syminfo.tickerid, RES, get_Delta('240')) : timeframe.period == '180' ? request.security(syminfo.tickerid, RES, get_Delta('180')) : timeframe.period == '120' ? request.security(syminfo.tickerid, RES, get_Delta('120')) : timeframe.period == '60' ? request.security(syminfo.tickerid, RES, get_Delta('60')) : timeframe.period == '45' ? request.security(syminfo.tickerid, RES, get_Delta('45')) : timeframe.period == '30' ? request.security(syminfo.tickerid, RES, get_Delta('30')) : timeframe.period == '15' ? request.security(syminfo.tickerid, RES, get_Delta('15')) : timeframe.period == '5' ? request.security(syminfo.tickerid, RES, get_Delta('5')) : timeframe.period == '3' ? request.security(syminfo.tickerid, RES, get_Delta('3')) : timeframe.period == '1' ? get_Delta('1') : na
+
+
+//Palette | Палитра
+var cu = color.new(cu_haft, 20)
+var cd = color.new(cd_haft, 20)
+var cu1 = color.new(cu_haft, 60)
+var cd1 = color.new(cd_haft, 60)
+var cr = color.new(cr_haft, 0)
+
+
+//Δ
+float Dx = Delta()[1]
+float D = Dx
+color cD = Dx > 0 ? cu : cd
+
+
+//Σ Volume separation | Разделение суммарного объёма
+float VL = input_ad ? na : (Dx + nz(volume, 0)[1]) / 2
+float VS = input_ad ? na : VL - nz(volume, 0)[1]
+
+
+//A/D
+var float AD = na
+if input_ad
+    AD := Dx + nz(AD[1], 0)
+    D := na
+    D
+
+
+
+//- BUILDING | ПОСТРОЕНИЕ -
+
+//A/D
+plot(AD, title='A/D', color=color.new(color.white, 0), linewidth=2, offset=-1)
+
+//Σ Volume | Суммарный объём
+plot(VL, color=cu1, style=plot.style_histogram, linewidth=1, editable=false, offset=-1)
+plot(VS, color=cd1, style=plot.style_histogram, linewidth=1, editable=false, offset=-1)
+
+//Δ
+plot(D, color=cD, style=plot.style_histogram, linewidth=3, editable=false, offset=-1)
+
+//Placeholder to realtime
+plotchar(input_ad ? AD : 0, char='•', color=cr, location=location.absolute, size=size.tiny, editable=false, show_last=1)
+
+
+
+//© EulerMethod HAFT 2020
+
+[bbMiddle1, bbUpper1, bbLower1] = ta.bb(VL, input(252), 2)
+[bbMiddle2, bbUpper2, bbLower2] = ta.bb(VS, input(252), 2)
+
+plot(bbUpper1, color=color.new(color.gray, 0))
+plot(bbLower2, color=color.new(color.gray, 0))

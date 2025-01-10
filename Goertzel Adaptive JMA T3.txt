@@ -1,0 +1,204 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © simwai
+
+//@version=5
+indicator("Goertzel Adaptive JMA T3", overlay=true)
+
+// -- Inputs --
+resolution = input.timeframe("", "Choose Timeframe")
+src = input.source(hl2, "Choose Source")
+gLength = input.int(20, title="Period Length", tooltip="Reciprocal of frequency")
+blockLength = input.int(40, title="Measurement Block Length", tooltip="N in goertzel notation")
+chosenMa = input.string("T3 Normal", title="Choose MA", options=["JMA", "T3 Normal", "T3 New"], tooltip="Adaptive length is applied to specified MA ")
+maSensitivity = input.float(0.5, "MA Sensitivity", maxval=1, minval=0.01, step=0.1)
+adaptiveMode = input.string("Normalized Goertzel Power", "Choose Adaptive Length Algorithm", options=["Ehlers Mod", "Normalized Goertzel Power"])
+isBarColorEnabled = input.bool(true, "Enable Bar Color")
+isScoreEnabled = input.bool(true, "Enable Score", tooltip="Determines the effectiveness of the MA by checking how often bars are green and MA is above them and how often bars are red an MA is below them.")
+
+// Ehlers DFT Original Default Values
+minPeriod = 8
+maxPeriod = 50
+hpPeriod = 40
+medianPeriod = 10
+decibelPeriod = 20
+
+// -- Functions --
+// Goertzel algorithm for integer k – Credits to @yatrader2
+goertzel_int(x, k, N)=>
+    // Because our signal is a complex signal we have to comput both the real and imaginary
+    w = 2 * math.pi * k / N     // omega = (2 pi * number of bars in period)/Window length
+    w_real = math.cos(w) // cos of omega (the real portion of omega)
+    w_imag = math.sin(w) // sin of omega (the complex portion of omega)
+    c = 2 * w_real    // Coefficient 2* cos of omega (real part)
+    y  = 0.0
+    z1 = 0.0
+    z2 = 0.0
+    for n = 0 to N - 1
+        y := x[n] + c * z1 - z2
+        z2 := z1
+        z1 := y
+    Inphase    = w_real * z1 - z2   // Real
+    Quadrature = w_imag * z1        // Imag
+    Power  = math.pow(z2, 2) + math.pow(z1, 2) - (c* z1 * z2)
+    Theta = math.atan(Inphase / Quadrature) * 2 * math.pi 
+    [Inphase, Quadrature, Power, Theta]
+
+normalize(float _src, int _min, int _max) =>
+    var float _historicMin = 1.0
+    var float _historicMax = -1.0
+    _historicMin := math.min(nz(_src, _historicMin), _historicMin)
+    _historicMax := math.max(nz(_src, _historicMax), _historicMax)
+    _min + (_max - _min) * (_src - _historicMin) / math.max(_historicMax - _historicMin, 1)
+
+// JMA – Credits to @ClassicScott
+jurik(source, period, phase=0, power=1) =>
+    phaseRatio = phase < -100 ? 0.5 : phase > 100 ? 2.5 : phase / 100 + 1.5
+    beta = 0.45 * (period - 1) / (0.45 * (period - 1) + 2)
+    alpha = math.pow(beta, power)
+    jma = 0.0
+    e0 = 0.0
+    e0 := (1 - alpha) * source + alpha * nz(e0[1])
+    e1 = 0.0
+    e1 := (source - e0) * (1 - beta) + beta * nz(e1[1])
+    e2 = 0.0
+    e2 := (e0 + phaseRatio * e1 - nz(jma[1])) * math.pow(1 - alpha, 2) + math.pow(alpha, 2) * nz(e2[1])
+    jma := e2 + nz(jma[1])
+    jma
+
+// T3 - Credits to @loxx
+t3(float _src, float _length, float hot=1, string clean='T3 Normal') =>
+    a = hot
+    _c1 = -a * a * a
+    _c2 = 3 * a * a + 3 * a * a * a
+    _c3 = -6 * a * a - 3 * a - 3 * a * a * a
+    _c4 = 1 + 3 * a + a * a * a + 3 * a * a
+    
+    alpha = 0.
+    
+    if (clean == 'T3 New')
+        alpha := 2.0 / (2.0 + (_length - 1.0) / 2.0)
+    else 
+        alpha := 2.0 / (1.0 + _length)
+    
+    _t30 = _src, _t31 = _src
+    _t32 = _src, _t33 = _src
+    _t34 = _src, _t35 = _src
+    
+    _t30 := nz(_t30[1]) + alpha * (_src -  nz(_t30[1]))
+    _t31 := nz(_t31[1]) + alpha * (_t30 - nz(_t31[1]))
+    _t32 := nz(_t32[1]) + alpha * (_t31 - nz(_t32[1]))
+    _t33 := nz(_t33[1]) + alpha * (_t32 - nz(_t33[1]))
+    _t34 := nz(_t34[1]) + alpha * (_t33 - nz(_t34[1]))
+    _t35 := nz(_t35[1]) + alpha * (_t34 - nz(_t35[1]))
+    out =
+         _c1 * _t35 + _c2 * _t34 +
+         _c3 * _t33 +  _c4 * _t32
+    out
+
+// -- Calculation --
+[_src, _close, _low, _high, _open] = request.security(syminfo.tickerid, resolution, [src[1], close[1], low[1], high[1], open[1]])
+
+float k = blockLength / gLength
+[_, _, po, _] = goertzel_int(_src, k, blockLength)
+int nPo = math.round(normalize(po, 0, 50)) 
+int normalizedGoertzelPowerAdativeLength = nPo > 2 ? nPo : 2
+
+// Ehlers DFT + Goertzel Algorithm – Credits to @cheatcountry
+pi = 2 * math.asin(1)
+alpha = (1 - math.sin(2 * pi / hpPeriod)) / math.cos(2 * pi / hpPeriod)
+hp = 0.0
+hp := bar_index <= 5 ? src : 0.5 * (1 + alpha) * (src - src[1]) + alpha * hp[1]
+cleanedData = bar_index <= 5 ? src : (hp + 2 * hp[1] + 3 * hp[2] + 3 * hp[3] + 2 * hp[4] + hp[5]) / 12
+
+pwr = po
+
+maxPwr = pwr[minPeriod]
+db = 0.0
+num = 0.0
+denom = 0.0
+dc = 0.0
+for period = minPeriod to maxPeriod by 1
+    maxPwr := pwr[period] > maxPwr ? pwr[period] : maxPwr
+    db := maxPwr > 0 and pwr[period] > 0 ? -medianPeriod * math.log(.01 / (1 - 0.99 * pwr[period] / maxPwr)) / math.log(medianPeriod) : 0
+    db := db > decibelPeriod ? decibelPeriod : db
+
+    if db < 3
+        num += period * (3 - db)
+        denom += 3 - db
+        denom
+
+    dc := denom != 0 ? num / denom : 0
+    dc
+
+int ehlersModAdaptiveLength = math.round(dc) > 2 ? math.round(dc) : 2
+
+int adaptiveLength = adaptiveMode == "Ehlers Mod" ? ehlersModAdaptiveLength : normalizedGoertzelPowerAdativeLength
+
+float aJma = (chosenMa == "JMA") ? jurik(_src, adaptiveLength, 0, maSensitivity) : na
+color jmaColor = (_src > aJma) ? color.aqua : color.purple
+plot(aJma, color=jmaColor, title="Adaptive JMA")
+
+float aT3 = str.contains(chosenMa, "T3") ? t3(_src, adaptiveLength, maSensitivity, chosenMa) : na
+color t3Color = (_src > aT3) ? color.aqua : color.purple
+plot(aT3, color=t3Color, title="Adaptive T3")
+
+barcolor(isBarColorEnabled ? str.contains(chosenMa, "T3") ? t3Color : jmaColor : na)
+
+type data
+    float o
+    float h
+    float l
+    float c
+    float t3Ma
+    float jurikMa
+
+data currentData = data.new(_open, _high, _low, _close, t3(src, adaptiveLength, maSensitivity, chosenMa), jurik(src, adaptiveLength, 0, maSensitivity))
+
+var array<data> greenBars = array.new<data>()
+var array<data> redBars = array.new<data>()
+
+if (_close < _open)
+    redBars.push(currentData)
+else if (_close > _open)
+    greenBars.push(currentData)
+
+int arrayMaxLength = 500
+if (greenBars.size() > arrayMaxLength)
+    greenBars.shift()
+if (redBars.size() > arrayMaxLength)
+    redBars.shift()
+
+var float goodGreenBars = 0
+var float badGreenBars = 0
+if (bar_index > 0 and bar_index % arrayMaxLength == 0)
+    for bar in greenBars
+        float ma = (str.contains(chosenMa, "T3") ? bar.t3Ma : bar.jurikMa)
+        float barSize = bar.c - bar.o
+        if (ma < bar.c)
+            goodGreenBars += barSize
+        else 
+            badGreenBars += barSize
+
+var float goodRedBars = 0
+var float badRedBars = 0
+if (bar_index > 0 and bar_index % arrayMaxLength == 0)
+    for bar in redBars
+        float ma = (str.contains(chosenMa, "T3") ? bar.t3Ma : bar.jurikMa)
+        float barSize = bar.o - bar.c
+        if (ma > bar.c)
+            goodRedBars += barSize
+        else
+            badRedBars += barSize
+
+var float score = 0
+tempScore = math.round(normalize((goodGreenBars + goodRedBars) / (badGreenBars + badRedBars) * 100, 0, 100), 2)
+score := (bar_index > 0 and bar_index % arrayMaxLength == 0) ? tempScore : score
+
+log.info("GoodRedBars: " + str.tostring(goodRedBars))
+log.info("BadRedBars: " + str.tostring(badRedBars))
+log.info("GoodGreenBars: " + str.tostring(goodGreenBars))
+log.info("BadGreenBars: " + str.tostring(badGreenBars))
+log.info("Score: " + str.tostring(score))
+
+table myTable = table.new(position.top_right, 1, 1, bgcolor = color.purple)
+myTable.cell(0, 0, text="Score: " + str.tostring(nz(score, 0)), text_color=color.white)

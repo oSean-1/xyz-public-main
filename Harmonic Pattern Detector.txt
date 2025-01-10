@@ -1,0 +1,707 @@
+fi(ki)=>'ra' 
+// This work is licensed under a Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0) https://creativecommons.org/licenses/by-nc-sa/4.0/
+// © fikira
+
+//@version=6
+indicator('Harmonic Pattern Detector (75 patterns)', shorttitle='Hapat 75', max_labels_count=500, max_lines_count=500, max_boxes_count=500, max_polylines_count = 100, max_bars_back=5000, calc_bars_count=10000, overlay=true)
+_                                                                                                                                                                                                                                                                                                       ='
+                                                                                                  Settings
+                                                                                                  --------                                                                                                                                                                                              '
+s = '     '
+t = '             '
+u = '                               '
+stt        =                       input.int( 5,  'Minimum Swing Length ' + t , minval= 1    , maxval= 99, group='Swings', inline='1')
+num        =    math.max(stt +1  , input.int(50,  'Maximum Swing Length'  + t , minval= 2    , maxval=100, group='Swings', inline='2'))
+
+ABCD         = input.bool(true , 'ABCD'          , group='Patterns', tooltip='NOT influenced by \'Fibonacci Ratio\'')
+
+iGart        = input.bool(false, 'GARTLEY PATTERNS' , group='Gartley', tooltip='ALL \'Gartley\' patterns can be\ninfluenced by \'Fibonacci Ratio\'\nEXCEPT \'Max Gartley\'')
+Gart         = input.bool(true , 'Gartley      '    , group='Gartley', inline='1')
+GartM        = input.bool(true , 'Max Gartley'      , group='Gartley', inline='1')
+AGart        = input.bool(true , 'A Gartley'        , group='Gartley', inline='1')
+NNGart       = input.bool(true , 'NN Gartley'       , group='Gartley', inline='2')
+NNAGart      = input.bool(true , 'NN A Gartley'     , group='Gartley', inline='2')
+
+iBat         = input.bool(true , 'BAT PATTERNS'  , group='Bat', tooltip='ALL \'Bat\' patterns can be\ninfluenced by \'Fibonacci Ratio\'')
+Bat          = input.bool(true , 'Bat          ' , group='Bat', inline='1')
+AltBat       = input.bool(true , 'Alt Bat'       , group='Bat', inline='1')
+ABat         = input.bool(true , 'A Bat'         , group='Bat', inline='1')
+MaxBat       = input.bool(true , 'Max Bat  '     , group='Bat', inline='2')
+NNBat        = input.bool(true , 'NN Bat'        , group='Bat', inline='2')
+NNAltBat     = input.bool(true , 'NN Alt Bat'    , group='Bat', inline='2')
+NNABat       = input.bool(true , 'NN A Bat'      , group='Bat', inline='3')
+NNAAltBat    = input.bool(true , 'NN A Alt Bat'  , group='Bat', inline='3')
+
+iButterfly   = input.bool(true , 'BUTTERFLY PATTERNS', group='Butterfly', tooltip='ALL \'Butterfly\' patterns can be\ninfluenced by \'Fibonacci Ratio\'\nEXCEPT \'Max Butterfly\'')
+Butterfly    = input.bool(true , 'Butterfly        ', group='Butterfly', inline='1')
+MaxButterfly = input.bool(true , 'Max Butterfly'   , group='Butterfly', inline='1')
+Butterfly113 = input.bool(true , 'Butterfly 113'  , group='Butterfly', inline='2')
+AButterfly   = input.bool(true , 'A Butterfly'   , group='Butterfly', inline='2')
+
+iCrab        = input.bool(true , 'CRAB PATTERNS' , group='Crab', tooltip='ALL \'Crab\' patterns can be\ninfluenced by \'Fibonacci Ratio\'')
+Crab         = input.bool(true , 'Crab'          , group='Crab', inline='1')
+DeepCrab     = input.bool(true , 'Deep Crab'     , group='Crab', inline='1')
+ACrab        = input.bool(true , 'A Crab'        , group='Crab', inline='1')
+NNCrab       = input.bool(true , 'NN Crab'       , group='Crab', inline='1')
+NNDeepCrab   = input.bool(true , 'NN Deep Crab'  , group='Crab', inline='2')
+NNACrab      = input.bool(true , 'NN A Crab'     , group='Crab', inline='2')
+NNADeepCrab  = input.bool(true , 'NN A Deep Crab', group='Crab', inline='2')
+
+iShark       = input.bool(true , 'SHARK PATTERNS', group='Shark', tooltip='ALL \'Shark\' patterns can be\ninfluenced by \'Fibonacci Ratio\'')
+Shark1       = input.bool(true , 'Shark 1'       , group='Shark', inline='1')
+Shark1Alt    = input.bool(true , 'Shark 1 Alt'   , group='Shark', inline='1')
+Shark2       = input.bool(true , 'Shark 2'       , group='Shark', inline='2')
+Shark2Alt    = input.bool(true , 'Shark 2 Alt'   , group='Shark', inline='2')
+
+iCypher      = input.bool(true , 'CYPHER PATTERNS', group='Cypher', tooltip='ALL \'Cypher\' patterns can be\ninfluenced by \'Fibonacci Ratio\'')
+Cypher       = input.bool(true , 'Cypher'         , group='Cypher', inline='1')
+NewCypher    = input.bool(true , 'New Cypher'     , group='Cypher', inline='1')
+AntiNewCypher= input.bool(true , 'Anti New Cypher', group='Cypher', inline='1')
+
+iLeonardo    = input.bool(true , 'LEONARDO PATTERNS', group='Leonardo', tooltip='ALL \'Leonardo\' patterns can be\ninfluenced by \'Fibonacci Ratio\'')
+Leonardo     = input.bool(true , 'Leonardo'       , group='Leonardo', inline='1')
+NNALeonardo  = input.bool(true , 'NN A Leonardo'  , group='Leonardo', inline='1')
+
+i121         = input.bool(false, '121 PATTERNS'  , group='121', tooltip='NOT influenced by \'Fibonacci Ratio\'')
+_121         = input.bool(true , '121'           , group='121', inline='1')
+A121         = input.bool(true , 'A 121'         , group='121', inline='1')
+_121BG       = input.bool(true , '121 BG'        , group='121', inline='1')
+
+iSwan        = input.bool(false, 'SWAN PATTERNS' , group='Swan', tooltip='NOT influenced by \'Fibonacci Ratio\'')
+BlackSwan    = input.bool(true , 'Black Swan'    , group='Swan', inline='1')
+WhiteSwan    = input.bool(true , 'White Swan'    , group='Swan', inline='1')
+NNWhiteSwan  = input.bool(true , 'NN White Swan' , group='Swan', inline='1')
+
+iDavid       = input.bool(false, 'DAVID PATTERNS', group='David', tooltip='DAVID VM 1 & 2 are influenced\nby \'Fibonacci Ratio\'')
+Henry_David  = input.bool(true , 'Henry – David' , group='David', inline='1')
+DAVIDVM1     = input.bool(true , 'DAVID VM 1'    , group='David', inline='1')
+DAVIDVM2     = input.bool(true , 'DAVID VM 2'    , group='David', inline='1')
+
+iPartizan    = input.bool(false, 'PARTIZAN PATTERNS', group='Partizan', tooltip='ALL \'Partizan\' patterns can be\ninfluenced by \'Fibonacci Ratio\'\nEXCEPT \'Partizan 2\'')
+Partizan     = input.bool(true , 'Partizan       '  , group='Partizan', inline='1')
+Partizan2    = input.bool(true , 'Partizan 2   '    , group='Partizan', inline='1')
+Partizan2_1  = input.bool(true , 'Partizan 2.1'     , group='Partizan', inline='1')
+Partizan2_2  = input.bool(true , 'Partizan 2.2'    , group='Partizan', inline='2')
+Partizan2_3  = input.bool(true , 'Partizan 2.3'   , group='Partizan', inline='2')
+Partizan2_4  = input.bool(true , 'Partizan 2.4'  , group='Partizan', inline='2')
+
+iTotal       = input.bool(false, 'TOTAL PATTERNS', group='Total', tooltip='NOT influenced by \'Fibonacci Ratio\'')
+total        = input.bool(true , 'Total         ', group='Total', inline='1')
+totalNN      = input.bool(true , 'Total NN    '      , group='Total', inline='1')
+total_1      = input.bool(true , 'Total 1'       , group='Total', inline='1')
+total_2      = input.bool(true , 'Total 2      '       , group='Total', inline='2')
+total_2NN    = input.bool(true , 'Total 2 NN'    , group='Total', inline='2')
+total_3      = input.bool(true , 'Total 3'       , group='Total', inline='2')
+total_3NN    = input.bool(true , 'Total 3 NN'    , group='Total', inline='3')
+total_4      = input.bool(true , 'Total 4'       , group='Total', inline='3')
+
+iBG          = input.bool(false, 'BG PATTERNS'   , group= 'BG'  , tooltip='ALL \'BG\' patterns can be\ninfluenced by \'Fibonacci Ratio\'')
+BG_1         = input.bool(true , 'BG 1'          , group= 'BG'  , inline='1')
+BG_2         = input.bool(true , 'BG 2'          , group= 'BG'  , inline='1')
+BG_3         = input.bool(true , 'BG 3'          , group= 'BG'  , inline='1')
+BG_4         = input.bool(true , 'BG 4'          , group= 'BG'  , inline='1')
+BG_5         = input.bool(true , 'BG 5'          , group= 'BG'  , inline='2')
+BG_6         = input.bool(true , 'BG 6'          , group= 'BG'  , inline='2')
+BG_7         = input.bool(true , 'BG 7'          , group= 'BG'  , inline='2')
+BG_8         = input.bool(true , 'BG 8'          , group= 'BG'  , inline='2')
+
+iStar        = input.bool(false, 'STAR PATTERNS' , group= 'Star', tooltip='ALL \'Star\' patterns can be\ninfluenced by \'Fibonacci Ratio\'')
+NenStar      = input.bool(true , 'Nen Star'      , group= 'Star', inline='1')
+AntiNenStar  = input.bool(true , 'Anti Nen Star' , group= 'Star', inline='1')
+
+i3Drives     = input.bool(false, '3 DRIVES PATTERNS', group= '3 Drives', tooltip='NOT influenced by \'Fibonacci Ratio\'')
+_3Drives     = input.bool(true , '3 Drives'       , group= '3 Drives'  , inline='1')
+A3Drives     = input.bool(true , 'A 3 Drives'    , group= '3 Drives'  , inline='1')
+
+iOthers      = input.bool(false, 'OTHER PATTERNS', group='Others Patterns', tooltip='NOT influenced by \'Fibonacci Ratio\'\nexcept \'COL Poruchik\'')
+_5_0         = input.bool(true , '5-0       '    , group='Others Patterns', inline='1')
+SeaPony      = input.bool(true , 'Sea Pony'      , group='Others Patterns', inline='1')
+Navarro200   = input.bool(true , 'Navarro 200'   , group='Others Patterns', inline='1')
+May_00       = input.bool(true , 'May-00'        , group='Others Patterns', inline='2')
+SNORM        = input.bool(true , 'SNORM  '       , group='Others Patterns', inline='2')
+COLPoruchik  = input.bool(true , 'COL Poruchik'  , group='Others Patterns', inline='2')
+
+margin       = input.float(0.5, 'Fibonacci Ratio'   , group='Tolerance'   , minval=0   , maxval=10, step=0.1 ) / 100
+surfMult     = input.float(1.5, 'Triangle Area Ratio', group='Tolerance' , minval=1.01            , step=0.01)
+labs         = input.string('Pattern Names', 'Labels' , group='Display' , options=['Pattern Names', 'Arrows', 'None' ])
+pats         = input.string('Show', 'Patterns'       , group='Display'  , options=[     'Show'    ,    'Hide'        ])
+oldL         = input.string('Show', 'Last Line'       , group='Display'  ,options=[     'Show'    ,    'Hide'        ])
+colBl        = input.color(#089981cc,'Bullish '+s+t+s, group='Style'    , inline=     'bull'                        )
+colBl_       = input.color(#08998113,    ''           , group='Style'   , inline=     'bull'                       )
+colBr        = input.color(#f23645cf, 'Bearish'+s+t+s  , group='Style'  , inline=     'bear'                        )
+colBr_       = input.color(#f2364513,     ''            , group='Style' , inline=     'bear'                         )
+textSize     = str.lower(input.string('Small', 'Text Size', group='Style',options=[  'Tiny'  ,  'Small'  ,  'Normal' ]))
+
+dif          = num - stt
+INV          = color(na) 
+
+if not iGart
+    GartM        := false, Gart        := false, AGart        := false
+    NNGart       := false, NNAGart     := false
+
+if not iBat     
+    Bat          := false, AltBat      := false, ABat         := false
+    MaxBat       := false, NNBat       := false, NNAltBat     := false
+    NNABat       := false, NNAAltBat   := false
+
+if not iButterfly  
+    Butterfly    := false, MaxButterfly:= false, Butterfly113 := false
+    AButterfly   := false
+
+if not iCrab      
+    Crab         := false, DeepCrab    := false, ACrab        := false
+    NNCrab       := false, NNDeepCrab  := false, NNACrab      := false
+    NNADeepCrab  := false
+
+if not iShark       
+    Shark1       := false, Shark1Alt   := false, Shark2       := false
+    Shark2Alt    := false
+
+if not iCypher      
+    Cypher       := false, NewCypher   := false, AntiNewCypher:= false
+
+if not iLeonardo    
+    Leonardo     := false, NNALeonardo := false
+
+if not i121  
+    _121         := false, A121        := false, _121BG       := false
+
+if not iSwan      
+    BlackSwan    := false, WhiteSwan   := false, NNWhiteSwan  := false
+
+if not iDavid     
+    Henry_David  := false, DAVIDVM1    := false, DAVIDVM2     := false
+
+if not iPartizan  
+    Partizan     := false, Partizan2   := false, Partizan2_1  := false
+    Partizan2_2  := false, Partizan2_3 := false, Partizan2_4  := false
+
+if not iTotal    
+    total        := false, totalNN     := false, total_1      := false
+    total_2      := false, total_2NN   := false, total_3      := false 
+    total_3NN    := false, total_4     := false 
+
+if not iBG    
+    BG_1         := false, BG_2        := false, BG_3         := false
+    BG_4         := false, BG_5        := false, BG_6         := false 
+    BG_7         := false, BG_8        := false 
+
+if not iStar       
+    NenStar      := false, AntiNenStar := false 
+
+if not i3Drives       
+    _3Drives     := false, A3Drives    := false 
+
+if not iOthers    
+    _5_0         := false, SeaPony     := false, Navarro200   := false
+    May_00       := false, SNORM       := false, COLPoruchik  := false
+
+_                                                                                                                                                                                                                                                                                                       ='
+                                                                                                     UDTs
+                                                                                                     ----                                                                                                                                                                                                '
+
+type piv     
+    int   d
+    int   x 
+    float y
+
+type ZZ 
+    array<piv>piv
+
+type drawing
+    array<chart.point>points
+    polyline          poly 
+    label             lab
+    array<label>     labels
+    line             oldLine
+
+type triangle 
+    string tri
+    float levelL 
+    float levelH 
+
+type pat 
+    string           name 
+    array<triangle> triangles
+_                                                                                                                                                                                                                                                                                                       ='
+                                                                                                  Variables
+                                                                                                  ---------                                                                                                                                                                                             '
+
+int   n   = bar_index
+
+var array<   ZZ    >arrayZZ   = array.new<   ZZ    >() 
+var array< drawing >drawings3 = array.new< drawing >()
+var array< drawing >drawings4 = array.new< drawing >()
+var array<  pat    > patterns = array.new<  pat    >() 
+labelCount = array.from(0)
+
+min = 1 - margin 
+max = 1 + margin
+
+height  = ta.highest(1000) - ta.lowest (1000)
+
+method pushPat(bool toggle, pat pat) => 
+    if toggle 
+        patterns.push(pat)
+
+if barstate.isfirst 
+    ABCD         .pushPat(pat.new('ABCD'           , array.from(triangle.new('bcd', 1.272    , 1.618    ), triangle.new('abc', 0.618    , 0.786    )                                                                                      )))
+    _5_0         .pushPat(pat.new('5-0'            , array.from(triangle.new('bcd', 0.5  *min, 0.5  *max), triangle.new('abc', 1.618    , 2.24     ), triangle.new('xab', 1.13     , 1.618    )                                           )))
+    GartM        .pushPat(pat.new('Max Gartley'    , array.from(triangle.new('bcd', 1.128    , 2.236    ), triangle.new('abc', 0.382    , 0.886    ), triangle.new('xab', 0.382    , 0.618    ), triangle.new('xad', 0.618    , 0.786    ))))
+    Gart         .pushPat(pat.new('Gartley'        , array.from(triangle.new('bcd', 1.272    , 1.618    ), triangle.new('abc', 0.382    , 0.886    ), triangle.new('xab', 0.618*min, 0.618*max), triangle.new('xad', 0.786*min, 0.786*max))))
+    AGart        .pushPat(pat.new('A Gartley'      , array.from(triangle.new('bcd', 1.618*min, 1.618*max), triangle.new('abc', 1.128    , 2.618    ), triangle.new('xab', 0.618    , 0.786    ), triangle.new('xad', 1.272*min, 1.272*max))))
+    NNGart       .pushPat(pat.new('NN Gartley'     , array.from(triangle.new('bcd', 1.128    , 1.618    ), triangle.new('abc', 0.382    , 0.886    ), triangle.new('xab', 0.618*min, 0.618*max), triangle.new('xad', 0.786*min, 0.786*max))))
+    NNAGart      .pushPat(pat.new('NN A Gartley'   , array.from(triangle.new('bcd', 1.618*min, 1.618*max), triangle.new('abc', 1.128    , 2.618    ), triangle.new('xab', 0.618    , 0.786    ), triangle.new('xad', 1.272*min, 1.272*max))))
+    Bat          .pushPat(pat.new('Bat'            , array.from(triangle.new('bcd', 1.618    , 2.618    ), triangle.new('abc', 0.382    , 0.886    ), triangle.new('xab', 0.382    , 0.5      ), triangle.new('xad', 0.886*min, 0.886*max))))
+    AltBat       .pushPat(pat.new('Alt Bat'        , array.from(triangle.new('bcd', 2.0      , 3.618    ), triangle.new('abc', 0.382    , 0.886    ), triangle.new('xab', 0.382*min, 0.382*max), triangle.new('xad', 1.128*min, 1.128*max))))
+    ABat         .pushPat(pat.new('A Bat'          , array.from(triangle.new('bcd', 2.0      , 2.618    ), triangle.new('abc', 1.128    , 2.618    ), triangle.new('xab', 0.382    , 0.618    ), triangle.new('xad', 1.128*min, 1.128*max))))
+    MaxBat       .pushPat(pat.new('Max Bat'        , array.from(triangle.new('bcd', 1.272    , 2.618    ), triangle.new('abc', 0.382    , 0.886    ), triangle.new('xab', 0.382    , 0.618    ), triangle.new('xad', 0.886*min, 0.886*max))))
+    NNBat        .pushPat(pat.new('NN Bat'         , array.from(triangle.new('bcd', 1.618    , 2.618    ), triangle.new('abc', 0.382    , 0.886    ), triangle.new('xab', 0.382    , 0.5      ), triangle.new('xad', 0.886*min, 0.886*max))))
+    NNAltBat     .pushPat(pat.new('NN Alt Bat'     , array.from(triangle.new('bcd', 2.0      , 4.236    ), triangle.new('abc', 0.382    , 0.886    ), triangle.new('xab', 0.382*min, 0.382*max), triangle.new('xad', 1.128*min, 1.128*max))))
+    NNABat       .pushPat(pat.new('NN A Bat'       , array.from(triangle.new('bcd', 2.0      , 2.618    ), triangle.new('abc', 1.128    , 2.618    ), triangle.new('xab', 0.382    , 0.618    ), triangle.new('xad', 1.128*min, 1.128*max))))
+    NNAAltBat    .pushPat(pat.new('NN A Alt Bat'   , array.from(triangle.new('bcd', 2.618*min, 2.618*max), triangle.new('abc', 1.128    , 2.618    ), triangle.new('xab', 0.236    , 0.5      ), triangle.new('xad', 0.886*min, 0.886*max))))
+    Butterfly    .pushPat(pat.new('Butterfly'      , array.from(triangle.new('bcd', 1.618    , 2.618    ), triangle.new('abc', 0.382    , 0.886    ), triangle.new('xab', 0.786*min, 0.786*max), triangle.new('xad', 1.272    , 1.618    ))))
+    MaxButterfly .pushPat(pat.new('Max Butterfly'  , array.from(triangle.new('bcd', 1.272    , 2.618    ), triangle.new('abc', 0.382    , 0.886    ), triangle.new('xab', 0.618    , 0.886    ), triangle.new('xad', 1.272    , 1.618    ))))
+    Butterfly113 .pushPat(pat.new('Butterfly 113'  , array.from(triangle.new('bcd', 1.128    , 1.618    ), triangle.new('abc', 0.618    , 1.0      ), triangle.new('xab', 0.786    , 1.0      ), triangle.new('xad', 1.128*min, 1.128*max))))
+    AButterfly   .pushPat(pat.new('A Butterfly'    , array.from(triangle.new('bcd', 1.272*min, 1.272*max), triangle.new('abc', 1.128    , 2.618    ), triangle.new('xab', 0.382    , 0.618    ), triangle.new('xad', 0.618    , 0.786    ))))
+    Crab         .pushPat(pat.new('Crab'           , array.from(triangle.new('bcd', 2.24     , 3.618    ), triangle.new('abc', 0.382    , 0.886    ), triangle.new('xab', 0.382    , 0.618    ), triangle.new('xad', 1.618*min, 1.618*max))))
+    DeepCrab     .pushPat(pat.new('Deep Crab'      , array.from(triangle.new('bcd', 2.618    , 3.618    ), triangle.new('abc', 0.382    , 0.886    ), triangle.new('xab', 0.886*min, 0.886*max), triangle.new('xad', 1.618*min, 1.618*max))))
+    ACrab        .pushPat(pat.new('A Crab'         , array.from(triangle.new('bcd', 1.618    , 2.618    ), triangle.new('abc', 1.128    , 2.618    ), triangle.new('xab', 0.276    , 0.446    ), triangle.new('xad', 0.618*min, 0.618*max))))
+    NNCrab       .pushPat(pat.new('NN Crab'        , array.from(triangle.new('bcd', 2.236    , 4.236    ), triangle.new('abc', 0.382    , 0.886    ), triangle.new('xab', 0.382    , 0.618    ), triangle.new('xad', 1.618*min, 1.618*max))))
+    NNDeepCrab   .pushPat(pat.new('NN Deep Crab'   , array.from(triangle.new('bcd', 2.618    , 4.236    ), triangle.new('abc', 0.382    , 0.886    ), triangle.new('xab', 0.886*min, 0.886*max), triangle.new('xad', 1.618*min, 1.618*max))))
+    NNACrab      .pushPat(pat.new('NN A Crab'      , array.from(triangle.new('bcd', 1.128    , 2.618    ), triangle.new('abc', 1.128    , 2.618    ), triangle.new('xab', 0.236    , 0.447    ), triangle.new('xad', 0.618*min, 0.618*max))))
+    NNADeepCrab  .pushPat(pat.new('NN A Deep Crab' , array.from(triangle.new('bcd', 1.128*min, 1.128*max), triangle.new('abc', 1.128    , 2.618    ), triangle.new('xab', 0.236    , 0.382    ), triangle.new('xad', 0.618*min, 0.618*max))))
+    Cypher       .pushPat(pat.new('Cypher'         , array.from(triangle.new('bcd', 1.272    , 2.00     ), triangle.new('abc', 1.13     , 1.414    ), triangle.new('xab', 0.382    , 0.618    ), triangle.new('xad', 0.786*min, 0.786*max))))
+    NewCypher    .pushPat(pat.new('New Cypher'     , array.from(triangle.new('bcd', 1.272    , 2.00     ), triangle.new('abc', 1.414    , 2.14     ), triangle.new('xab', 0.382    , 0.618    ), triangle.new('xad', 0.786*min, 0.786*max))))
+    AntiNewCypher.pushPat(pat.new('Anti New Cypher', array.from(triangle.new('bcd', 1.618    , 2.618    ), triangle.new('abc', 0.467    , 0.707    ), triangle.new('xab', 0.5      , 0.786    ), triangle.new('xad', 1.272*min, 1.272*max))))
+    Shark1       .pushPat(pat.new('Shark 1'        , array.from(triangle.new('bcd', 1.618    , 2.236    ), triangle.new('abc', 1.128    , 1.618    ), triangle.new('xab', 0.382    , 0.618    ), triangle.new('xad', 0.886*min, 0.886*max))))
+    Shark1Alt    .pushPat(pat.new('Shark 1 Alt'    , array.from(triangle.new('bcd', 1.618    , 2.618    ), triangle.new('abc', 0.618    , 0.886    ), triangle.new('xab', 0.446    , 0.618    ), triangle.new('xad', 1.128*min, 1.128*max))))
+    Shark2       .pushPat(pat.new('Shark 2'        , array.from(triangle.new('bcd', 1.618    , 2.236    ), triangle.new('abc', 1.128    , 1.618    ), triangle.new('xab', 0.382    , 0.618    ), triangle.new('xad', 1.128*min, 1.128*max))))
+    Shark2Alt    .pushPat(pat.new('Shark 2 Alt'    , array.from(triangle.new('bcd', 1.618    , 2.618    ), triangle.new('abc', 0.618    , 0.886    ), triangle.new('xab', 0.446    , 0.618    ), triangle.new('xad', 0.886*min, 0.886*max))))
+    Leonardo     .pushPat(pat.new('Leonardo'       , array.from(triangle.new('bcd', 1.128    , 2.618    ), triangle.new('abc', 0.382    , 0.886    ), triangle.new('xab', 0.5*min  , 0.5*max  ), triangle.new('xad', 0.786*min, 0.786*max))))
+    NNALeonardo  .pushPat(pat.new('NN A Leonardo'  , array.from(triangle.new('bcd', 2.0*min  , 2.0*max  ), triangle.new('abc', 1.128    , 2.618    ), triangle.new('xab', 0.382    , 0.886    ), triangle.new('xad', 1.272*min, 1.272*max))))
+    NenStar      .pushPat(pat.new('Nen Star'       , array.from(triangle.new('bcd', 1.272    , 2.0      ), triangle.new('abc', 1.414    , 2.14     ), triangle.new('xab', 0.382    , 0.618    ), triangle.new('xad', 1.272*min, 1.272*max))))
+    AntiNenStar  .pushPat(pat.new('Anti Nen Star'  , array.from(triangle.new('bcd', 1.618    , 2.618    ), triangle.new('abc', 0.467    , 0.707    ), triangle.new('xab', 0.5      , 0.786    ), triangle.new('xad', 0.786*min, 0.786*max))))
+    _3Drives     .pushPat(pat.new('3 Drives'       , array.from(triangle.new('bcd', 1.272    , 1.618    ), triangle.new('abc', 0.618    , 0.786    ), triangle.new('xab', 1.272    , 1.618    ), triangle.new('xad', 1.618    , 2.618    ))))
+    A3Drives     .pushPat(pat.new('A 3 Drives'     , array.from(triangle.new('bcd', 0.618    , 0.786    ), triangle.new('abc', 1.272    , 1.618    ), triangle.new('xab', 0.618    , 0.786    ), triangle.new('xad', 0.13     , 0.886    ))))
+    _121         .pushPat(pat.new('121'            , array.from(triangle.new('bcd', 0.382    , 0.786    ), triangle.new('abc', 1.128    , 3.618    ), triangle.new('xab', 0.5      , 0.786    ), triangle.new('xad', 0.382    , 0.786    ))))
+    A121         .pushPat(pat.new('A 121'          , array.from(triangle.new('bcd', 1.272    , 2.0      ), triangle.new('abc', 0.5      , 0.786    ), triangle.new('xab', 1.272    , 2.0      ), triangle.new('xad', 1.272    , 2.618    ))))
+    _121BG       .pushPat(pat.new('121 BG'         , array.from(triangle.new('bcd', 0.618    , 0.707    ), triangle.new('abc', 1.128    , 1.733    ), triangle.new('xab', 0.5      , 0.577    ), triangle.new('xad', 0.447    , 0.786    ))))
+    BlackSwan    .pushPat(pat.new('Black Swan'     , array.from(triangle.new('bcd', 1.128    , 2.0      ), triangle.new('abc', 0.236    , 0.5      ), triangle.new('xab', 1.382    , 2.618    ), triangle.new('xad', 1.128    , 2.618    ))))
+    WhiteSwan    .pushPat(pat.new('White Swan'     , array.from(triangle.new('bcd', 0.5      , 0.886    ), triangle.new('abc', 2.0      , 4.237    ), triangle.new('xab', 0.382    , 0.786    ), triangle.new('xad', 0.238    , 0.886    ))))
+    NNWhiteSwan  .pushPat(pat.new('NN White Swan'  , array.from(triangle.new('bcd', 0.5      , 0.886    ), triangle.new('abc', 2.0      , 4.236    ), triangle.new('xab', 0.382    , 0.724    ), triangle.new('xad', 0.382    , 0.886    ))))
+    SeaPony      .pushPat(pat.new('Sea Pony'       , array.from(triangle.new('bcd', 1.618    , 2.618    ), triangle.new('abc', 0.382    , 0.5      ), triangle.new('xab', 0.128    , 3.618    ), triangle.new('xad', 0.618    , 3.618    ))))
+    Navarro200   .pushPat(pat.new('Navarro 200'    , array.from(triangle.new('bcd', 0.886    , 3.618    ), triangle.new('abc', 0.886    , 1.128    ), triangle.new('xab', 0.382    , 0.786    ), triangle.new('xad', 0.886    , 1.128    ))))
+    May_00       .pushPat(pat.new('May-00'         , array.from(triangle.new('bcd', 0.5      , 0.618    ), triangle.new('abc', 1.618    , 2.236    ), triangle.new('xab', 1.128    , 1.618    ), triangle.new('xad', 0.5      , 0.618    ))))
+    SNORM        .pushPat(pat.new('SNORM'          , array.from(triangle.new('bcd', 0.9      , 1.1      ), triangle.new('abc', 0.9      , 1.1      ), triangle.new('xab', 0.9      , 1.1      ), triangle.new('xad', 0.618    , 1.618    ))))
+    COLPoruchik  .pushPat(pat.new('COL Poruchik'   , array.from(triangle.new('bcd', 1.0  *min, 1.0  *max), triangle.new('abc', 0.382    , 2.618    ), triangle.new('xab', 0.128    , 3.618    ), triangle.new('xad', 0.618    , 3.618    ))))
+    Henry_David  .pushPat(pat.new('Henry – David'  , array.from(triangle.new('bcd', 0.618    , 0.886    ), triangle.new('abc', 0.44     , 0.618    ), triangle.new('xab', 0.128    , 2.0      ), triangle.new('xad', 0.618    , 1.618    ))))
+    DAVIDVM1     .pushPat(pat.new('DAVID VM 1'     , array.from(triangle.new('bcd', 1.618    , 1.618    ), triangle.new('abc', 0.382*min, 0.382*max), triangle.new('xab', 0.128    , 1.618    ), triangle.new('xad', 0.618    , 3.618    ))))
+    DAVIDVM2     .pushPat(pat.new('DAVID VM 2'     , array.from(triangle.new('bcd', 1.618    , 1.618    ), triangle.new('abc', 0.382*min, 0.382*max), triangle.new('xab', 1.618    , 3.618    ), triangle.new('xad', 0.618    , 7.618    ))))
+    Partizan     .pushPat(pat.new('Partizan'       , array.from(triangle.new('bcd', 1.618*min, 1.618*max), triangle.new('abc', 0.382*min, 0.382*max), triangle.new('xab', 0.128    , 3.618    ), triangle.new('xad', 0.618    , 3.618    ))))
+    Partizan2    .pushPat(pat.new('Partizan 2'     , array.from(triangle.new('bcd', 1.618    , 2.236    ), triangle.new('abc', 1.128    , 1.618    ), triangle.new('xab', 0.128    , 3.618    ), triangle.new('xad', 1.618    , 3.618    ))))
+    Partizan2_1  .pushPat(pat.new('Partizan 2.1'   , array.from(triangle.new('bcd', 1.618*min, 1.618*max), triangle.new('abc', 1.128*min, 1.128*max), triangle.new('xab', 0.128    , 3.618    ), triangle.new('xad', 0.618    , 3.618    ))))
+    Partizan2_2  .pushPat(pat.new('Partizan 2.2'   , array.from(triangle.new('bcd', 2.236*min, 2.236*max), triangle.new('abc', 1.128*min, 1.128*max), triangle.new('xab', 0.128    , 3.618    ), triangle.new('xad', 0.618    , 3.618    ))))
+    Partizan2_3  .pushPat(pat.new('Partizan 2.3'   , array.from(triangle.new('bcd', 1.618*min, 1.618*max), triangle.new('abc', 0.618    , 1.618    ), triangle.new('xab', 0.128    , 3.618    ), triangle.new('xad', 0.618    , 3.618    ))))
+    Partizan2_4  .pushPat(pat.new('Partizan 2.4'   , array.from(triangle.new('bcd', 2.236*min, 2.236*max), triangle.new('abc', 1.618*min, 1.618*max), triangle.new('xab', 0.128    , 3.618    ), triangle.new('xad', 0.618    , 3.618    ))))
+    total        .pushPat(pat.new('TOTAL'          , array.from(triangle.new('bcd', 1.272    , 3.618    ), triangle.new('abc', 0.382    , 2.618    ), triangle.new('xab', 0.276    , 0.786    ), triangle.new('xad', 0.618    , 1.618    ))))
+    totalNN      .pushPat(pat.new('TOTAL NN'       , array.from(triangle.new('bcd', 1.272    , 4.236    ), triangle.new('abc', 0.382    , 2.618    ), triangle.new('xab', 0.236    , 0.786    ), triangle.new('xad', 0.618    , 1.618    ))))
+    total_1      .pushPat(pat.new('TOTAL 1'        , array.from(triangle.new('bcd', 1.272    , 2.618    ), triangle.new('abc', 0.382    , 0.886    ), triangle.new('xab', 0.382    , 0.786    ), triangle.new('xad', 0.786    , 0.886    ))))
+    total_2      .pushPat(pat.new('TOTAL 2'        , array.from(triangle.new('bcd', 1.618    , 3.618    ), triangle.new('abc', 0.382    , 0.886    ), triangle.new('xab', 0.382    , 0.786    ), triangle.new('xad', 1.128    , 1.618    ))))
+    total_2NN    .pushPat(pat.new('TOTNN 2NN'      , array.from(triangle.new('bcd', 1.618    , 4.236    ), triangle.new('abc', 0.382    , 0.886    ), triangle.new('xab', 0.382    , 0.786    ), triangle.new('xad', 1.128    , 1.618    ))))
+    total_3      .pushPat(pat.new('TOTAL 3'        , array.from(triangle.new('bcd', 1.272    , 2.618    ), triangle.new('abc', 1.128    , 2.618    ), triangle.new('xab', 0.276    , 0.618    ), triangle.new('xad', 0.618    , 0.886    ))))
+    total_3NN    .pushPat(pat.new('TOTNN 3NN'      , array.from(triangle.new('bcd', 1.272    , 2.618    ), triangle.new('abc', 1.128    , 2.618    ), triangle.new('xab', 0.236    , 0.618    ), triangle.new('xad', 0.618    , 0.886    ))))
+    total_4      .pushPat(pat.new('TOTAL 4'        , array.from(triangle.new('bcd', 1.618    , 2.618    ), triangle.new('abc', 1.128    , 2.618    ), triangle.new('xab', 0.382    , 0.786    ), triangle.new('xad', 1.128    , 1.272    ))))
+    BG_1         .pushPat(pat.new('BG 1'           , array.from(triangle.new('bcd', 2.618*min, 2.618*max), triangle.new('abc', 0.382*min, 0.382*max), triangle.new('xab', 0.128    , 0.886    ), triangle.new('xad', 1.0  *min, 1.0  *max))))
+    BG_2         .pushPat(pat.new('BG 2'           , array.from(triangle.new('bcd', 2.237*min, 2.237*max), triangle.new('abc', 0.447*min, 0.447*max), triangle.new('xab', 0.128    , 0.886    ), triangle.new('xad', 1.0  *min, 1.0  *max))))
+    BG_3         .pushPat(pat.new('BG 3'           , array.from(triangle.new('bcd', 2.0  *min, 2.0  *max), triangle.new('abc', 0.5  *min, 0.5  *max), triangle.new('xab', 0.128    , 0.886    ), triangle.new('xad', 1.0  *min, 1.0  *max))))
+    BG_4         .pushPat(pat.new('BG 4'           , array.from(triangle.new('bcd', 1.618*min, 1.618*max), triangle.new('abc', 0.618*min, 0.618*max), triangle.new('xab', 0.128    , 0.886    ), triangle.new('xad', 1.0  *min, 1.0  *max))))
+    BG_5         .pushPat(pat.new('BG 5'           , array.from(triangle.new('bcd', 1.414*min, 1.414*max), triangle.new('abc', 0.707*min, 0.707*max), triangle.new('xab', 0.128    , 0.886    ), triangle.new('xad', 1.0  *min, 1.0  *max))))
+    BG_6         .pushPat(pat.new('BG 6'           , array.from(triangle.new('bcd', 1.272*min, 1.272*max), triangle.new('abc', 0.786*min, 0.786*max), triangle.new('xab', 0.128    , 0.886    ), triangle.new('xad', 1.0  *min, 1.0  *max))))
+    BG_7         .pushPat(pat.new('BG 7'           , array.from(triangle.new('bcd', 1.171*min, 1.171*max), triangle.new('abc', 0.854*min, 0.854*max), triangle.new('xab', 0.128    , 0.886    ), triangle.new('xad', 1.0  *min, 1.0  *max))))
+    BG_8         .pushPat(pat.new('BG 8'           , array.from(triangle.new('bcd', 1.128*min, 1.128*max), triangle.new('abc', 0.886*min, 0.886*max), triangle.new('xab', 0.128    , 0.886    ), triangle.new('xad', 1.0  *min, 1.0  *max))))
+
+if barstate.isfirst 
+    //First bar
+    line.new(n, close, n, close + syminfo.mintick, extend=extend.both)
+    for i = 0 to dif -1
+        ZZnew = ZZ.new(array.new<piv>())
+        for j = 0 to 5 
+            ZZnew.piv.unshift(piv.new(0, 0, high))
+
+        arrayZZ.unshift(ZZnew) 
+_                                                                                                                                                                                                                                                                                                       ='
+                                                                                                  Methods
+                                                                                                  -------                                                                                                                                                                                               '
+
+method in_out(ZZ aZZ, int d, int Dx, float Dy) => aZZ.piv.unshift(piv.new(d, Dx, Dy)), aZZ.piv.pop()
+
+method n(float v) => not na(v) 
+
+method lab(array<triangle>triangles, int Bx, float By, int Cx, float Cy, int Dx, float Dy, color col) => 
+    labels = array.new<label>() 
+    sz     = triangles.size() 
+    switch sz
+        2 => 
+            labels.push(label.new(Cx, Cy, style=label.style_label_center, text='\n\nbla', textcolor=INV, color=INV, size=size.normal, tooltip = str.format("C = [{0} - {1}] of A-B", triangles.get(1).levelL, triangles.get(1).levelH)))
+            labels.push(label.new(Dx, Dy, style=label.style_label_center, text='\n\nbla', textcolor=INV, color=INV, size=size.normal, tooltip = str.format("D = [{0} - {1}] of B-C", triangles.get(0).levelL, triangles.get(0).levelH)))
+
+        => 
+            Dtxt     =    sz == 3    ? str.format("D = [{0} - {1}] of B-C"                                                                          , triangles.get(0).levelL, triangles.get(0).levelH) 
+                                     : str.format("D = [{0} - {1}] of B-C\nD = [{2} - {3}] of X-A", triangles.get(0).levelL, triangles.get(0).levelH, triangles.get(3).levelL, triangles.get(3).levelH)
+            labels.push(label.new(Bx, By, style=label.style_label_center, text='\n\nbla', textcolor=INV, color=INV, size=size.normal, tooltip = str.format("B = [{0} - {1}] of X-A", triangles.get(2).levelL, triangles.get(2).levelH)))
+            labels.push(label.new(Cx, Cy, style=label.style_label_center, text='\n\nbla', textcolor=INV, color=INV, size=size.normal, tooltip = str.format("C = [{0} - {1}] of A-B", triangles.get(1).levelL, triangles.get(1).levelH)))
+            labels.push(label.new(Dx, Dy, style=label.style_label_center, text='\n\nbla', textcolor=INV, color=INV, size=size.normal, tooltip =                                      Dtxt                                             ))
+    labels 
+
+method ret(float levelL, float levelH, float By, float Cy, float Dy) => 
+    isValid = switch Cy > By 
+        true => distance = Cy - By, Dy >= Cy - distance * levelH and Dy <= Cy - distance * levelL
+        =>      distance = By - Cy, Dy >= Cy + distance * levelL and Dy <= Cy + distance * levelH
+
+method zigzag(array<ZZ>arrZZ, int index, int left, int right) =>
+    aZZ      = arrZZ.get(index)
+    ph       = ta.pivothigh(left, right)
+    pl       = ta.pivotlow (left, right)
+
+    if ph.n()
+        piv  = aZZ.piv.first()
+        dr_  = piv.d 
+        Cx_  = piv.x 
+        Cy_  = piv.y 
+        Dx_  = n  - right
+        Dy_  = high[right]
+        //
+        if Dy_ > Cy_
+            if dr_ <  1  // if previous point was a pl, add, and change direction ( 1)
+                aZZ.in_out( 1, Dx_, Dy_)
+            else
+                if dr_ ==  1 and ph > Cy_
+                    piv.x := Dx_, piv.y := Dy_   
+
+    if pl.n() 
+        piv  = aZZ.piv.first()
+        dr_  = piv.d 
+        Cx_  = piv.x 
+        Cy_  = piv.y 
+        Dx_  = n  - right
+        Dy_  = low [right]
+        //
+        if Dy_ < Cy_
+            if dr_ > -1  // if previous point was a ph, add, and change direction (-1)
+                aZZ.in_out(-1, Dx_, Dy_)
+            else
+                if dr_ == -1 and pl < Cy_ 
+                    piv.x := Dx_, piv.y := Dy_    
+
+    Y = aZZ.piv.get(5), Yx = Y.x, Yy = Y.y
+    X = aZZ.piv.get(4), Xx = X.x, Xy = X.y
+    A = aZZ.piv.get(3), Ax = A.x, Ay = A.y
+    B = aZZ.piv.get(2), Bx = B.x, By = B.y
+    C = aZZ.piv.get(1), Cx = C.x, Cy = C.y
+    D = aZZ.piv.get(0), Dx = D.x, Dy = D.y, dir = D.d 
+
+    float opp1 = na    
+    float opp2 = na
+
+    if pl.n() or ph.n()
+        indices = array.new<int>()
+        indices_= array.new<int>()
+
+        col = Dy > Cy ? colBr : colBl
+        col_= Dy > Cy ? colBr_: colBl_
+
+        //STEP 1
+        for [i, pattern] in patterns
+            tri = pattern.triangles
+            if tri.get(0).levelL.ret(tri.get(0).levelH, By, Cy, Dy) 
+                indices.push(i)
+        
+        //STEP 2
+        if indices.size() > 0 
+            for i in indices
+                tri = patterns.get(i).triangles
+                if tri.get(1).levelL.ret(tri.get(1).levelH, Ay, By, Cy) 
+                    if tri.size() == 2 
+
+                        //yDiffA-B normalized ~ 1000 (Height)
+                        sideA = math.sqrt( math.pow(Bx-Ax, 2) + math.pow(1000 / (height / (By-Ay)), 2))
+                        sideB = math.sqrt( math.pow(Cx-Bx, 2) + math.pow(1000 / (height / (Cy-By)), 2))
+                        sideC = math.sqrt( math.pow(Cx-Ax, 2) + math.pow(1000 / (height / (Cy-Ay)), 2))
+                        sideD = math.sqrt( math.pow(Dx-Bx, 2) + math.pow(1000 / (height / (Dy-By)), 2))
+                        sideE = math.sqrt( math.pow(Dx-Cx, 2) + math.pow(1000 / (height / (Dy-Cy)), 2))
+
+                        //Heron's formula
+                        s1 = (sideA + sideB + sideC) / 2
+                        s2 = (sideB + sideD + sideE) / 2
+                        area1 = math.sqrt( s1 * (s1 - sideA) * (s1 - sideB) * (s1 - sideC) )
+                        area2 = math.sqrt( s2 * (s2 - sideB) * (s2 - sideD) * (s2 - sideE) )
+
+                        if math.max(area1, area2) <= math.min(area1, area2) * surfMult //When good Triangle Ratio
+                            isValid = true
+                            size3 = drawings3.size()
+                            if size3 > 0 
+                                for j = 0 to size3 -1
+                                    get = drawings3.get(j)
+                                    drawDx = get.points.get(4).index                                    
+                                    drawDy = get.points.get(4).price       
+                                    //If old pattern is too far, exit loop                                  
+                                    if drawDx < Cx 
+                                        break 
+                                    else 
+                                        if   Cx == get.points.get(3).index 
+                                         and Bx == get.points.get(2).index                                     
+                                         and Ax == get.points.get(1).index 
+                                            //No new pattern will be added
+                                            isValid := false 
+                                            //If this drawing is exectly the same than the old one, exit loop
+                                            if Dx == drawDx 
+                                                break 
+                                            else 
+                                                //If this drawing is the same than the old one, except point D, update pattern
+                                                get.poly.delete()   
+                                                if labs != 'None'        
+                                                    space = '' 
+                                                    count = labelCount.first()
+                                                    //If there is already a label, add \n (top/bottom depending on Dy > Cy)
+                                                    if count > 0 
+                                                        for c = 1 to count
+                                                            space += '\n'                             
+                                                        get.lab.set_text((Dy > Cy ? '' : space) + get.lab.get_text() + (Dy > Cy ? space : ''))
+                                                    get.lab.set_xy(Dx, Dy)
+                                                    labelCount.set(0, labelCount.first() +1)
+                                                if oldL == 'Show'
+                                                    //If old dashed line present, update D
+                                                    if not na(get.oldLine)
+                                                        get.oldLine.set_xy2(drawDx, drawDy)
+                                                    //Else, make new line
+                                                    else
+                                                        get.oldLine := line.new(Cx, Cy, drawDx, drawDy, color= color.new(col, 50), style=line.style_dashed) 
+
+                                                getPoints4 = get.points.get(4)
+                                                getPoints4.index := Dx 
+                                                getPoints4.price := Dy 
+
+                                                get.poly := polyline.new(get.points
+                                                 , line_color = col
+                                                 , fill_color = col_
+                                                 )
+                            //New pattern
+                            if isValid and Dx != 0
+                                pt = drawing.new()
+                                pt.points := array.from(
+                                   chart.point.from_index(Cx, Cy)
+                                 , chart.point.from_index(Ax, Ay)
+                                 , chart.point.from_index(Bx, By)
+                                 , chart.point.from_index(Cx, Cy)
+                                 , chart.point.from_index(Dx, Dy)                         
+                                 , chart.point.from_index(Bx, By)
+                                 )
+                                pt.labels :=  tri.lab(Bx, By, Cx, Cy, Dx, Dy, col)
+                                if labs != 'None'
+                                    space = '' 
+                                    count = labelCount.first()
+                                    if count > 0 
+                                        for c = 1 to count
+                                            space += '\n'
+                                    pt.lab  := label.new(Dx, Dy, style = Dy > Cy ? label.style_label_down : label.style_label_up, color=INV
+                                     , size = textSize, textcolor = col, text= labs == 'Pattern Names' ? patterns.get(i).name + (Dy > Cy ? space : '') : Dy > Cy ? '▼' : '▲')
+                                    labelCount.set(0, count +1)
+
+                                if pats == 'Show'
+                                    pt.poly := polyline.new(pt.points
+                                     , line_color = col
+                                     , fill_color = col_
+                                     )
+                                drawings3.unshift(pt)
+                                //triangle array size 2 -> stop at STEP 2
+                                0
+                    else 
+                        indices_.push(i)
+                        0
+        //STEP 3
+        if indices_.size() > 0 
+            for i in indices_
+                tri = patterns.get(i).triangles
+                if tri.get(2).levelL.ret(tri.get(2).levelH, Xy, Ay, By) 
+
+                    //yDiffA-B normalized ~ 1000 (Height)
+                    sideA = math.sqrt( math.pow(Bx-Ax, 2) + math.pow(1000 / (height / (By-Ay)), 2))
+                    sideB = math.sqrt( math.pow(Bx-Xx, 2) + math.pow(1000 / (height / (By-Xy)), 2))
+                    sideC = math.sqrt( math.pow(Ax-Xx, 2) + math.pow(1000 / (height / (Ay-Xy)), 2))
+                    sideD = math.sqrt( math.pow(Dx-Bx, 2) + math.pow(1000 / (height / (Dy-By)), 2))
+                    sideE = math.sqrt( math.pow(Cx-Bx, 2) + math.pow(1000 / (height / (Cy-By)), 2))
+                    sideF = math.sqrt( math.pow(Dx-Cx, 2) + math.pow(1000 / (height / (Dy-Cy)), 2))
+
+                    //Heron's formula
+                    s1 = (sideA + sideB + sideC) / 2
+                    s2 = (sideD + sideE + sideF) / 2
+                    area1 = math.sqrt( s1 * (s1 - sideA) * (s1 - sideB) * (s1 - sideC) )
+                    area2 = math.sqrt( s2 * (s2 - sideD) * (s2 - sideE) * (s2 - sideF) )
+
+                    if math.max(area1, area2) <= math.min(area1, area2) * surfMult //When good Triangle Ratio
+                        if tri.size() == 3
+                            isValid = true
+                            size4 = drawings4.size()
+                            if size4 > 0 
+                                for j = 0 to size4 -1
+                                    get = drawings4.get(j)
+                                    drawDx = get.points.get(4).index                                    
+                                    drawDy = get.points.get(4).price       
+                                    //If old pattern is too far, exit loop                         
+                                    if drawDx < Cx 
+                                        break 
+                                    else 
+                                        if   Cx == get.points.get(5).index 
+                                         and Bx == get.points.get(3).index                                     
+                                         and Ax == get.points.get(2).index 
+                                         and Xx == get.points.get(1).index 
+                                            //No new pattern will be added
+                                            isValid := false 
+                                            //If this drawing is exectly the same than the old one, exit loop
+                                            if Dx == drawDx 
+                                                break 
+                                            else 
+                                                //If this drawing is the same than the old one, except point D, update pattern
+                                                get.poly.delete()   
+                                                if labs != 'None'              
+                                                    space = '' 
+                                                    count = labelCount.first()
+                                                    if count > 0 
+                                                        for c = 1 to count
+                                                            space += '\n'                             
+                                                        get.lab.set_text((Dy > Cy ? '' : space) + get.lab.get_text() + (Dy > Cy ? space : ''))                           
+                                                    get.lab.set_xy(Dx, Dy)
+                                                    labelCount.set(0, labelCount.first() +1)
+                                                if oldL == 'Show'
+                                                    //If old dashed line present, update D
+                                                    if not na(get.oldLine)
+                                                        get.oldLine.set_xy2(drawDx, drawDy)
+                                                    //Else, make new line
+                                                    else
+                                                        get.oldLine := line.new(Cx, Cy, drawDx, drawDy, color= color.new(col, 50), style=line.style_dashed) 
+
+                                                getPoints4 = get.points.get(4)
+                                                getPoints4.index := Dx 
+                                                getPoints4.price := Dy 
+
+                                                get.poly := polyline.new(get.points
+                                                 , line_color = col
+                                                 , fill_color = col_
+                                                 )
+                            //New pattern
+                            if isValid and Dx != 0
+                                pt = drawing.new()
+                                pt.points := array.from(
+                                   chart.point.from_index(Bx, By)
+                                 , chart.point.from_index(Xx, Xy)
+                                 , chart.point.from_index(Ax, Ay)
+                                 , chart.point.from_index(Bx, By)
+                                 , chart.point.from_index(Dx, Dy)                         
+                                 , chart.point.from_index(Cx, Cy)                                 
+                                 , chart.point.from_index(Bx, By)
+                                 )
+                                pt.labels :=  tri.lab(Bx, By, Cx, Cy, Dx, Dy, col)
+                                if labs != 'None'
+                                    space = '' 
+                                    count = labelCount.first()
+                                    if count > 0 
+                                        for c = 1 to count
+                                            space += '\n'
+                                    pt.lab  := label.new(Dx, Dy, style = Dy > Cy ? label.style_label_down : label.style_label_up, color=INV                                
+                                     , size = textSize, textcolor = col, text= labs == 'Pattern Names' ? patterns.get(i).name + (Dy > Cy ? space : '') : Dy > Cy ? '▼' : '▲')
+                                    labelCount.set(0, count +1)
+
+                                if pats == 'Show'
+                                    pt.poly := polyline.new(pt.points
+                                     , line_color = col
+                                     , fill_color = col_
+                                     )
+                                drawings4.unshift(pt)
+                        else 
+                            if tri.get(3).levelL.ret(tri.get(3).levelH, Xy, Ay, Dy) 
+                                isValid = true
+                                size4 = drawings4.size()
+                                line ln = line(na)
+                                if size4 > 0 
+                                    for j = 0 to size4 -1
+                                        get = drawings4.get(j)
+                                        drawDx = get.points.get(4).index                                    
+                                        drawDy = get.points.get(4).price                                
+                                        if drawDx < Cx 
+                                            break 
+                                        else 
+                                            if   Cx == get.points.get(5).index 
+                                             and Bx == get.points.get(3).index                                     
+                                             and Ax == get.points.get(2).index 
+                                             and Xx == get.points.get(1).index                                             
+                                                isValid := false 
+                                                if Dx == drawDx                             
+                                                    break 
+                                                else 
+                                                    get.poly.delete()  
+                                                    if labs != 'None'                 
+                                                        space = '' 
+                                                        count = labelCount.first()
+                                                        if count > 0 
+                                                            for c = 1 to count
+                                                                space += '\n'                             
+                                                            get.lab.set_text((Dy > Cy ? '' : space) + get.lab.get_text() + (Dy > Cy ? space : ''))                       
+                                                        get.lab.set_xy(Dx, Dy)
+                                                        labelCount.set(0, labelCount.first() +1)
+                                                    if oldL == 'Show'
+                                                        if not na(get.oldLine)
+                                                            get.oldLine.set_xy2(drawDx, drawDy)
+                                                        else
+                                                            get.oldLine := line.new(Cx, Cy, drawDx, drawDy, color= color.new(col, 50), style=line.style_dashed) 
+
+                                                    getPoints4 = get.points.get(4)
+                                                    getPoints4.index := Dx 
+                                                    getPoints4.price := Dy 
+
+                                                    get.poly := polyline.new(get.points
+                                                     , line_color = col
+                                                     , fill_color = col_
+                                                     )
+                                if isValid and Dx != 0
+                                    pt = drawing.new()
+                                    pt.points := array.from(
+                                       chart.point.from_index(Bx, By)
+                                     , chart.point.from_index(Xx, Xy)
+                                     , chart.point.from_index(Ax, Ay)
+                                     , chart.point.from_index(Bx, By)
+                                     , chart.point.from_index(Dx, Dy)                         
+                                     , chart.point.from_index(Cx, Cy)                                 
+                                     , chart.point.from_index(Bx, By)
+                                     )
+                                    pt.labels :=  tri.lab(Bx, By, Cx, Cy, Dx, Dy, col)
+                                    if labs != 'None'
+                                        space = '' 
+                                        count = labelCount.first()
+                                        if count > 0 
+                                            for c = 1 to count
+                                                space += '\n'
+                                        pt.lab  := label.new(Dx, Dy, style = Dy > Cy ? label.style_label_down : label.style_label_up, color=INV
+                                         , size = textSize, textcolor = col, text= labs == 'Pattern Names' ? patterns.get(i).name + (Dy > Cy ? space : '') : Dy > Cy ? '▼' : '▲')
+                                        labelCount.set(0, count +1)
+
+                                    if pats == 'Show'
+                                        pt.poly := polyline.new(pt.points
+                                         , line_color = col
+                                         , fill_color = col_
+                                         )
+                                    drawings4.unshift(pt)
+_                                                                                                                                                                                                                                                                                                       ='
+                                                                                                  Execution
+                                                                                                  ---------                                                                                                                                                                                             '
+
+for i = dif -1 to 0
+    arrayZZ.zigzag(i, stt + i, 1)
+
+while drawings3.size() + drawings4.size() > 100 
+    pop = drawings3.size() > drawings4.size() ? drawings3.pop() : drawings4.pop()
+    pop.poly.delete() 
+    if labs != 'None'
+        pop.lab .delete()
+_                                                                                                                                                                                                                                                                                                       ='
+                                                                                                  ---------                                                                                                                                                                                             '

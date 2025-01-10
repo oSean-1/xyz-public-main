@@ -1,0 +1,153 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © InvestorUnknown | TRW: @Andrej S.
+
+//@version=5
+
+strategy("Fisher ForLoop [InvestorUnknown]", "Fisher ForLoop", overlay=false, precision=3, commission_value=0.1, commission_type=strategy.commission.percent, slippage=1, currency=currency.USD, default_qty_type=strategy.percent_of_equity, default_qty_value=10, initial_capital=10000, process_orders_on_close = true)
+
+tradeDirection = input.string("Both", "Trading Direction", options=["Both", "Long", "Short"])
+TPSLCondition = input.string("None", "TPSL Condition", options=["TP", "SL", "Both", "None"])
+takeProfitPerc = input.float(30.0, title="Take Profit (%)")
+stopLossPerc = input.float(20.0, title="Stop Loss (%)")
+
+import TradingView/ta/7 as ta
+
+// - - - - - User Inputs - - - - - //{
+a = input.int(7, "Start Length",  group = "Fisher ForLoop Settings")
+b = input.int(11, "End Length",   group = "Fisher ForLoop Settings")
+maType = input.string("EMA", "MA Type", ["EMA", "SMA", "WMA", "VWMA","TMA"], group = "Fisher ForLoop Settings", inline = "M")
+c = input.int(3,  "MA Length",   group = "Fisher ForLoop Settings", inline = "M")
+s = input.source(ohlc4, "Calculation Source", group = "Fisher ForLoop Settings")
+
+sigmode = input.string("Fast", "Signal Mode", options = ["Fast", "Slow", "Thresholds Crossing", "Fast Threshold"], group = "Signal Settings")
+longth =  input.float(0.25,   "Long Threshold", step = 0.01, group = "Signal Settings", inline = "T")
+shortth = input.float(-0.25, "Short Threshold", step = 0.01, group = "Signal Settings", inline = "T")
+fastth =  input.float(0.1,  "Fast Threshold",   step = 0.01, group = "Signal Settings")
+
+colup = input.color(color.green,"Bull Color",  group = "Visualisation")
+coldn = input.color(color.red  ,"Bull Color",  group = "Visualisation")
+barcol = input.bool(true,         "Color Bars?", group = "Visualisation")
+
+barconfirm = input.bool(false, "Wait for bar close for Alert?", group = "Alert Settings")
+//}
+
+// - - - - - Custom function - - - - -  {
+
+// Function to calculate an array of Fisher values over a range of lengths
+FisherForLoop(a, b, c, s) =>
+    var FisherArray = array.new_float(b - a + 1, 0.0)
+    for x = 0 to (b - a)
+        len = a + x
+        high_ = ta.highest(s, len)
+        low_ =  ta.lowest(s, len)
+        value = 0.0
+        value := .66 * ((s - low_) / (high_ - low_) - .5) + .67 * nz(value[1])
+        val = value > .99 ? .999 : value < -.99 ? -.999 : value
+        fish1 = 0.0
+        fish1 := .5 * math.log((1 + val) / (1 - val)) + .5 * nz(fish1[1])
+        fish2 = fish1[1]
+        trend = fish1 > fish2 ? 1 : -1
+        array.set(FisherArray, x, trend)
+    Avg = array.avg(FisherArray)
+    float FisherMA = switch maType
+        "EMA" =>   ta.ema(Avg,    c)
+        "SMA" =>   ta.sma(Avg,    c)
+        "WMA" =>   ta.wma(Avg,    c)
+        "VWMA" =>  ta.vwma(Avg,   c)
+        "TMA" =>   ta.trima(Avg,  c)
+        => 
+            runtime.error("No matching MA type found.")
+            float(na)
+    [FisherArray, Avg, FisherMA]
+
+//}
+
+// - - - - - Variable declaration and Signal calculation - - - - - //{
+
+[Array,Avg,FisherMA] = FisherForLoop(a, b, c, s)
+
+col1 = FisherMA > 0 ? colup : coldn
+var color col2 = na
+if FisherMA > FisherMA[1] or FisherMA > 0.99
+    col2 := colup
+if FisherMA < FisherMA[1] or FisherMA < -0.99
+    col2 := coldn
+var color col3 = na
+if ta.crossover(FisherMA,longth)
+    col3 := colup
+if ta.crossunder(FisherMA,shortth)
+    col3 := coldn
+var color col4 = na 
+if (FisherMA > FisherMA[1] + fastth)
+    col4 := colup
+if (FisherMA < FisherMA[1] - fastth)
+    col4 := coldn
+
+color col = na
+if sigmode == "Slow"
+    col := col1
+if sigmode == "Fast"
+    col := col2
+if sigmode == "Thresholds Crossing"
+    col := col3
+if sigmode == "Fast Threshold"
+    col := col4
+else
+    na
+//}
+
+// - - - - - Visualisation - - - - - //{
+plot(FisherMA, color = col, linewidth = 2)
+barcolor(barcol ? col : na)
+hline(0, color = color.gray)
+H0 = plot(1,    color = color.new(color.gray,50), display = display.none)
+H1 = plot(0.5,  color = color.new(color.gray,50), display = display.none)
+H2 = plot(-0.5, color = color.new(color.gray,50), display = display.none)
+H3 = plot(-1,   color = color.new(color.gray,50), display = display.none)
+fill(H0, H1, 1,   0.5, color.new(colup, 80), color.new(chart.bg_color, 30))  
+fill(H2, H3, -0.5, -1, color.new(chart.bg_color, 30), color.new(coldn, 80))  
+//}
+
+// - - - - - Alerts - - - - - //{
+var int alertsignal = na
+if col == colup
+    alertsignal := 1
+if col == coldn
+    alertsignal := -1
+Long  = ta.crossover(alertsignal,  0)
+Short = ta.crossunder(alertsignal, 0)
+alertcondition(barconfirm ? Long[1]  :  Long, "LONG",  "Fisher ForLoop went Long")
+alertcondition(barconfirm ? Short[1] : Short,"SHORT", "Fisher ForLoop went SHORT")
+//}
+
+// Entry/Exit conditions
+LongEntry = Long
+LongExit = Short
+ShortEntry = Short
+ShortExit = Long
+
+// Strategy logic
+if (tradeDirection == "Long" or tradeDirection == "Both")
+    if (LongEntry)
+        strategy.entry("Long Entry", strategy.long)
+
+if (tradeDirection == "Short" or tradeDirection == "Both")
+    if (ShortEntry)
+        strategy.entry("Short Entry", strategy.short)
+
+if (tradeDirection == "Long" or tradeDirection == "Both")
+    if (LongExit)
+        strategy.close("Long Entry")
+
+if (tradeDirection == "Short" or tradeDirection == "Both")
+    if (ShortExit)
+        strategy.close("Short Entry")
+
+// Apply Take Profit and Stop Loss conditions
+if (TPSLCondition == "TP" or TPSLCondition == "Both")
+    strategy.exit("TakeProfit_Long", "Long Entry", limit=close * (1 + takeProfitPerc / 100))
+    strategy.exit("TakeProfit_Short", "Short Entry", limit=close * (1 - takeProfitPerc / 100))
+
+if (TPSLCondition == "SL" or TPSLCondition == "Both")
+    strategy.exit("StopLoss_Long", "Long Entry", stop=close * (1 - stopLossPerc / 100))
+    strategy.exit("StopLoss_Short", "Short Entry", stop=close * (1 + stopLossPerc / 100))

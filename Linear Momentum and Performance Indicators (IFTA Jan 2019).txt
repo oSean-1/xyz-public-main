@@ -1,0 +1,110 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © CryptoStatistical
+
+
+//@version=3
+study("[CS] IFTA Indicators Jan2019")
+
+// CryptoStatistical - MachineTradingNow implementation of new IFTA Trading Indicators
+
+show_LinearForce = input(title="LinearForce", type=bool, defval=false)
+show_Pressure = input(title="Pressure", type=bool, defval=false)
+show_Strength = input(title="Strength", type=bool, defval=false)
+show_Power = input(title="Power", type=bool, defval=false)
+show_Intensity = input(title="Intensity", type=bool, defval=false)
+show_DynamicStrength = input(title="DynamicStrength", type=bool, defval=false)
+show_IntegralForce = input(title="IntegralForce", type=bool, defval=false)
+show_IntegralPressure = input(title="IntegralPressure", type=bool, defval=false)
+show_IntegralStrength = input(title="IntegralStrength", type=bool, defval=false)
+show_IntegralPower = input(title="IntegralPower", type=bool, defval=false)
+show_IntegralIntensity = input(title="IntegralIntensity", type=bool, defval=false)
+show_IntegralDynamicStrength = input(title="IntegralDynamicStrength", type=bool, defval=false)
+
+// Values
+
+n=14
+SF= 1.01
+RI = 0.0001
+Range= high-low+RI
+RealBody=abs(close-open)
+
+
+Cy= close[1]
+Velocity= close-Cy
+VelocityYesterday= Velocity[1]
+AccelerationToday= Velocity-VelocityYesterday
+Acceleration= ema(AccelerationToday,n)
+Force= volume*Acceleration
+Momentum= volume*Velocity
+
+//Linear Force Index
+LinearForceToday= volume*Acceleration
+LinearForce= ema(LinearForceToday,n)
+
+//Pressure Index
+PressureToday= Force/Range
+Pressure= ema(PressureToday,n)
+
+//Strength Index
+StrengthToday= Force/(SF*Range-RealBody)
+Strength= ema(StrengthToday,n)
+
+//Power Index
+PowerEquation= Force*Velocity
+PowerToday= close > Cy ? PowerEquation : -PowerEquation
+Power= ema(PowerToday,n)
+
+//Intensity Index
+IntensityEquation = Force*Velocity/Range
+IntensityToday= close > Cy ? IntensityEquation : -IntensityEquation
+Intensity= ema(IntensityToday,n)
+
+//Dynamic Strength Index
+DynamicStrengthEquation= Force*Velocity/(SF*Range-RealBody)
+DynamicStrengthToday= close > Cy ? DynamicStrengthEquation : -DynamicStrengthEquation
+DynamicStrength= ema(DynamicStrengthToday,n)
+
+//Integral Force Index
+IntegralForceToday= Momentum
+IntegralForce= ema(IntegralForceToday,n)
+
+//Integral Pressure Index
+IntegralPressureToday= Momentum/Range
+IntegralPressure= ema(IntegralPressureToday,n)
+
+//Integral Strength Index
+IntegralStrengthToday= Momentum/((SF*Range)-RealBody)
+IntegralStrength= ema(IntegralStrengthToday,n)
+
+//Integral Power Index
+IntegralPowerEquation= Momentum*Velocity
+IntegralPowerToday= close > Cy ? IntegralPowerEquation : -IntegralPowerEquation
+IntegralPower= ema(IntegralPowerToday,n)
+
+//Integral Intensity Index
+IntegralIntensityEquation= Momentum*Velocity/Range
+IntegralIntensityToday= close > Cy ? IntegralIntensityEquation : -IntegralIntensityEquation
+IntegralIntensity= ema(IntegralIntensityToday,n)
+
+//Integral Dynamic Strength Index
+IntegralDynamicStrengthEquation= Momentum*Velocity/(SF*Range-RealBody)
+IntegralDynamicStrengthToday= close > Cy ? IntegralDynamicStrengthEquation : -IntegralDynamicStrengthEquation
+IntegralDynamicStrength= ema(IntegralDynamicStrengthToday,n)
+
+// zero line
+
+hline(0, color=gray)
+
+plot(show_LinearForce ? LinearForce : na, color=black, linewidth=1, title="LinearForce", trackprice=true)
+plot(show_Pressure ? Pressure : na, color=blue, linewidth=1,title="Pressure", trackprice=true)
+plot(show_Strength ? Strength : na, color=purple, linewidth=1,title="Strength", trackprice=true)
+plot(show_Power ? Power : na, color=maroon, linewidth=1,title="Power", trackprice=true)
+plot(show_Intensity ? Intensity : na, color=green, linewidth=1,title="Intensity", trackprice=true)
+plot(show_DynamicStrength ? DynamicStrength : na, color=red, linewidth=1,title="DynamicStrength", trackprice=true)
+plot(show_IntegralForce ? IntegralForce : na, color=black, linewidth=2, title="IntegralForce", trackprice=true)
+plot(show_IntegralPressure ? IntegralPressure : na, color=blue, linewidth=2, title="IntegralPressure", trackprice=true)
+plot(show_IntegralStrength ? IntegralStrength : na, color=purple, linewidth=2, title="IntegralStrength", trackprice=true)
+plot(show_IntegralPower ? IntegralPower : na, color=maroon, linewidth=2, title="IntegralPower", trackprice=true)
+plot(show_IntegralIntensity ? IntegralIntensity : na, color=green, linewidth=2, title="IntegralIntensity", trackprice=true)
+plot(show_IntegralDynamicStrength ? IntegralDynamicStrength : na, color=red, linewidth=2, title="IntegralDynamicStrength", trackprice=true)
+

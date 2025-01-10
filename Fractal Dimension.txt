@@ -1,0 +1,87 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © IvarssonAnalytics
+
+//Fractal dimension, as described by BCA-research. When the function reaches the lower boundary,
+//the fractal dimension collapses. This indicates that the market participants, on different time frames, now are all betting on the same direction.
+//The market is now overextended. However, the boundary value is arbitrary and can be modified.
+
+//@version=5
+indicator("Fractal Dimension")
+
+displayMTF = input(title='Display MTF?', defval=true)
+
+res1 = input.timeframe(title='Multi Timeframe 1:', defval='15')
+res2 = input.timeframe(title='Multi Timeframe 2:', defval='30')
+res3 = input.timeframe(title='Multi Timeframe 3:', defval='60')
+res4 = input.timeframe(title='Multi Timeframe 4:', defval='120')
+res5 = input.timeframe(title='Multi Timeframe 5:', defval='240')
+res6 = input.timeframe(title='Multi Timeframe 5:', defval='D')
+
+//
+normalize(_src, _min, _max) =>
+// Normalizes series with unknown min/max using historical min/max.
+// _src      : series to rescale.
+// _min, _min: min/max values of rescaled series.
+    var _historicMin =  +10e10
+    var _historicMax = -10e10
+    _historicMin := math.min(nz(_src, _historicMin), _historicMin)
+    _historicMax := math.max(nz(_src, _historicMax), _historicMax)
+    _min + (_max - _min) * (_src - _historicMin) / math.max(_historicMax - _historicMin, 10e-10)
+
+
+f_zscore(_src, _length, _smooth)=>
+    _mean = ta.sma(_src, _length)
+    _std = ta.stdev(_src-_mean, _length)
+    _value = (_src - _mean) / _std
+    _dema = ta.ema(ta.ema(_value, _smooth), _smooth)
+    [_value, _dema]
+
+smooth = input(3)
+
+
+//
+
+ri = math.log(close/close[1])
+n = 65
+Rin = math.log(close/close[n])
+Nin = (math.sum(math.abs(ri),n))/(math.abs(Rin)/n)
+Din = math.log(Nin)/math.log(n) * input(1)
+//plot(Din)
+
+LowerThreshHold = input(-80)
+//plot(LowerThreshHold, "Line", color.red)
+
+//
+
+//[z1, d1] = f_zscore(normalize(Din, -100, 100), input(6), smooth)
+//plot(series=(normalize(z1, -100, 100)), title="Zscore HMA", color=color.new(color.green, 40), style=plot.style_line)
+
+mtfK1 = displayMTF ? request.security(syminfo.tickerid, res1, normalize(Din, -100, 100)) : na
+mtfK2 = displayMTF ? request.security(syminfo.tickerid, res2, normalize(Din, -100, 100)) : na
+mtfK3 = displayMTF ? request.security(syminfo.tickerid, res3, normalize(Din, -100, 100)) : na
+mtfK4 = displayMTF ? request.security(syminfo.tickerid, res4, normalize(Din, -100, 100)) : na
+mtfK5 = displayMTF ? request.security(syminfo.tickerid, res5, normalize(Din, -100, 100)) : na
+mtfK6 = displayMTF ? request.security(syminfo.tickerid, res6, normalize(Din, -100, 100)) : na
+ALL = (mtfK1+mtfK2+mtfK3+mtfK4+mtfK5+mtfK6)/6
+
+//plot(mtfK1)
+//plot(mtfK2)
+//plot(mtfK3)
+//plot(mtfK4)
+//plot(mtfK5)
+//plot(mtfK6)
+plot(normalize(ALL, -100, 100), "Normalized", color.red)
+plot(normalize(Din, -100, 100), "Normalized", color.red)
+
+[bbMiddle, bbUpper, bbLower] = ta.bb(normalize(ALL, -100,100), input(252), 2)
+plot(bbLower)
+
+//wk = normalize(ALL, -100,100)
+//Median_avg = ta.median(wk, input(52))
+//plot(Median_avg)
+
+BarColorz = normalize(ALL, -100, 100) <= bbLower ? color.red : color.black
+barcolor(BarColorz)
+
+
+

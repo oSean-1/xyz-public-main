@@ -1,0 +1,188 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © InvestorUnknown | TRW: @Andrej S.
+//                                                                                  {||}                   
+//                                                       ,                          {||}          
+//                                                  ,,,,,                           {||}
+//                                                ,,,,,       ,       ,,            {||}       
+//                                    ,         ,,,, ,       ,,     ,,,             {||}       
+//             .                   , ,         ,,,,  ,     ,,,,   .,,               {||}            ╔╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╗
+//             ,,                 ,       ,,   ,,,,,,,  ,  ,      ,                 {||}            ╠╬╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╬╣  
+//             ,,                 ,,   ,  ,,  ,,,,,, ,,,,    , ,                    {||}            ╠╣  /$$$$$$                                           /$$                         ╠╣
+//              .,         ,      ,,,  ,,,,,,,,,,,,,, ,,  ,,  , ,         ,,        {||}            ╠╣ |_  $$_/                                          | $$                         ╠╣
+//                           ,  .  ,, ,,,,,,,,,,,,, ,    ,,, , ,,    ,   ,          {||}            ╠╣   | $$   /$$$$$$$  /$$    /$$ /$$$$$$   /$$$$$$$ /$$$$$$    /$$$$$$   /$$$$$$  ╠╣
+//                   ,,           ,,, ,,,,,,,,,,,,,,,,,,,,,,  ,,,   ,,              {||}            ╠╣   | $$  | $$__  $$|  $$  /$$//$$__  $$ /$$_____/|_  $$_/   /$$__  $$ /$$__  $$ ╠╣
+//               , ,   ,,,     .,,,,,,,,,,,, ,,,  ,,,,,,,,   ,,,    ,,              {||}            ╠╣   | $$  | $$  \ $$ \  $$/$$/| $$$$$$$$|  $$$$$$   | $$    | $$  \ $$| $$  \__/ ╠╣      
+//         .,     , ,,  ,,    ,,, ,,,,,,, ,,  ,,, ,,,,, ,,, ,  ,,   ,,              {||}            ╠╣   | $$  | $$  | $$  \  $$$/ | $$_____/ \____  $$  | $$ /$$| $$  | $$| $$       ╠╣     
+//            ,   ,,,,,  ,    ,,,, ,, , ,,,,,,,,,,,,,,,,,,,,,, ,,  ,,               {||}            ╠╣  /$$$$$$| $$  | $$   \  $/  |  $$$$$$$ /$$$$$$$/  |  $$$$/|  $$$$$$/| $$       ╠╣   
+//               .    //./ /// ,,,,,,,,,,,,,,,. ,,,,,,,,,,,,,,,,,,                  {||}            ╠╣ |______/|__/  |__/    \_/    \_______/|_______/    \___/   \______/ |__/       ╠╣
+//                ,  /         ,., ,,,,,,,,,,, ,,,,,,,   ,,,,,,,                    {||}            ╠╣                                                                                ╠╣
+//            .  ,,,  ,/ ///./   ,,,.,,,,,,,,,,,,,,,      ,, , ,                    {||}            ╠╣                                                                                ╠╣
+//             ,,,,,,  //./ , /    .,,.,,, ,,,,,, ,.     ,,,,,,,                    {||}            ╠╣                                                                                ╠╣
+//              ,,,,   //  *, / / ,,,,,,,,,,,,          ,, ,,,,,                    {||}            ╠╣    /$$   /$$           /$$                                                     ╠╣
+//               ,,  // ////.*/// / ,.,,,,,.,, ,,  ,,,, ,,,,,,                      {||}            ╠╣   | $$  | $$          | $$                                                     ╠╣
+//                   ,  /////    //  , ,,,,,, ,,,, ,,,,,  ,,, / /.                  {||}            ╠╣   | $$  | $$ /$$$$$$$ | $$   /$$ /$$$$$$$   /$$$$$$  /$$  /$$  /$$ /$$$$$$$    ╠╣
+//              ,,   ,         ////// ,,,,,,,,,  ,,,,,,,,/ ///  / //                {||}            ╠╣   | $$  | $$| $$__  $$| $$  /$$/| $$__  $$ /$$__  $$| $$ | $$ | $$| $$__  $$   ╠╣
+//                         ///// .// ,,,,,,  ,, ,,,, ,,, ///*  //*///               {||}            ╠╣   | $$  | $$| $$  \ $$| $$$$$$/ | $$  \ $$| $$  \ $$| $$ | $$ | $$| $$  \ $$   ╠╣
+//                           //  .           ,, .// ,,      ///, ///                {||}            ╠╣   | $$  | $$| $$  | $$| $$_  $$ | $$  | $$| $$  | $$| $$ | $$ | $$| $$  | $$   ╠╣
+//                        //////        ,,,,    ///// ,.        ,                   {||}            ╠╣   |  $$$$$$/| $$  | $$| $$ \  $$| $$  | $$|  $$$$$$/|  $$$$$/$$$$/| $$  | $$   ╠╣
+//                   *///////. //              /  */////*                           {||}            ╠╣    \______/ |__/  |__/|__/  \__/|__/  |__/ \______/  \_____/\___/ |__/  |__/   ╠╣ 
+//                         .,,  // ,,,,,,,,,, //* ,,,  //////                       {||}            ╠╬╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╬╣
+//                           ,,,,,   ,,,,,, ,.,,,,,,,                               {||}            ╚╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╝
+//                               ,,,,,,,,,,,, ,,                                    {||}          
+//                                  ,,,,,,,,,                                       {||}                                                                                                                                  
+//                                                                                  {||} 
+//                                                                                  {||} 
+
+
+//@version=6
+
+//@description A library providing functions for equity calculation and performance metrics.
+library("BacktestLibrary")
+
+// # # # # # EXPORTS # # # # # //{
+
+// @function: Calculates the number of candles since a specified date.
+// @param date (simple float): The starting date in timestamp format (e.g., input.time(timestamp()))
+// @param active (simple bool): If true, counts the number of candles since the date; if false, returns 0.
+// @returns (int): The number of candles since the specified date.
+export since(simple float date, simple bool active) =>
+    var count = 0
+    if active and time >= date
+        count += 1
+    output = count > 2 ? count - 1 : count
+    output
+
+// @function: Calculates the Buy and Hold Equity from a specified date.
+// @param r (series float): Daily returns of the asset (e.g., 0.02 for 2% move).
+// @param startDate (simple float): Timestamp of the starting date for the equity calculation.
+// @returns (float): Buy and Hold Equity of the asset from the specified date.
+export buy_and_hold(series float r, simple float startDate) =>
+    float b = na
+    if time >= startDate
+        b := na(b[1]) ? 1 : b[1] * (1 + r)
+    b
+
+// @function: Calculates the strategy's equity on a candle-by-candle basis.
+// @param sig (series float): Signal values; positive for long, negative for short.
+// @param threshold (simple float): Signal threshold for entering trades.
+// @param r (series float): Daily returns of the asset (e.g., 0.02 for 2% move).
+// @param startDate (simple float): Timestamp of the starting date for the equity calculation.
+// @param signals (simple string): Type of signals to backtest ("Long & Short", "Long Only", "Short Only").
+// @returns (float): Strategy equity on a candle-by-candle basis.
+export equity(series float sig, simple float threshold, series float r, simple float startDate, simple string signals) =>
+    var int signal = 0
+    var float e    = na
+    if ta.crossover(sig, threshold)
+        signal := 1
+    if ta.crossunder(sig, -threshold)
+        signal := -1
+    if time >= startDate
+        float a = 0
+        if signals == "Long & Short"
+            a := signal[1] > 0 ? r : -r
+        else if signals == "Long Only" and signal[1] > 0
+            a := r
+        else if signals == "Short Only" and signal[1] < 0
+            a := -r
+        else if signals != "Long & Short" and signals != "Long Only" and signals != "Short Only"
+            runtime.error("No Signal Type found")
+        e := na(e[1]) ? 1 : e[1] * (1 + a)
+    e
+
+// @function: Calculates performance metrics of a strategy from a specified date.
+// @param base (series float): Equity values of the strategy or Buy and Hold equity.
+// @param Lookback (series int): Number of periods since the start date; recommended to use the 'since' function.
+// @param startDate (simple float): Timestamp of the starting date for the equity calculation.
+// @returns (float[]): Array of performance metrics.
+export PerformanceMetrics(series float base, series int Lookback, simple float startDate) =>
+    // Initialize variables for positive and negative returns
+    pos_sum = 0.0
+    neg_sum = 0.0
+    pos_count = 0
+    neg_count = 0
+    returns_sum = 0.0
+    returns_squared_sum = 0.0
+    pos_returns_squared_sum = 0.0
+    neg_returns_squared_sum = 0.0
+    // Loop through the past 'Lookback' bars to calculate sums and counts
+    if time >= startDate
+        for i = 0 to Lookback - 1
+            r = (base[i] - base[i + 1]) / base[i + 1]
+            returns_sum += r
+            returns_squared_sum += r * r
+            if r > 0
+                pos_sum += r
+                pos_count += 1
+                pos_returns_squared_sum += r * r
+            else if r < 0
+                neg_sum += r
+                neg_count += 1
+                neg_returns_squared_sum += r * r
+    float[] export_array = array.new_float(12)
+    // Calculate means
+    mean_all = math.round(returns_sum / Lookback, 5)
+    mean_pos = pos_count != 0 ? math.round(pos_sum / pos_count, 5) : na
+    mean_neg = neg_count != 0 ? math.round(neg_sum / neg_count, 5) : na
+    // Calculate standard deviations
+    stddev_all = math.round(math.sqrt((returns_squared_sum - (returns_sum * returns_sum) / Lookback) / Lookback), 5)
+    stddev_pos = pos_count != 0 ? math.round(math.sqrt((pos_returns_squared_sum - (pos_sum * pos_sum) / pos_count) / pos_count), 5) : na
+    stddev_neg = neg_count != 0 ? math.round(math.sqrt((neg_returns_squared_sum - (neg_sum * neg_sum) / neg_count) / neg_count), 5) : na
+    // Calculate probabilities
+    prob_pos = math.round((pos_count / Lookback) * 100, 2)
+    prob_neg = math.round((neg_count / Lookback) * 100, 2)
+    prob_neu = math.round(((Lookback - pos_count - neg_count) / Lookback) * 100, 2)
+    // Calculate ratios
+    sharpe_ratio = math.round((mean_all / stddev_all) * math.sqrt(255), 2)
+    sortino_ratio = math.round((mean_all / stddev_neg) * math.sqrt(255), 2)
+    omega_ratio = math.round(pos_sum / math.abs(neg_sum), 2)
+    // Set values in the array
+    array.set(export_array, 0, mean_all)
+    array.set(export_array, 1, mean_pos)
+    array.set(export_array, 2, mean_neg)
+    array.set(export_array, 3, stddev_all)
+    array.set(export_array, 4, stddev_pos)
+    array.set(export_array, 5, stddev_neg)
+    array.set(export_array, 6, prob_pos)
+    array.set(export_array, 7, prob_neu)
+    array.set(export_array, 8, prob_neg)
+    array.set(export_array, 9, sharpe_ratio)
+    array.set(export_array, 10, sortino_ratio)
+    array.set(export_array, 11, omega_ratio)
+    // Export the array
+    export_array
+
+// @function: Plots a table comparing performance metrics of Buy and Hold and Strategy equity.
+// @param buy_and_hold (float[]): Metrics from the PerformanceMetrics() function for Buy and Hold.
+// @param strategy (float[]): Metrics from the PerformanceMetrics() function for the strategy.
+// @returns: Table displaying the performance metrics comparison.
+export PerfMetricTable(float[] buy_and_hold, float[] strategy) =>
+    var table t = table.new(position.bottom_left, 3, 15, border_width = 1, frame_width = 1, frame_color = color.white)
+    // Header
+    table.cell(t, 0, 0, "Performance Metrics", text_color=color.white, bgcolor=color.gray)
+    table.merge_cells(t, 0, 0, 2, 0)
+    // Column headers
+    table.cell(t, 1, 1, "Buy & Hold", text_color=color.white)
+    table.cell(t, 2, 1, "Strategy", text_color=color.white)
+    // Metrics labels
+    
+    for i = 0 to array.size(buy_and_hold) - 1
+
+        metric = switch i
+            0  => "Mean (All Returns) %"
+            1  => "Mean (Positive Returns) %"
+            2  => "Mean (Negative Returns) %"
+            3  => "STDEV (All Returns) %"
+            4  => "STDEV (Positive Returns) %"
+            5  => "STDEV (Negative Returns) %"
+            6  => "% Prob. (Positive Returns)"
+            7  => "% Prob. (Neutral Returns)"
+            8  => "% Prob. (Negative Returns)"
+            9  => "Sharpe Ratio"
+            10 => "Sortino Ratio"
+            11 => "Omega Ratio"
+
+        table.cell(t, 0, i + 2, metric, text_color=color.white)
+        table.cell(t, 1, i + 2, str.tostring(array.get(buy_and_hold, i)), text_color=color.white)
+        table.cell(t, 2, i + 2, str.tostring(array.get(strategy, i)), text_color=color.white)
+    t
+//}

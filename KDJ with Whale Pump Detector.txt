@@ -1,0 +1,147 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © blackcat1402
+
+//@version=4
+study("L2 KDJ with Whale Pump Detector", overlay=false, max_bars_back=5000, max_labels_count=500)
+
+//inputs
+BuyAlertLimit = input(0, step=1, title = "BuyAlertLimit")
+SellAlertLimit = input(100, step=1, title = "SellAlertLimit")
+
+//functions
+xrf(values, length) =>
+    r_val = float(na)
+    if length >= 1
+        for i = 0 to length by 1
+            if na(r_val) or not na(values[i])
+                r_val  :=  values[i]
+                r_val
+    r_val
+xsa(src,len,wei) =>
+    sumf = 0.0
+    ma = 0.0
+    out = 0.0
+    sumf  :=  nz(sumf[1]) - nz(src[len]) + src
+    ma  :=  na(src[len]) ? na : sumf/len
+    out  :=  na(out[1]) ? ma : (src*wei+out[1]*(len-wei))/len
+    out
+
+
+// inputs
+n1 = input(18, title="n1", type=input.integer, minval = 1)
+m1 = input(4, title="m1", type=input.integer, minval = 1)
+m2 = input(4, title="m2", type=input.integer, minval = 1)
+
+//define whale pump prepareation behavior modeling
+var1 = xrf(low,1)
+var2 = xsa(abs(low-var1),3,1)/xsa(max(low-var1,0),3,1)*100
+var3 = ema(iff(close*1.2,var2*10,var2/10),3)
+var4 = lowest(low,38)
+var5 = highest(var3,38)
+var6 = iff(lowest(low,90),1,0)
+var7 = ema(iff(low<=var4,(var3+var5*2)/2,0),3)/618*var6
+var8 = ((close-lowest(low,21))/(highest(high,21)-lowest(low,21)))*100
+var9 = xsa(var8,13,8)
+//define whale pump variable as var7
+whalepump = var7
+//plot whale buy histograms
+//plotcandle(0, var7, 0, var7, color=var7>0?color.green:na)
+//plot(var7, title='main', color=var7>0?color.green:na, style=plot.style_area)
+//define KDJ
+rsv = (close-lowest(low,n1))/(highest(high,n1)-lowest(low,n1))*100 
+k = xsa(rsv,m1,1)
+d = xsa(k,m2,1)
+j = 3*k-2*d
+// plot signal
+
+//plot(k,color=color.white, linewidth =1)
+//plot(d,color=color.yellow, linewidth =1)
+//plot(j,color=j>j[1] ? color.fuchsia : color.red, linewidth =2)
+
+//generate long entry in lime and short entry in lime
+//bgcolor(crossover(j,BuyAlertLimit)?color.lime:na, transp=40)
+
+//bgcolor(crossunder(j,k) and j>50 ?color.red:na, transp=40)
+//bgcolor(crossunder(j,SellAlertLimit)?color.red:na, transp=40)
+
+//Add Alerts
+//alertcondition(crossover(j,BuyAlertLimit), title='Alert on Buy', message='BUY!')
+//alertcondition(crossunder(j,SellAlertLimit), title='Alert on Sell', message='SELL!') 
+
+//define bottom zone threshold values
+//zero = hline(0,color=color.yellow, linestyle=hline.style_dotted)
+//bot = hline(-10, color=color.lime, linestyle=hline.style_dotted)
+//fill(zero,bot,color=color.lime,transp=80)
+
+//l = crossunder(j,SellAlertLimit) ? 
+//       label.new (bar_index, j, " ", color=color.new(color.red,100), textcolor=color.white, style=label.style_labeldown, yloc=yloc.price, size=size.tiny) :
+//       crossover(j,BuyAlertLimit) ?
+//           label.new (bar_index, j, " ", color=color.new(color.yellow,0), textcolor=color.white,  style=label.style_triangleup, yloc=yloc.price, size=size.tiny) :
+//          na
+           
+           
+//
+TPRlen =  input(20, title="TPRlen")
+SMAlen =  input(5, title="SMAlen")
+ThrshFixed =  input(1.0, title="ThrshFixed")
+MULT =  input(10, title="MULT")
+_point =  input(0.01, title="_point")
+
+up = false
+dn = false
+
+
+xcn(cond, len) =>
+    count = 0
+    for i = 1 to len by 1
+        if cond[i - 1]
+            count += 1
+            count
+        else
+            count += 0
+            count
+    count
+
+sma1 = sma(close,SMAlen)
+sma2 = sma(close,SMAlen)[1]
+smadiff = (sma1 - sma2)/(MULT*_point)
+up := smadiff>ThrshFixed ? true : false
+dn := smadiff<-ThrshFixed ? true : false
+countP =  xcn(up,TPRlen)
+countM = xcn(dn,TPRlen)
+tpr = -(abs(100*(countP-countM)/TPRlen))
+//tprc = color.from_gradient(100-tpr, lowest(100-tpr, 55), highest(100-tpr, 55)  , #fa6ea9,  #16daff)
+
+normalize(_src, _min, _max) =>
+// Normalizes series with unknown min/max using historical min/max.
+// _src      : series to rescale.
+// _min, _min: min/max values of rescaled series.
+    var _historicMin = +10e10
+    var _historicMax = -10e10
+    _historicMin := min(nz(_src, _historicMin), _historicMin)
+    _historicMax := max(nz(_src, _historicMax), _historicMax)
+    _min + (_max - _min) * (_src - _historicMin) / max(_historicMax - _historicMin, 10e-10)
+    
+xyz = normalize(var7, 0, 5)
+
+bbstd1 = input(2)
+bbstd2 = input(3)
+bbstd3 = input(4)
+
+[bbMiddle1, bbUpper1, bbLower1] = bb(xyz, input(252), bbstd1)
+[bbMiddle2, bbUpper2, bbLower2] = bb(xyz, input(252), bbstd2)
+[bbMiddle3, bbUpper3, bbLower3] = bb(xyz, input(252), bbstd3)
+
+plot(bbUpper1, color =color.yellow)
+
+plot(bbUpper2, color =color.orange)
+
+plot(bbUpper3, color =color.red)
+
+BarColorz =  xyz[1] > bbUpper2 and xyz < bbUpper2 ? color.orange : xyz[1] > bbUpper3 and xyz < bbUpper3 ? color.red : na
+barcolor(BarColorz)
+
+plot(normalize(var7, 0, 5), color = #2a2e39, linewidth=1, style=plot.style_histogram)
+
+BarColorz1 =  xyz > bbUpper3  ? color.blue : #434651
+plot(normalize(var7, 0, 5), color = BarColorz1, linewidth=1, style=plot.style_cross)

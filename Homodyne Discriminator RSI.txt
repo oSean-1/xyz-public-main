@@ -1,0 +1,101 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Futur
+// Utilizes LazyBear's Ehler StochRSI along with
+// List of all my indicators: https://www.tradingview.com/v/4IneGo8h/
+
+// @version=2    
+
+study("Ehlers Smoothed Stochastic [LazyBear]", shorttitle="pRSI_F")
+PI=3.14159265359
+applyDoubleSmoothing=input(false, type=bool)
+//length = input (14, title="Stoch Length")
+//lengthMA=input (3, title="Stoch MA Length")
+
+over_bought = input (70)
+over_sold = input (30)
+src=close
+roofingBandUpper=input(48)
+roofingBandLower=input(10)
+
+
+
+// Rolling Moving Average (or Wells Wilders MA)
+irma(p,l) =>
+    irma = (nz(irma[1]) * (l - 1) + p) / l
+
+// RSI function.
+irsi(p, l) => 
+    up   = irma(max(change(p), 0), l)
+    down = irma(-min(change(p), 0), l)
+    irsi = down == 0 ? 100 : up == 0 ? 0 : 100 - (100 / (1 + up / down))
+//
+
+//
+// --- Start the Homodyne Discriminator Caculations
+//
+// Mutable Variables (non-series)
+C1     = 0.0962
+C2     = 0.5769
+Df     = 0.5
+
+//
+C3      = (nz(Period[1])*0.075+0.54)
+smooth    = ((hl2*4.0) + (hl2[1]*3.0) + (hl2[2]*2.0) + (hl2[3]))/10.0
+dDeTrend  = (smooth*C1 + nz(smooth[2])*C2 - nz(smooth[4])*C2 - nz(smooth[6])*C1)*C3
+
+// Compute InPhase and Quadrature components
+Q1      = (dDeTrend*C1 + nz(dDeTrend[2])*C2 - nz(dDeTrend[4])*C2 - nz(dDeTrend[6])*C1)*C3
+I1      = nz(dDeTrend[3])
+
+// Advance Phase of I1 and Q1 by 90 degrees
+jI      = (I1*C1 + nz(I1[2])*C2 - nz(I1[4])*C2 - nz(I1[6])*C1)*C3
+jQ      = (Q1*C1 + nz(Q1[2])*C2 - nz(Q1[4])*C2 - nz(Q1[6])*C1)*C3
+
+// Phaser addition for 3 bar averaging
+I2_  = I1 - jQ
+Q2_  = Q1 + jI
+// Smooth i and q components before applying discriminator
+I2  = 0.2*I2_ + 0.8*nz(I2[1])
+Q2  = 0.2*Q2_ + 0.8*nz(Q2[1])
+
+// Extract Homodyne Discriminator
+Re_ = I2*nz(I2[1]) + Q2*nz(Q2[1])
+Im_ = I2*nz(Q2[1]) - Q2*nz(I2[1])
+Re  = 0.2*Re_ + 0.8*nz(Re[1])
+Im  = 0.2*Im_ + 0.8*nz(Im[1]) 
+
+dp_ = iff(Re!=0 and Im!=0 , 6.28318/atan(Im/Re) , 0)
+II  = nz(Period[1])
+dp  = max(max(min(min(dp_,1.5*II),50),0.6667*II),6)
+Period = dp*0.2 + nz(Period[1])*0.8
+SmoothPeriod = 0.33*Period + nz(SmoothPeriod[1])*0.67
+
+EhlersSuperSmootherFilter(price, lower) =>
+	a1 = exp(-PI * sqrt(2) / lower)
+	coeff2 = 2 * a1 * cos(sqrt(2) * PI / lower)
+	coeff3 = - pow(a1,2)
+	coeff1 = 1 - coeff2 - coeff3
+	filt = coeff1 * (price + nz(price[1])) / 2 + coeff2 * nz(filt[1]) + coeff3 * nz(filt[2]) 
+	filt
+
+EhlersRoofingFilter(price, smoothed, upper, lower) =>  
+	alpha1 = (cos(sqrt(2) * PI / upper) + sin (sqrt(2) * PI / upper) - 1) / cos(sqrt(2) * PI / upper)
+	highpass = pow(1 - alpha1 / 2, 2) * (price - 2 * nz(price[1]) + nz(price[2])) + 
+ 	            2 * (1 - alpha1) * nz(highpass[1]) - pow(1 - alpha1, 2) * nz(highpass[2])
+	smoothed ? EhlersSuperSmootherFilter(highpass, lower) : highpass
+    
+EhlersStochastic(price, length, applyEhlerSmoothing, roofingBandUpper, roofingBandLower) =>
+	filt = EhlersRoofingFilter(price, applyEhlerSmoothing, roofingBandUpper, roofingBandLower)
+	highestP = highest(filt, length)
+	lowestP = lowest(filt, length)
+	iff ((highestP - lowestP) != 0, (filt - lowestP) / (highestP - lowestP),  0)
+
+rsiLen  = round((SmoothPeriod*Df)-1)  // Get variable RSI length from discriminator
+idealRSI  = irsi(EhlersRoofingFilter(src, applyDoubleSmoothing, roofingBandUpper, roofingBandLower),rsiLen)         // Generate RSI.
+//stoch=EhlersSuperSmootherFilter(EhlersStochastic(src, SmoothPeriod, applyDoubleSmoothing, roofingBandUpper, roofingBandLower), roofingBandLower)
+hline (over_bought,color = red)
+hline (over_sold, color = green)
+hline((over_bought+over_sold)/2)
+//plot(sma(idealRSI, lengthMA), color=red, linewidth=1)
+plot(idealRSI,color=aqua,linewidth=1)
+ 

@@ -1,0 +1,8 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// Please use this on the VIX, DAILY CHART ONLY!
+// © TsangYouJun
+
+//@version=5
+indicator("JPM VIX Buy Signal", overlay = true)
+jpm = (close / ta.sma(close, 30)) >= 1.5
+plotshape(jpm, style=shape.triangleup, location=location.abovebar, color=color.red, size=size.tiny)

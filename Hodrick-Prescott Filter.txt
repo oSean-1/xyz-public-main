@@ -1,0 +1,23 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © YavuzAkbay
+
+//@version=5
+indicator("Hodrick-Prescott Filter", overlay=true)  // Ensure overlay is false to use a new pane
+
+// Input for the filter smoothness parameter
+lambda = input.int(100, "Smoothness Parameter (λ)", minval=1)
+
+// Function to calculate the approximate HP trend component
+hpFilter(src, lambda) =>
+    var float trend = na
+    trend := na(trend[1]) ? src : (src + (lambda - 1) * nz(trend[1])) / lambda
+    trend
+
+// Calculate the HP Filter (trend component)
+hp_trend = hpFilter(close, lambda)
+
+// Calculate the cycle component (price - trend)
+cycle = close - hp_trend
+
+// Plot the cycle component in the new pane
+plot(hp_trend, title="HP Filter Trend", color=color.red, linewidth=2)

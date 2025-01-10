@@ -1,0 +1,48 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © RicardoSantos
+
+//@version=5
+indicator(title='John Ehlers - The Price Radio', shorttitle='Radio')
+
+// reference: 
+//      https://financial-hacker.com/petra-on-programming-the-price-wave-radio/
+clamp(_value, _min, _max) =>
+    _t = _value < _min ? _min : _value
+    _t > _max ? _max : _t
+
+am(_signal, _period) =>
+    _envelope = ta.highest(math.abs(_signal), 4)
+    ta.sma(_envelope, _period)
+
+fm(_signal, _period) =>
+    _hl = clamp(1. * _signal, -1., 1.)
+    ta.sma(_hl, _period)
+
+deriv = ta.change(close, input(1))
+length = input(14)
+//plot(series=deriv, title='D', color=color.black)
+//plot(series=am(deriv, length), title='AM+', color=color.red)
+//plot(series=-am(deriv, length), title='AM-', color=color.lime)
+plot(series=fm(deriv, length), title='FM', color=color.new(color.white, 0))
+
+sHigh = request.security(syminfo.tickerid , timeframe.period, high)
+sLow = request.security(syminfo.tickerid , timeframe.period, low)
+//
+_src = (sHigh + sLow) / 2
+
+x = fm(deriv, length)
+
+f_fisher(_src, _window) =>
+    min_Median = ta.lowest(x, _window)
+    max_Median = ta.highest(x, _window)
+    temp = (x - min_Median) / (max_Median - min_Median)
+    value = 0.0
+    value := .5 * 2 * ((temp - .5) + (.5 * nz(value[1])))
+    value1 = value >= .9999 ? .9999 : value <= -.9999 ? -.9999 : value
+    temp2 = (1 + value1) / (1 - value1)
+    fisher_Value = 0.0
+    fisher_Value := (.25 * math.log(temp2)) + (.5 * nz(fisher_Value[1]))
+    fisher_Value
+
+Fish1 = f_fisher(_src, input(21))
+plot(Fish1,"FT", color.red)

@@ -1,0 +1,53 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © VanHe1sing
+
+//@version=5
+indicator("Frequency and Volume Profile", "Freq&Vol Profile", overlay = true, max_lines_count = 500)
+import PineCoders/VisibleChart/4
+
+// ————— USER INPUTS
+series float  src       = input.source(hl2, "Source", group = "FREQUENCY PROFILE")
+int           move      = input.int(100, "Move Profile", step = 20)
+string        mode      = input.string("Frequency", "Frequency/Volume", ["Frequency", "Volume"])
+color         color     = input.color(color.white, "Profile Color")
+
+int       numBins       = 500
+var int[] Bins          = array.new_int(numBins, 0)
+int       n             = bar_index
+int       lookcback     = timeframe.isdwm ? 2500 : 6000  // if time frame is daily and higher use 5000 period
+float     lowestPrice   = ta.lowest( src, lookcback)
+float     highestPrice  = ta.highest(src, lookcback)
+float     vol           = close > open ? volume : -volume
+
+
+vol      := (vol - 0) / ta.stdev(vol, 200)
+vol      := vol < 0 ? vol * -1 : vol
+
+// ————— PROFILE CALCULATION
+if VisibleChart.barIsVisible() // Calculate Profile only on Visible Bars
+    float binSize = (highestPrice - lowestPrice) / numBins
+
+    for i = 0 to numBins - 1
+        binLower  = lowestPrice + i * binSize
+        val       = Bins.get(i)
+        col       = color.from_gradient(val, 0, 20, color.new(color, 60), color)
+
+        if math.sign(src[1] - binLower) != math.sign(src - binLower)
+            Bins.set(i, val + (mode == "Frequency" ? 1 : math.round(vol*2)))
+
+        if barstate.islast
+            line.new(n + move, binLower, n + move - val, binLower, 
+                             color = col, 
+                             style = line.style_dotted)
+
+            //tbl = table.new(position.top_center, 1, 1)
+            //tbl.cell(0, 0, mode, text_color = color, text_size = size.large) // Current Mode Display  
+
+// ————— ATTENTION
+if last_bar_index < lookcback and barstate.islast
+    label.new(bar_index, src, 
+             text      = "USE LOWER TIMFRAME\n Not Enough Bars", 
+             textcolor = chart.fg_color)
+
+if Bins.size() > numBins 
+    Bins.shift()

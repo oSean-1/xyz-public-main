@@ -1,0 +1,382 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © PineCoders
+
+//@version=6
+indicator("Ensemble Alerts", overlay = false, max_labels_count = 500)
+
+// Ensemble Alerts
+// v1, 2024.12.06
+
+// This code was written using the recommendations from the Pine Script™ User Manual's Style guide:
+//    https://www.tradingview.com/pine-script-docs/writing/style-guide/
+
+
+
+import PineCoders/Alerts/1 as PCalerts
+import TradingView/ta/9    as TVta
+
+
+
+//#region ———————————————————— Constants and inputs
+
+
+// Colors 
+color SCARLET   = #ff0000
+color NEON      = #00FF00
+color LIME      = color.lime
+color FUCHSIA   = color.fuchsia
+color SCARLET80 = color.new(SCARLET, 80)
+color NEON80    = color.new(NEON,    80)
+
+// Alert direction options
+string TD01 = "Up only"
+string TD02 = "Down only"
+string TD03 = "Up and down"
+string TD04 = "Alternating"
+
+// MA type options
+string MA01 = "Simple"
+string MA02 = "Exponential"
+string MA03 = "Double Exponential"
+string MA04 = "Triple Exponential"
+string MA05 = "Wilder (RMA)"
+string MA06 = "Weighted"
+string MA07 = "Volume-Weighted"
+string MA08 = "Arnaud Legoux"
+string MA09 = "Hull"
+string MA10 = "Fractal Adaptive"
+string MA11 = "Tilson"
+string MA12 = "Triangular"
+
+// Tooltips
+string TT_DIR = "Specifies the allowed direction for the compound alert conditions and messages. The first three
+     options allow upward alerts, downward alerts, or both, respectively. The fourth option, 'Alternating', specifies
+     that the indicator alternates between upward and downward alerts, preventing consecutive or simultaneous up/down
+     triggers."
+string TT_LST = "Each field represents a condition group. Each title is the group's marker.
+     List any of these condition numbers separated by commas, e.g., '1, 4, 8, 11':
+     \n         1:   RSI above/below threshold
+     \n         2:   RSI below/above threshold
+     \n         3:   Stoch above/below threshold
+     \n         4:   Stoch below/above threshold
+     \n         5:   Stoch K over/under D
+     \n         6:   Stoch K under/over D
+     \n         7:   AO above/below threshold
+     \n         8:   AO below/above threshold
+     \n         9:   AO rising/falling
+     \n       10:   AO falling/rising
+     \n       11:   Supertrend up/down
+     \n       12:   Supertrend down/up
+     \n       13:   Close above/below MA
+     \n       14:   Close below/above MA
+     \n       15:   Close above/below open
+     \n       16:   Close below/above open
+     \n       17:   Close increase/decrease
+     \n       18:   Close decrease/increase
+     \n       19:   Close near Donchian top/bottom
+     \n       20:   Close near Donchian bottom/top
+     \n       21:   New Donchian high/low
+     \n       22:   New Donchian low/high
+     \n       23:   Rising volume
+     \n       24:   Falling volume
+     \n       25:   Volume above average
+     \n       26:   Volume below average
+     \n       27:   High body to range ratio
+     \n       28:   Low body to range ratio
+     \n       29:   High relative volatility
+     \n       30:   Low relative volatility
+     \n  31-35:   External conditions"
+string TT_SP  = "Toggles the visibility of the condition plots in the separate pane. When unchecked, the plots are 
+     visible only from the status line and Data Window, helping to reduce graphics demands."
+string TT_RPT = "Enabling this input allows the indicator to render markers and issue alerts on open, unconfirmed bars.
+     Exercise caution when using this setting, because signals on an open bar can repaint until the bar closes."
+string TT_WCK = "Determines whether the SuperTrend uses high and low prices in its reversal calculation. If not
+     enabled, the SuperTrend uses only the close price."
+string TT_RSH = "The 'RSI above' condition activates when the RSI is above this value."
+string TT_RSL = "The 'RSI below' condition activates when the RSI is below this value."
+string TT_STH = "The 'Stoch above' condition activates when the Stochastic oscillator is above this value."
+string TT_STL = "The 'Stoch below' condition activates when the Stochastic oscillator is below this value."
+string TT_EXT = "Source inputs for external conditions. Each checkbox specifies whether the corresponding condition
+     is directional.
+     \n• If unchecked, the source value represents a directional condition. A positive value means an upward
+     condition occurred, a negative value means a downward condition occurred, and a value of 0 means no condition
+     occurred.
+     \n• If checked, the source value represents a non-directional condition that filters upward and downward compound
+     conditions. Any nonzero value means the condition occurred, and a value of 0 means the condition did not occur."
+string TT_UAT = "Any text specified here replaces the default marker text in upward alerts."
+string TT_DAT = "Any text specified here replaces the default marker text in downward alerts."
+
+// Default "M1" condition group
+string M1DEF  = "2,18,24,28"
+
+// Inputs
+string GRP1                   = "Markers"
+string conditionDirInput      = input.string(TD03,     "Direction",             group = GRP1, inline  = "00", options = [TD01, TD02, TD03, TD04], tooltip = TT_DIR)
+string marker1ConditionsInput = input.string(M1DEF,    "M1",                    group = GRP1, inline  = "01")
+string marker2ConditionsInput = input.string("",       "M2",                    group = GRP1, inline  = "01")
+string marker3ConditionsInput = input.string("",       "M3",                    group = GRP1, inline  = "01", tooltip = TT_LST)
+string marker4ConditionsInput = input.string("",       "M4",                    group = GRP1, inline  = "02")
+string marker5ConditionsInput = input.string("",       "M5",                    group = GRP1, inline  = "02")
+string marker6ConditionsInput = input.string("",       "M6",                    group = GRP1, inline  = "02")
+bool   highlightBgInput       = input.bool(false,      "Highlight background",  group = GRP1, inline  = "03")
+color  bgBullColorInput       = input.color(NEON80,    "",                      group = GRP1, inline  = "03")
+color  bgBearColorInput       = input.color(SCARLET80, "",                      group = GRP1, inline  = "03")
+bool   repaintingInput        = input.bool(false,      "Repainting",            group = GRP1, tooltip = TT_RPT)
+bool   showInPane             = input.bool(true,       "Show plots in pane",    group = GRP1, tooltip = TT_SP)
+
+string GRP2                   = "Moving Average"
+string maTypeStrInput         = input.string(MA11,     "Type",                  group = GRP2, options = [MA01, MA02, MA03, MA04, MA05, MA06, MA07, MA08, MA09, MA10, MA11, MA12])
+int    maLengthInput          = input.int(9,           "Length",                group = GRP2)
+float  maSourceInput          = input.source(close,    "Source",                group = GRP2)
+
+string GRP3                   = "SuperTrend"
+int    stAtrLenInput          = input.int(10,          "Length",                group = GRP3)
+float  stFactorInput          = input.float(3,         "ATR Factor",            group = GRP3)
+bool   stUseWicksInput        = input.bool(false,      "Use Wicks",             group = GRP3, tooltip = TT_WCK)
+
+string GRP4                   = "RSI"
+int    rsiLengthInput         = input.int(14,          "Length",                group = GRP4)
+float  rsiHiLmtInput          = input.float(70,        "High Threshold",        group = GRP4, tooltip = TT_RSH)
+float  rsiLoLmtInput          = input.float(30,        "Low Threshold",         group = GRP4, tooltip = TT_RSL)
+
+string GRP5                   = "Stochastic"
+int    stoKLengthInput        = input.int(14,          "%K Length",             group = GRP5)
+int    stoSmoothInput         = input.int(3,           "%K Smoothing",          group = GRP5)
+int    stoDLengthInput        = input.int(3,           "%D Length",             group = GRP5)
+float  stoHiLmtInput          = input.float(80,        "High Threshold",        group = GRP5, tooltip = TT_STH)
+float  stoLoLmtInput          = input.float(20,        "Low Threshold",         group = GRP5, tooltip = TT_STL)
+
+string GRP6                   = "Awesome Oscillator"
+int    aoShortLenInput        = input.int(5,           "Short Length",          group = GRP6)
+int    aoLongLenInput         = input.int(34,          "Long Length",           group = GRP6)
+
+string GRP7                   = "Donchian Channel"
+int    channelLengthInput     = input.int(20,          "Length",                group = GRP7)
+
+string GRP8                   = "External Conditions"
+float  externalSrc1Input      = input.source(close,    "Input 1",               group = GRP8, inline = "70")
+float  externalSrc2Input      = input.source(close,    "Input 2",               group = GRP8, inline = "71")
+float  externalSrc3Input      = input.source(close,    "Input 3",               group = GRP8, inline = "72")
+float  externalSrc4Input      = input.source(close,    "Input 4",               group = GRP8, inline = "73")
+float  externalSrc5Input      = input.source(close,    "Input 5",               group = GRP8, inline = "74")
+bool   useSrc1asFilterInput   = input.bool(false,      "",                      group = GRP8, inline = "70", tooltip = TT_EXT)
+bool   useSrc2asFilterInput   = input.bool(false,      "",                      group = GRP8, inline = "71")
+bool   useSrc3asFilterInput   = input.bool(false,      "",                      group = GRP8, inline = "72")
+bool   useSrc4asFilterInput   = input.bool(false,      "",                      group = GRP8, inline = "73")
+bool   useSrc5asFilterInput   = input.bool(false,      "",                      group = GRP8, inline = "74")
+
+string alertUpMsgInput        = input.text_area("",    "Up alert text (▲)",     tooltip = TT_UAT)
+string alertDnMsgInput        = input.text_area("",    "Down alert text (▼)",   tooltip = TT_DAT)
+//#endregion
+
+
+
+//#region ———————————————————— Functions 
+
+
+// @function            Calculates the moving average of a given `src` based on the specified `maType` and `length`.
+// @param src           (series float) The source value used to calculate the moving average.
+// @param length        (simple int) The number of periods used in the moving average calculation.
+// @param maType        (simple string) Specifies the type of moving average to calculate, using the `MA*` constants.
+// @returns             (float) The calculated moving average value.
+ma(series float src, simple int length, simple string maType) =>
+    float result = switch maType
+        MA01 => ta.sma(    src, length)
+        MA02 => ta.ema(    src, length)
+        MA03 => TVta.dema( src, length)
+        MA04 => TVta.tema( src, length)
+        MA05 => ta.rma(    src, length)
+        MA06 => ta.wma(    src, length)
+        MA07 => ta.vwma(   src, length)
+        MA08 => ta.alma(   src, length, 0.85, 6)
+        MA09 => ta.hma(    src, length)
+        MA10 => TVta.frama(src, length)
+        MA11 => TVta.t3(   src, length)
+        MA12 => TVta.trima(src, length)
+//#endregion
+
+
+
+//#region ———————————————————— Main calculations 
+
+
+// @variable An array containing all condition lists specified in the "M*" inputs.
+var array<string> conditionGroups = array.from(
+  	 marker1ConditionsInput, marker2ConditionsInput, marker3ConditionsInput, 
+  	 marker4ConditionsInput, marker5ConditionsInput, marker6ConditionsInput
+ )
+
+// @variable Determines when alerts are allowed. `true` if either `repaintingInput` is `true` or the bar is closed.
+bool allowCalc = repaintingInput or barstate.isconfirmed
+
+// Variables that specify directional behaviors based on the `conditionDirInput`
+bool doLongs   = conditionDirInput != TD02 and allowCalc
+bool doShorts  = conditionDirInput != TD01 and allowCalc
+bool alternate = conditionDirInput == TD04
+
+// Indicators
+float rsi     = ta.rsi(close, rsiLengthInput)
+float ma      = ma(maSourceInput, maLengthInput, maTypeStrInput)
+float ao      = TVta.ao(hl2, aoShortLenInput, aoLongLenInput)
+float avgVol  = ta.sma(volume, 20)
+float brRatio = math.abs(close - open) / (high - low)
+float atrFast = ta.atr(7)
+float atrSlow = ta.atr(40)
+[k,  d]       = TVta.stochFull(stoKLengthInput, stoSmoothInput, stoDLengthInput)
+[st, dir]     = TVta.supertrend(stFactorInput,  stAtrLenInput,  stUseWicksInput)
+[hh, ll, mid] = TVta.donchian(channelLengthInput)
+
+// Directional conditions
+bool rsiIsAbove     = rsi >= rsiHiLmtInput
+bool rsiIsBelow     = rsi <= rsiLoLmtInput
+bool stoIsAbove     = k > stoHiLmtInput
+bool stoIsBelow     = k < stoLoLmtInput
+bool stoKIsOverD    = k > d
+bool stoDIsOverK    = k < d
+bool aoIsAbove      = ao > 0
+bool aoIsBelow      = ao < 0
+bool aoIsRising     = ao > ao[1]
+bool aoIsFalling    = ao < ao[1]
+bool trendIsUp      = dir < 0  
+bool trendIsDn      = dir > 0
+bool closeAboveMa   = close > ma
+bool closeBelowMa   = close < ma
+bool polarityIsUp   = close > open 
+bool polarityIsDn   = close < open
+bool higherClose    = close > close[1]
+bool lowerClose     = close < close[1]
+bool isTopOfRange   = close > 0.5 * (mid + hh) 
+bool isBotOfRange   = close < 0.5 * (mid + ll)
+bool hasMadeHighs   = high > hh[1]
+bool hasMadeLows    = low < ll[1]
+
+// Non-directional conditions (apply to both sides)
+bool risingVolume   = volume > volume[1]
+bool fallingVolume  = volume < volume[1]
+bool highVolume     = volume > avgVol
+bool lowVolume      = volume < avgVol
+bool largeBody      = brRatio > 0.5
+bool smallBody      = brRatio < 0.5
+bool highVolatility = atrFast > atrSlow
+bool lowVolatility  = atrFast < atrSlow
+
+// External conditions (can be directional or non-directional)
+bool extSrc1Bull    = (useSrc1asFilterInput and externalSrc1Input != 0) or externalSrc1Input > 0
+bool extSrc2Bull    = (useSrc2asFilterInput and externalSrc2Input != 0) or externalSrc2Input > 0
+bool extSrc3Bull    = (useSrc3asFilterInput and externalSrc3Input != 0) or externalSrc3Input > 0
+bool extSrc4Bull    = (useSrc4asFilterInput and externalSrc4Input != 0) or externalSrc4Input > 0
+bool extSrc5Bull    = (useSrc5asFilterInput and externalSrc5Input != 0) or externalSrc5Input > 0
+bool extSrc1Bear    = (useSrc1asFilterInput and extSrc1Bull) or externalSrc1Input < 0
+bool extSrc2Bear    = (useSrc2asFilterInput and extSrc2Bull) or externalSrc2Input < 0
+bool extSrc3Bear    = (useSrc3asFilterInput and extSrc3Bull) or externalSrc3Input < 0
+bool extSrc4Bear    = (useSrc4asFilterInput and extSrc4Bull) or externalSrc4Input < 0
+bool extSrc5Bear    = (useSrc5asFilterInput and extSrc5Bull) or externalSrc5Input < 0
+
+// @variable An array of "bool" values representing all conditions available for upward compound conditions.
+array<bool> conditionsUp = array.from(
+     rsiIsAbove,   rsiIsBelow,    stoIsAbove,   stoIsBelow,   stoKIsOverD,  stoDIsOverK,  aoIsAbove,      aoIsBelow, 
+     aoIsRising,   aoIsFalling,   trendIsUp,    trendIsDn,    closeAboveMa, closeBelowMa, polarityIsUp,   polarityIsDn,
+     higherClose,  lowerClose,    isTopOfRange, isBotOfRange, hasMadeHighs, hasMadeLows,
+     risingVolume, fallingVolume, highVolume,   lowVolume,    largeBody,    smallBody,    highVolatility, lowVolatility,
+     extSrc1Bull,  extSrc2Bull,   extSrc3Bull,  extSrc4Bull,  extSrc5Bull
+ )
+// @variable An array of "bool" values representing all conditions available for downward compound conditions.
+array<bool> conditionsDn = array.from(
+     rsiIsBelow,   rsiIsAbove,    stoIsBelow,   stoIsAbove,   stoDIsOverK,  stoKIsOverD,  aoIsBelow,      aoIsAbove,
+     aoIsFalling,  aoIsRising,    trendIsDn,    trendIsUp,    closeBelowMa, closeAboveMa, polarityIsDn,   polarityIsUp,
+     lowerClose,   higherClose,   isBotOfRange, isTopOfRange, hasMadeLows,  hasMadeHighs,
+     risingVolume, fallingVolume, highVolume,   lowVolume,    largeBody,    smallBody,    highVolatility, lowVolatility,
+     extSrc1Bear,  extSrc2Bear,   extSrc3Bear,  extSrc4Bear,  extSrc5Bear
+ )
+
+// Create two "string" messages containing the markers for all activated upward and downward compound conditions.
+[alertMsgUp, alertMsgDn] = PCalerts.compoundAlertMessage(
+     conditionsUp, conditionsDn, conditionGroups, doLongs, doShorts, false
+ )
+
+// Replace the commas in the `alertMsg*` values with newline characters to stack markers vertically in the label text.
+string labelMsgUp = str.replace_all(alertMsgUp, ", ", "\n")
+string labelMsgDn = str.replace_all(alertMsgDn, ", ", "\n")
+//#endregion
+
+
+
+//#region ———————————————————— Display and alerts 
+
+
+// @variable Holds the last triggered direction for alternating alerts when `conditionDirInput` is "Alternating".
+var int position = 0 
+
+// Create alert conditions that are `true` when the `alertMsg*` values are not empty strings, meaning at least one 
+// specified condition group is `true`. The conditions are filtered by `position` when `alternate` is `true`. 
+bool upAlert   = alertMsgUp != "" and (not alternate or position !=  1)
+bool downAlert = alertMsgDn != "" and (not alternate or position != -1)
+
+// Create alerts containing user-input messages or the calculated `alertMsg*` text and draw labels showing the 
+// `labelMsg*` values on occurrences of the `upAlert` and `downAlert` conditions. 
+if upAlert
+    alert(alertUpMsgInput != "" ? alertUpMsgInput : alertMsgUp)
+    label.new(
+         bar_index, na, labelMsgUp, yloc = yloc.belowbar, color = color(na), textcolor = LIME, force_overlay = true
+     )
+    position := 1
+if downAlert 
+    alert(alertDnMsgInput != "" ? alertDnMsgInput : alertMsgDn)
+    label.new(
+         bar_index, na, labelMsgDn, yloc = yloc.abovebar, color = color(na), textcolor = FUCHSIA, force_overlay = true
+     )
+    position := -1
+
+// Plot numbers for the `upAlert` and `downAlert` conditions for inspection and indicator-on-indicator conditions.
+plot(upAlert   ?  1 : 0, "Up alert",   display = display.data_window)
+plot(downAlert ? -1 : 0, "Down alert", display = display.data_window)
+
+// Plot the history of each non-external condition in the script's pane as a number. Any non-na values in the plotted 
+// series mean the conditions are `true`. Directional conditions are colored aqua and orange. Non-directional conditions 
+// are colored purple. Opposing conditions appear as positive and negative numbers with the same absolute value. 
+// For example, "Rising volume" is displayed at 1, and its opposite condition, "Falling volume", is displayed at -1.
+// The titles show the condition numbers to which they apply. 
+plotDisplay = showInPane ? display.all : display.status_line + display.data_window
+plot(na,                        "═════ DIRECTIONAL CONDITIONS ═════",                                          display = display.data_window)
+plot(rsiIsAbove     ?  5  : na, "RSI above threshold (1, 2)",           color.aqua,   2, plot.style_circles, display = plotDisplay) 
+plot(rsiIsBelow     ? -5  : na, "RSI below threshold (1, 2)",           color.orange, 2, plot.style_circles, display = plotDisplay)
+plot(stoIsAbove     ?  6  : na, "Stochastic above threshold (3, 4)",    color.aqua,   2, plot.style_circles, display = plotDisplay)
+plot(stoIsBelow     ? -6  : na, "Stochastic below threshold (3, 4)",    color.orange, 2, plot.style_circles, display = plotDisplay) 
+plot(stoKIsOverD    ?  7  : na, "Stochastic K over D (5, 6)",           color.aqua,   2, plot.style_circles, display = plotDisplay) 
+plot(stoDIsOverK    ? -7  : na, "Stochastic K under D (5, 6)",          color.orange, 2, plot.style_circles, display = plotDisplay)
+plot(aoIsAbove      ?  8  : na, "AO above threshold (7, 8)",            color.aqua,   2, plot.style_circles, display = plotDisplay)
+plot(aoIsBelow      ? -8  : na, "AO Below threshold (7, 8)",            color.orange, 2, plot.style_circles, display = plotDisplay)
+plot(aoIsRising     ?  9  : na, "AO rising (9, 10)",                    color.aqua,   2, plot.style_circles, display = plotDisplay) 
+plot(aoIsFalling    ? -9  : na, "AO falling (9, 10)",                   color.orange, 2, plot.style_circles, display = plotDisplay) 
+plot(trendIsUp      ?  10 : na, "SuperTrend up (11, 12)",               color.aqua,   2, plot.style_circles, display = plotDisplay)
+plot(trendIsDn      ? -10 : na, "SuperTrend down (11, 12)",             color.orange, 2, plot.style_circles, display = plotDisplay)
+plot(closeAboveMa   ?  11 : na, "Close above MA (13, 14)",              color.aqua,   2, plot.style_circles, display = plotDisplay) 
+plot(closeBelowMa   ? -11 : na, "Close below MA (13, 14)",              color.orange, 2, plot.style_circles, display = plotDisplay) 
+plot(polarityIsUp   ?  12 : na, "Close above open (15, 16)",            color.aqua,   2, plot.style_circles, display = plotDisplay)
+plot(polarityIsDn   ? -12 : na, "Close below open (15, 16)",            color.orange, 2, plot.style_circles, display = plotDisplay)
+plot(higherClose    ?  13 : na, "Close increase (17, 18)",              color.aqua,   2, plot.style_circles, display = plotDisplay) 
+plot(lowerClose     ? -13 : na, "Close decrease (17, 18)",              color.orange, 2, plot.style_circles, display = plotDisplay) 
+plot(isTopOfRange   ?  14 : na, "Close near Donchian top (19, 20)",     color.aqua,   2, plot.style_circles, display = plotDisplay)
+plot(isBotOfRange   ? -14 : na, "Close near Donchian Bottom (19, 20)",  color.orange, 2, plot.style_circles, display = plotDisplay) 
+plot(hasMadeHighs   ?  15 : na, "New Donchian high (21, 22)",           color.aqua,   2, plot.style_circles, display = plotDisplay)
+plot(hasMadeLows    ? -15 : na, "New Donchian low (21, 22)",            color.orange, 2, plot.style_circles, display = plotDisplay)
+plot(na,                        "════ NON-DIRECTIONAL CONDITIONS ════",                                        display = display.data_window)
+plot(risingVolume   ?  1  : na, "Rising volume (23)",                   color.purple, 2, plot.style_circles, display = plotDisplay) 
+plot(fallingVolume  ? -1  : na, "Falling volume (24)",                  color.purple, 2, plot.style_circles, display = plotDisplay)
+plot(highVolume     ?  2  : na, "Volume above average (25)",            color.purple, 2, plot.style_circles, display = plotDisplay) 
+plot(lowVolume      ? -2  : na, "Volume below average (26)",            color.purple, 2, plot.style_circles, display = plotDisplay)
+plot(largeBody      ?  3  : na, "High body to range ratio (27)",        color.purple, 2, plot.style_circles, display = plotDisplay) 
+plot(smallBody      ? -3  : na, "Low body to range ratio (28)",         color.purple, 2, plot.style_circles, display = plotDisplay)
+plot(highVolatility ?  4  : na, "High relative volatility (29)",        color.purple, 2, plot.style_circles, display = plotDisplay) 
+plot(lowVolatility  ? -4  : na, "Low relative volatility (30)",         color.purple, 2, plot.style_circles, display = plotDisplay)
+
+// Display horizontal lines to divide condition plots in the visual space.
+hlineDisplay = showInPane ? display.all : display.none
+hline(4.5,  "", color.gray, hline.style_solid, display = hlineDisplay)
+hline(0,    "", color.gray,                    display = hlineDisplay)
+hline(-4.5, "", color.gray, hline.style_solid, display = hlineDisplay)
+
+// Highlight the main background when `highlightBgInput` is `true` and either `upAlert` or `downAlert` occurs. 
+bgcolor(highlightBgInput and upAlert   ? bgBullColorInput : na, force_overlay = true)
+bgcolor(highlightBgInput and downAlert ? bgBearColorInput : na, force_overlay = true)
+//#endregion

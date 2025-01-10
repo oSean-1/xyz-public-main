@@ -1,0 +1,115 @@
+//@version=4
+study("Hindenburg Omen", shorttitle="HO", overlay=true)
+
+////////////
+// INPUTS //
+
+new_low_high_threshold = input(2.2, type = input.float,   title = "New Lows/Highs Threshold (Cond 1) %")
+pos_trend_lookback     = input(50,  type = input.integer, title = "Positive Trend Lookback (Cond 2)")
+
+//////////////
+// GET DATA //
+
+nyse_adv       = security("USI:ADV", "D", close, barmerge.gaps_on, barmerge.lookahead_on) // Count of Advancing Issues (NYSE)
+nyse_unc       = security("USI:UNCH.NY",  "D", close, barmerge.gaps_on, barmerge.lookahead_on) // Count of Unchanged Issues (NYSE)
+nyse_dec       = security("USI:DECL",     "D", close, barmerge.gaps_on, barmerge.lookahead_on) // Count of Declining Issues (NYSE)
+
+nyse_newh      = security("INDEX:MAHN", "D", close, barmerge.gaps_on, barmerge.lookahead_on) // Count of Issues Hitting 52Week Highs (NYSE)
+nyse_newl      = security("INDEX:MALN", "D", close, barmerge.gaps_on, barmerge.lookahead_on) // Count of Issues Hitting 52Week Lows  (NYSE)
+nyse_comp_indx = security("NYA",        "D", close, barmerge.gaps_on, barmerge.lookahead_on) // NYSE Composite Index Value
+
+
+//////////////////
+// CALCULATIONS //
+
+// Condition 1: 
+// % of Issues of hitting New 52W highs and 52W lows is greater than or equal to a threshold (ex 2.8%)
+
+//Total Number of Issues
+total = nyse_adv + nyse_dec + nyse_unc
+
+cond1 =  nyse_newh / total * 100 >= new_low_high_threshold and 
+         nyse_newl / total * 100 >= new_low_high_threshold
+
+newh_perc_str = tostring(round(nyse_newh / total * 1000) / 10)
+newl_perc_str = tostring(round(nyse_newl / total * 1000) / 10)
+
+
+// Condition 2: 
+// Index is higher or equal in value than when it was 50 days ago.
+
+cond2 = nyse_comp_indx >= nyse_comp_indx[pos_trend_lookback]
+
+// Condition 3: 
+// McClelland Oscillator must be negative.
+
+//McClelland Oscillator
+rana     = 1000 * ((nyse_adv - nyse_dec) / (nyse_adv + nyse_dec))
+mcc_ma1  = ema(rana, 19)
+mcc_ma2  = ema(rana, 39)
+mcc      = mcc_ma1 - mcc_ma2
+
+cond3 = mcc < 0
+
+// Condition 4: 
+// The ratio of New 52W Highs to New 52W Lows cannot exceed 2
+cond4 = nyse_newh / nyse_newl < 2
+
+//Hindenburg Condition
+//All four conditions are met
+ho_cond = cond1 and cond2 and cond3 and cond4
+
+cond_num = (cond1?1:0) + (cond2?1:0) + (cond3?1:0) + (cond4?1:0)
+
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © QuantNomad
+
+///////////
+// PLOTS //
+
+//Plots the Hindenburg Signal above bar
+plotshape(ho_cond, style= shape.triangledown, location= location.abovebar, color = color.white, size=size.tiny, text='')
+
+//Hindenburg Omen Signal Period of 30 days
+//bgcolor(barssince(ho_cond) <= 30 ? color.maroon : na, transp=80)
+
+first_line = "╔═════════════════════╗\n"
+sep_line   = "╠═════════════════════╣\n"
+last_line  = "╚═════════════════════╝"
+
+last_signal = "Last signal " + tostring(barssince(ho_cond)) + " bars ago\n"
+cond_number = tostring(cond_num) + " from 4 condition are ON\n"
+cond1_str   = "1) 52W highs/lows (> " + tostring(new_low_high_threshold)  + "%) " + (cond1 ? "ON" : "OFF") + 
+  " \n" + "highs: " +  newh_perc_str + "%, lows:" + newl_perc_str + "%\n"
+
+cond2_str   = "2) Pos. Trend (idx > idx["+ tostring(pos_trend_lookback) +"]) " + (cond2 ? "ON" : "OFF") + 
+  " \n" + "idx: " +  tostring(round(nyse_comp_indx)) + ", idx["+ tostring(pos_trend_lookback) +"]:" + tostring(round(nyse_comp_indx[pos_trend_lookback])) + "\n"
+
+cond3_str   = "3) McClellan Osc (<0) " + (cond3 ? "ON" : "OFF") + 
+  " \n" + "MC Osc: " +  tostring(round(mcc * 100) / 100) + "\n"
+
+cond4_str   = "4) New HL Ratio (NH/NL < 2) " + (cond4 ? "ON" : "OFF") + 
+  " \n" + "NH/NL: " +  tostring(round(nyse_newh / nyse_newl * 100) / 100) + "\n"
+
+
+label_text = first_line + 
+   "Hindenburg Omen - " + (ho_cond ? "ON\n" : "OFF\n") +  
+   sep_line + 
+   last_signal +
+   sep_line + 
+   cond_number +
+   sep_line + 
+   cond1_str + 
+   sep_line +
+   cond2_str + 
+   sep_line + 
+   cond3_str + 
+   sep_line + 
+   cond4_str +
+   last_line
+   
+   
+lab_x = time + round(change(time) * 30)
+lab_y = close
+l1 = label.new(lab_x, lab_y, text = label_text, xloc = xloc.bar_time, color = color.blue)
+label.delete(l1[1])

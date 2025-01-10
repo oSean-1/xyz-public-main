@@ -1,0 +1,175 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Kazo_
+
+//@version=5
+
+// ╔══════════════════════════════════════════════════════════════════════════════╗
+// ║                                                                              ║
+// ║ Entropy-Based Adaptive SuperTrend                                            ║
+// ║                                                                              ║
+// ║ Entropy measures the level of unpredictability or randomness in price        ║
+// ║ movements. Higher entropy indicates more chaos, while lower entropy          ║
+// ║ suggests more order. This indicator adjusts sensitivity based on entropy:    ║
+// ║ high entropy makes signals less sensitive; low entropy makes them more       ║
+// ║ responsive to price changes.                                                 ║
+// ║                                                                              ║
+// ╚══════════════════════════════════════════════════════════════════════════════╝
+
+indicator("Entropy-Based Adaptive SuperTrend", overlay=true)
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+//                                                                ,--.                                                      
+//                                                              ,--/  /|                                                      
+//                                                           ,---,': / '                                                      
+//                                                           :   : '/ /                       ,----,    ,---.                 
+//                                                           |   '   ,                      .'   .`|   '   ,'\                
+//                                                           '   |  /       ,--.--.      .'   .'  .'  /   /   |               
+//                                                           |   ;  ;      /       \   ,---, '   ./  .   ; ,. :               
+//                                                           :   '   \    .--.  .-. |  ;   | .'  /   '   | |: :               
+//                                                           |   |    '    \__\/: . .  `---' /  ;--, '   | .; :               
+//                                                           '   : |.  \   ," .--.; |    /  /  / .`| |   :    |          ___  
+//                                                           |   | '_\.'  /  /  ,.  |  ./__;     .'   \   \  /        .'  .`| 
+//                                                           '   : |     ;  :   .'   \ ;   |  .'       `----'      .'  .'   : 
+//                                                           ;   |,'     |  ,     .-./ `---'                    ,---, '   .'  
+//                                                           '---'        `--`---'                              ;   |  .'     
+//                                                                                                              `---'        
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Input Parameters
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ▲▼ Entropy Settings
+var group_entropy = "ENTROPY SETTINGS"
+i_src = input.source(close, "Price Source", group=group_entropy)
+i_length = input.int(20, "Entropy Period", minval=10, maxval=100, group=group_entropy)
+i_smooth_length = input.int(10, "Smoothing", minval=1, maxval=50, group=group_entropy)
+i_bins = input.int(10, "Number of Bins", minval=5, maxval=20, group=group_entropy)
+
+// ▲▼ Adaptive Settings
+var group_adaptive = "ADAPTIVE SETTINGS"
+i_lookback = input.int(100, "Adaptation Period", minval=50, maxval=500, group=group_adaptive)
+i_percentile = input.float(80, "Threshold Percentile", minval=50, maxval=95, group=group_adaptive)
+i_filter_weight = input.float(0.5, "Filter Weight", minval=0.1, maxval=1.0, step=0.1, group=group_adaptive)
+
+// ▲▼ SuperTrend Settings
+var group_indicator = "SUPERTREND SETTINGS"
+i_atr_period = input.int(10, "ATR Period", minval=1, maxval=50, group=group_indicator)
+i_atr_multiplier_base = input.float(2.0, "ATR Base Multiplier", minval=0.5, maxval=10, step=0.1, group=group_indicator)
+i_atr_multiplier_max = input.float(5.0, "ATR Max Multiplier", minval=1.0, maxval=10, step=0.1, group=group_indicator)
+
+// ▲▼ Visual Settings
+var group_style = "VISUAL SETTINGS"
+i_bull_color = input.color(#00ffbb, "Bullish Color", group=group_style)
+i_bear_color = input.color(#ff1100, "Bearish Color", group=group_style)
+i_show_labels = input.bool(true, "Show Signals", group=group_style)
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Functions
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// @function Calculates the entropy of price distribution
+// @returns float - Entropy value between 0-100
+calcEntropy() =>
+    var float[] price_dist = array.new_float(i_bins, 0.0)
+    array.fill(price_dist, 0.0)
+    
+    min_price = ta.lowest(i_src, i_length)
+    max_price = ta.highest(i_src, i_length)
+    price_range = max_price - min_price
+    
+    entropy = 0.0
+    if price_range > 0
+        // Calculate price distribution
+        for i = 0 to i_length - 1
+            bin_index = math.floor((i_src[i] - min_price) / price_range * (i_bins - 1))
+            if bin_index >= 0 and bin_index < i_bins
+                array.set(price_dist, int(bin_index), array.get(price_dist, int(bin_index)) + 1)
+        
+        // Calculate Shannon entropy
+        total_samples = i_length
+        for i = 0 to i_bins - 1
+            prob = array.get(price_dist, i) / total_samples
+            if prob > 0
+                entropy := entropy - prob * math.log(prob)
+    
+    entropy := entropy / math.log(float(i_bins)) * 100
+    entropy
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Calculations
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ▲▼ Entropy Calculations
+entropy = ta.ema(calcEntropy(), i_smooth_length)
+threshold = ta.percentile_nearest_rank(entropy, i_lookback, i_percentile)
+adaptive_threshold = ta.ema(threshold, i_smooth_length)
+entropy_score = math.max(0, 1 - (entropy / adaptive_threshold) * i_filter_weight)
+
+// ▲▼ SuperTrend Calculations
+atr = ta.atr(i_atr_period)
+dynamic_multiplier = i_atr_multiplier_base + (i_atr_multiplier_max - i_atr_multiplier_base) * (1 - entropy_score)
+
+hl2_ = (high + low) / 2
+up = hl2_ - dynamic_multiplier * atr
+down = hl2_ + dynamic_multiplier * atr
+
+var int trend = 1
+trend := barstate.isconfirmed ? (close > down[1] ? 1 : close < up[1] ? -1 : trend) : trend
+
+up := barstate.isconfirmed and close[1] > up[1] ? math.max(up, up[1]) : up
+down := barstate.isconfirmed and close[1] < down[1] ? math.min(down, down[1]) : down
+
+supertrend = trend == 1 ? up : down
+
+// ▲▼ Signal Detection
+new_signal = barstate.isconfirmed and trend != trend[1]
+valid_long = new_signal and trend == 1
+valid_short = new_signal and trend == -1
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Plotting
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ▲▼ Main Plots
+bodyMiddle = plot((open + close) / 2, "Body Middle", display=display.none)
+
+upTrend = plot(close > supertrend ? supertrend : na, 
+     color=color.new(i_bull_color, 70), 
+     style=plot.style_linebr)
+
+downTrend = plot(close < supertrend ? supertrend : na, 
+     color=color.new(i_bear_color, 70), 
+     style=plot.style_linebr)
+
+// ▲▼ Fills and Gradients
+fill(bodyMiddle, upTrend, color.new(i_bull_color, 95))
+fill(bodyMiddle, downTrend, color.new(i_bear_color, 95))
+
+// ▲▼ Signal Labels
+if i_show_labels
+    if valid_long
+        label.new(bar_index, low, "L", 
+                 color=i_bull_color,
+                 textcolor=color.white,
+                 style=label.style_label_up,
+                 size=size.small)
+    
+    if valid_short
+        label.new(bar_index, high, "S", 
+                 color=i_bear_color,
+                 textcolor=color.white,
+                 style=label.style_label_down,
+                 size=size.small)
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Alerts
+// ═══════════════════════════════════════════════════════════════════════════════
+
+alertcondition(valid_long, "Long Signal", "Buy Signal")
+alertcondition(valid_short, "Short Signal", "Sell Signal")

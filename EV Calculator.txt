@@ -1,0 +1,86 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Chervolino
+
+
+// _______           _______  _______           _______  _       _________ _        _______ 
+// (  ____ \|\     /|(  ____ \(  ____ )|\     /|(  ___  )( \      \__   __/( (    /|(  ___  )
+// | (    \/| )   ( || (    \/| (    )|| )   ( || (   ) || (         ) (   |  \  ( || (   ) |
+// | |      | (___) || (__    | (____)|| |   | || |   | || |         | |   |   \ | || |   | |
+// | |      |  ___  ||  __)   |     __)( (   ) )| |   | || |         | |   | (\ \) || |   | |
+// | |      | (   ) || (      | (\ (    \ \_/ / | |   | || |         | |   | | \   || |   | |
+// | (____/\| )   ( || (____/\| ) \ \__  \   /  | (___) || (____/\___) (___| )  \  || (___) |
+// (_______/|/     \|(_______/|/   \__/   \_/   (_______)(_______/\_______/|/    )_)(_______)
+//@version=5
+indicator("EV Calculator [CHE]", overlay=false)
+
+// Input parameters for EV calculation
+var float win_rate = input.float(0.6, title="Win Rate (0.0 - 1.0)", step=0.01)
+var float risk = input.float(1.0, title="Risk (Loss)")
+var float reward = input.float(3.0, title="Reward (Gain)")
+
+// New input parameters for box size
+var int box_width = input.int(20, title="Box Width", minval=1)
+var int box_height = input.int(100, title="Box Height", minval=10)
+var int max_items = 20
+
+// Arrays for boxes and labels
+var box[] boxes = array.new_box()
+var label[] labels = array.new_label()
+
+// EV calculation
+ev = (win_rate * reward) - ((1 - win_rate) * risk)
+
+// Scaling for the chart
+scaled_win_rate = int(win_rate * 100)
+scaled_ev = int(ev * (box_height / 4))
+
+// Calculate box positions
+box_top = box_height
+box_middle_top = int(box_height * 0.75)
+box_middle_bottom = int(box_height * 0.25)
+
+// Middle position for the circle (vertical)
+
+
+// Calculate the horizontal center of the box
+mid_bar_index = (bar_index - box_width / 2)
+
+// Color adjustments for the boxes (adjusted for the display)
+color_green_box = color.new(#a3c993, 85)  // Adjusted green tone
+color_yellow_box = color.new(#ffd966, 85)  // Adjusted yellow tone
+color_red_box = color.new(#f4cccc, 85)     // Adjusted red tone
+
+if barstate.islast
+    // Draw boxes
+    green_box = box.new(left=bar_index - box_width, top=box_top, right=bar_index, bottom=box_middle_top, bgcolor=color_green_box, border_color=#6aa84f)
+    yellow_box = box.new(left=bar_index - box_width, top=box_middle_top, right=bar_index, bottom=box_middle_bottom, bgcolor=color_yellow_box, border_color=#f1c232)
+    red_box = box.new(left=bar_index - box_width, top=box_middle_bottom, right=bar_index, bottom=0, bgcolor=color_red_box, border_color=#e06666)
+    
+    // Add boxes to the array
+    array.push(boxes, green_box)
+    array.push(boxes, yellow_box)
+    array.push(boxes, red_box)
+
+    // If more than max_items, remove the oldest boxes
+    if array.size(boxes) > max_items * 3
+        for i = 0 to 2
+            box.delete(array.shift(boxes))
+    
+    // Centered circle for EV (horizontal and vertical)
+    label_ev = label.new(mid_bar_index, scaled_ev, text="●", style=label.style_circle, color=color.purple, textcolor=color.purple, size=size.small)
+
+    // Labels for EV and Win Rate
+    label_win_rate = label.new(bar_index + 1, box_height - box_height *.9, text="Win Rate: " + str.tostring(win_rate*100, "#.##") + "%", style=label.style_label_left, textcolor=color.white)
+    label_ev_value = label.new(bar_index + 1, box_height - box_height *.5, text="EV: " + str.tostring(ev, "#.##"), style=label.style_label_left, textcolor=color.white)
+    label_guide = label.new(bar_index + 1, box_height - box_height *.1, text="Green Box: Good EV (> 2)\nYellow Box: Neutral EV (0 - 2)\nRed Box: Negative EV (< 0)", style=label.style_label_left, textcolor=color.white)
+
+    // Add labels to the array
+    array.push(labels, label_ev)
+    array.push(labels, label_win_rate)
+    array.push(labels, label_ev_value)
+    array.push(labels, label_guide)
+
+    // If more than max_items, remove the oldest labels
+    if array.size(labels) > max_items * 4
+        for i = 0 to 3
+            label.delete(array.shift(labels))

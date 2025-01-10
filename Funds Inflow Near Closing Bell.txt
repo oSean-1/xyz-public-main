@@ -1,0 +1,49 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Qpxcaro
+//@version=5
+// Investment funds often execute their oreders in the last 30 minutes of a daily trading session
+// This script approximates inflow/outflow of professionally managed money into a given security
+// IMPORTANT! Must be plotted on a timeframe with DAILY resolution (can be applied to other timeframes as well, but results will be nonsensical)
+
+indicator("Funds Inflow Near Closing Bell")
+
+candles     = input(true, title="Show Candles")
+maLine     = input(false, title="Show Flow MA")
+barColorz     = input(false, title="Show Bar color")
+
+ma(source, length, type) =>
+    switch type
+        "SMA" => ta.sma(source, length)
+        "HMA" => ta.hma(source, length)
+        "EMA" => ta.ema(source, length)
+        "SMMA (RMA)" => ta.rma(source, length)
+        "WMA" => ta.wma(source, length)
+        "VWMA" => ta.vwma(source, length)
+
+maTypeInput = input.string("SMA", title="MA Type", options=["SMA", "HMA", "EMA", "SMMA (RMA)", "WMA", "VWMA"], group="MA Settings")
+maLengthInput = input(20, title="MA Length", group="MA Settings")
+
+period = input.timeframe(title='Multi Timeframe 1:', defval='30')
+
+c = request.security(syminfo.tickerid, period, close)
+o = request.security(syminfo.tickerid, period, open)
+h = request.security(syminfo.tickerid, period, high)
+l = request.security(syminfo.tickerid, period, low)
+v = request.security(syminfo.tickerid, period, volume)
+
+float todays_imbalance = 0.0
+todays_imbalance := v * (c - o) / (h - l)  // previously (log(c) - log(o)) * v * (o + c) / 2.0
+
+_series = 0.0
+_series := nz(_series[1], 1) + todays_imbalance
+
+palette = close >= open ? #22ab94 : #ff5252
+
+plotcandle(candles?_series[1]:na, candles?_series:na, candles?_series[1]:na, candles?_series:na, title='flow', color = palette , wickcolor=#ffffff, bordercolor = #434651)
+//plot(_series, style=plot.style_line, color=color.white)
+
+oscMA = ma(_series, maLengthInput, maTypeInput)
+plot(maLine ? oscMA : na, "RSI-based MA", color=color.yellow)
+
+Barcolorz = _series[1] < _series ? #65D25Bff : #FE6B69ff
+barcolor(barColorz ? Barcolorz : na)

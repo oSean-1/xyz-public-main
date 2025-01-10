@@ -1,0 +1,87 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// ©djmad
+
+//@version=5
+indicator("[MAD] Harmonic Wave Fourier Analysis", overlay=false)
+
+// Inputs
+length = input.int(10, minval=1, maxval=100, title="Length")
+lookback_period = input.int(200, minval=1, title="Lookback Period for High/Low Points")
+
+// Function to compute the Discrete Fourier Transform (DFT)
+// DFT is used to identify the frequency components of a signal sampled over time.
+fourier_series(src, length) =>
+    re_part = array.new_float()
+    im_part = array.new_float()
+
+    for i = 0 to length - 1                                                       // Iterate over each discrete sample to calculate the series
+        angle = 2.0 * math.pi * i / length                                        // Calculating the fundamental harmonic angle
+        re = src[i] * math.cos(angle)                                             // Real part of the DFT
+        im = -src[i] * math.sin(angle)                                            // Imaginary part of the DFT
+
+        array.push(re_part, re)                                                   // Store the calculated real and imaginary parts
+        array.push(im_part, im)
+    
+    [array.sum(re_part), array.sum(im_part)]                                      // Summation of the real and imaginary parts
+
+// Function to calculate the harmonic waves and store them in an array
+// Harmonic waves represent the periodic oscillations with a frequency that is a multiple of the fundamental frequency.
+calcHarmonics(src, length) =>
+    wave_array = array.new_float(0)
+
+    for i = 1 to length / 2                                                       // Iterate over each harmonic
+        [re, im] = fourier_series(src, i)                                         // Compute Fourier series for each harmonic            
+        magnitude = math.sqrt(re * re + im * im) / length                         // Calculate the magnitude of the wave
+        phase = math.atan(im / re)                                                // Phase angle of the wave
+        frequency = i / length                                                    // Frequency of the wave, which is the ratio of the current harmonic number to the length of the series
+        wave = magnitude * math.cos(2 * math.pi * frequency * bar_index + phase)  // Construct the wave using magnitude, frequency, and phase
+        array.push(wave_array, wave)                                              // Store the wave in the array
+    wave_array
+
+// Function calculates the Changes in the wavearray
+calcAmplitudeChange(wave_array) =>
+    amplitude_change_array = array.new_float(0)
+
+    for i = 0 to array.size(wave_array) - 1 	                                  // Iterate over the waves to calculate amplitude changes
+        if array.size(wave_array) >= 2                                            // Ensure there are enough data points to calculate amplitude change
+            wave = array.get(wave_array, i)         
+            max_val = math.max(wave[1], wave[2])                                  // Find the max and min to calculate the amplitude
+            min_val = math.min(wave[1], wave[2])
+            amplitude_change = max_val - min_val                                  // Amplitude change is the difference between the max and min
+            array.push(amplitude_change_array, amplitude_change)                  // Store the amplitude change in the array
+        else
+            array.push(amplitude_change_array, na)                                // Push a 'na' value if not enough points, representing a missing value
+    amplitude_change_array
+
+src = close         // Get source data from the closing prices of the bars
+
+///////////////////////
+
+harmonic_waves = calcHarmonics(src, length)                                       // Calculate harmonic waves from the source data
+amplitude_changes = calcAmplitudeChange(harmonic_waves)                           // Calculate amplitude changes for each harmonic wave
+
+latest_datapoint_value = amplitude_changes.get(math.ceil(length/2)-2)             // get latest possible point from array
+dpv_high = ta.highest(latest_datapoint_value,lookback_period)                     // min and max values for coloring
+dpv_low =  ta.lowest(latest_datapoint_value,lookback_period)                      // min and max values for coloring
+
+// Calculate the highest and lowest points over the lookback period for the whole array
+highest_points = array.new_float(0)
+lowest_points = array.new_float(0)
+
+for i = 0 to math.ceil(length/2)-2
+    highest_value = ta.highest(amplitude_changes.get(i), lookback_period)          // finding min and max points from that array
+    lowest_value = ta.lowest(amplitude_changes.get(i), lookback_period)
+    array.push(highest_points, highest_value)                                      // Save for later use
+    array.push(lowest_points, lowest_value)
+
+current_highest = array.get(highest_points, math.ceil(length/2)-2)                 // Retrieve the highest and lowest values for the current value
+current_lowest = array.get(lowest_points, math.ceil(length/2)-2)                   // Retrieve the highest and lowest values for the current value
+
+barcolor(color.from_gradient(latest_datapoint_value, dpv_low, dpv_high, color.green, color.red))
+plot(latest_datapoint_value, "Amplitude Change", color=color.from_gradient(latest_datapoint_value, dpv_low, dpv_high, color.green, color.red))
+plot(current_highest, "Highest Point", color=color.lime)
+plot((current_lowest+current_highest/3*2),"Middle Point", color=color.blue)
+plot((current_lowest+current_highest/3*1),"Middle Point", color=color.blue)
+plot((current_lowest+current_highest/2),"Middle Point", color=color.blue)
+plot(current_lowest, "Lowest Point", color=color.red)
+

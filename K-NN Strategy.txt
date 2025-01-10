@@ -1,0 +1,93 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Julien_Eche
+
+
+// Strategy based on "AI Trend Navigator [K-Neighbor]" by Zeiierman
+
+//@version=5
+strategy("K-NN Strategy", overlay=true, initial_capital=500000, currency=currency.USD, default_qty_type=strategy.cash, default_qty_value=50000)
+
+hint1 = "BaseVal: Choose the price source for trend prediction (AvgPrice or VWAP). Changing this affects the K-NN inputs and trend calculation."
+hint2 = "TargetVal: Choose the target for trend prediction (PriceAction, VWAP, or Volatility). Changing this affects the input data for K-NN."
+hint3 = "Close Values Count: Number of closest values considered in the K-NN Moving Average. Higher values smooth the trend line, lower values make it more responsive to recent changes."
+hint4 = "Smoothing Period: Moving average period for the K-NN classifier. Higher values result in a smoother trend line, lower values closely track recent changes."
+hint5 = "Volume Filter: Enable/Disable the volume filter for K-NN predictions."
+
+BaseVal = input.string("AvgPrice", options = ["AvgPrice","VWAP"], group="", inline="Base", tooltip=hint1)
+TargetVal = input.string("PriceAction", options = ["PriceAction","VWAP", "Volatility"], group="", inline="Target", tooltip=hint2)
+CloseValsCount = input.int(10, "Close Values Count", 2, 100, tooltip=hint3) 
+SmoothingPeriod = input.int(50, "Smoothing Period", 2, 500, tooltip=hint4) 
+UseVolumeFilter = input.bool(true, "Volume Filter", group="", inline="Filter", tooltip=hint5)
+VolumeThreshold = input.int(20000, "Volume Threshold", group="Filter", tooltip="Minimum volume required when using volume filter.")
+
+WindowSize = math.max(CloseValsCount, 50) 
+
+ValueInput = switch BaseVal
+    "AvgPrice"  => close
+    "VWAP" => ta.vwap(close)
+
+MeanOfKClosest(target) => 
+    Distances = array.new_float(CloseValsCount, 1e10) 
+    Values = array.new_float(CloseValsCount, 0.0) 
+    for i = 1 to WindowSize 
+        Val = ValueInput[i] 
+        Dist = math.abs(target - Val) 
+        MaxDistIndex = 0 
+        MaxDistValue = array.get(Distances, 0) 
+        for j = 1 to CloseValsCount - 1 
+            if array.get(Distances, j) > MaxDistValue
+                MaxDistIndex := j
+                MaxDistValue := array.get(Distances, j)
+        if Dist < MaxDistValue 
+            array.set(Distances, MaxDistIndex, Dist)
+            array.set(Values, MaxDistIndex, Val)
+    Values.sum() / CloseValsCount 
+
+TargetInput = switch TargetVal
+    "PriceAction"  => ta.rma(close, 2) 
+    "VWAP"          => ta.vwap(close)
+    "Volatility"    => ta.atr(14)
+
+KnnMA = MeanOfKClosest(TargetInput)
+
+AvgPrice = math.avg(KnnMA, close) 
+ClosingMA1 = ta.rma(KnnMA[1], SmoothingPeriod) 
+OpeningMA = ta.rma(KnnMA, SmoothingPeriod) 
+
+Knn(price, volume) => 
+    PosCount = 0 
+    NegCount = 0 
+    MinDistance = 10e10 
+    NearestIndex = 0 
+    for j = 1 to 10 
+        Distance = math.sqrt(math.pow(AvgPrice[j] - price, 2)) 
+        if Distance < MinDistance 
+            MinDistance := Distance
+            NearestIndex := j
+            Neg = ClosingMA1[NearestIndex] > OpeningMA[NearestIndex] 
+            Pos = ClosingMA1[NearestIndex] < OpeningMA[NearestIndex] 
+            if Pos 
+                PosCount += 1
+            if Neg 
+                NegCount += 1
+    Output = PosCount > NegCount ? 1 : -1 
+
+KnnPredictionRaw = Knn(AvgPrice, volume)
+KnnPrediction = ta.wma(KnnPredictionRaw, 3) 
+
+BuyCondition = ta.crossover(KnnPrediction, KnnPrediction[1])
+CloseCondition = ta.crossunder(KnnPrediction, KnnPrediction[1])
+
+if (UseVolumeFilter)
+    VolumeFilter = volume > VolumeThreshold
+    BuyCondition := BuyCondition and VolumeFilter
+    CloseCondition := CloseCondition and VolumeFilter
+
+if BuyCondition
+    strategy.entry("Buy", strategy.long)
+if CloseCondition
+    strategy.close("Buy")
+
+RedCondition = KnnPrediction < 0.5
+TealCondition = KnnPrediction > -0.5 
+bgcolor(RedCondition ? color.new(color.red, 80) : TealCondition ? color.new(color.teal, 80) : na)

@@ -1,0 +1,64 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © blackcat1402
+
+//@version=5
+indicator('[blackcat] L1 Banker Move', overlay=false)
+
+reference_value(values, length) =>
+    ref_val = float(na)
+    if length >= 1
+        for i = 0 to length by 1
+            if na(ref_val) or not na(values[i])
+                ref_val := values[i]
+                ref_val
+    ref_val
+
+// Function to calculate institutional and short-term investor signals
+calculate_institutional_and_short_term_signals(low, close, open, volume) =>
+
+    prev_low = reference_value(low, 1)
+    price_change_ratio = ta.sma(math.abs(low - prev_low), 3) / ta.sma(math.max(low - prev_low, 0), 3) * 100
+    smoothed_price_change = ta.ema(close * 1.2 ? price_change_ratio * 10 : price_change_ratio / 10, 3)
+    lowest_low_38 = ta.lowest(low, 38)
+    highest_smoothed_change_38 = ta.highest(smoothed_price_change, 38)
+    lowest_1 = ta.lowest(low, 90)
+    long_term_signal = lowest_1 ? 1 : 0
+    institutional_signal = ta.ema(low <= lowest_low_38 ? (smoothed_price_change + highest_smoothed_change_38 * 2) / 2 : 0, 3) / 618 * long_term_signal
+    lowest_2 = ta.lowest(low, 30)
+    sma_1 = ta.sma(math.abs(low - prev_low), 30)
+    sma_2 = ta.sma(math.max(low - prev_low, 0), 30)
+    institutional_build = ta.ema(low <= lowest_2 ? sma_1 / sma_2 : 0, 3) * 10
+    sma_5 = ta.sma(close, 5)
+    sma_10 = ta.sma(close, 10)
+    sma_30 = ta.sma(close, 30)
+    sma_60 = ta.sma(close, 60)
+    volume_weighted_price_4 = math.sum(close * volume * 100, 4) / math.sum(volume * 100, 4)
+    volume_weighted_price_7 = math.sum(close * volume * 100, 7) / math.sum(volume * 100, 7)
+    volume_weighted_price_28 = math.sum(close * volume * 100, 28) / math.sum(volume * 100, 28)
+    vwp_4_normalized = volume_weighted_price_4 * 100 / 100
+    vwp_7_normalized = volume_weighted_price_7 * 100 / 100
+    vwp_28_normalized = volume_weighted_price_28 * 100 / 100
+    ema_diff_5_10 = ta.ema(close, 5) - ta.ema(close, 10)
+    ema_diff_5_10_smoothed = ta.ema(ema_diff_5_10, 9)
+    rsi_5 = 0 - 100 * (ta.highest(close, 5) - close) / (ta.highest(close, 5) - ta.lowest(low, 5)) + 100
+    rsi_10 = 0 - 100 * (ta.highest(close, 10) - close) / (ta.highest(close, 10) - ta.lowest(low, 10)) + 100
+    rsi_20 = 0 - 100 * (ta.highest(close, 20) - close) / (ta.highest(close, 20) - ta.lowest(low, 20)) + 100
+    rsi_30 = 0 - 100 * (ta.highest(close, 30) - close) / (ta.highest(close, 30) - ta.lowest(low, 30)) + 100
+    prev_ema_diff_5_10_smoothed = ema_diff_5_10_smoothed[1]
+    current_ema_diff_5_10_smoothed = ema_diff_5_10_smoothed
+    ema_diff_change_5_10_smoothed = current_ema_diff_5_10_smoothed - prev_ema_diff_5_10_smoothed
+    prev_ema_diff_5_10 = ema_diff_5_10[1]
+    current_ema_diff_5_10 = ema_diff_5_10
+    ema_diff_change_5_10 = current_ema_diff_5_10 - prev_ema_diff_5_10
+    open_price = open
+    close_price = close
+    short_term_investor_signal = open_price <= sma_5 and open_price <= sma_10 and open_price <= sma_30 and close_price >= sma_5 and close_price >= vwp_28_normalized and ema_diff_change_5_10_smoothed > 0 and ema_diff_change_5_10 > 0 ? -10 : 0
+    [institutional_signal, institutional_build, short_term_investor_signal]
+
+// Call the function and plot the results
+[institutional_signal, institutional_build, short_term_investor_signal] = calculate_institutional_and_short_term_signals(low, close, open, volume)
+
+plot(institutional_signal, color=color.new(color.red, 0), title='Institutional Signal')
+plot(institutional_build, color=color.new(color.blue, 0), title='Institutional Build')
+plot(short_term_investor_signal, color=color.new(color.green, 0), title='Short-Term Investor Signal')
+

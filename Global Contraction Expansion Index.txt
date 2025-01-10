@@ -1,0 +1,68 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Sigaud
+
+//@version=5
+indicator("[GCEI SGM]", overlay=false, timeframe = "D")
+
+// Période de calcul dynamique
+var int periode = input(30, "Période de Calcul")
+
+// Symboles étendus
+const string symboleTech = "QQQ"
+const string symboleFin = "XLF"
+const string symboleConso = "XLY"
+const string symboleSante = "XLV"
+const string symboleIndustrie = "XLI"
+const string symboleEnergie = "XLE"
+
+// Récupération des prix de clôture étendus
+prixTech = request.security(symboleTech, "D", close)
+prixFin = request.security(symboleFin, "D", close)
+prixConso = request.security(symboleConso, "D", close)
+prixSante = request.security(symboleSante, "D", close)
+prixIndustrie = request.security(symboleIndustrie, "D", close)
+prixEnergie = request.security(symboleEnergie, "D", close)
+
+// Calcul des performances relatives avec moyennes mobiles
+perfTech = ta.sma((prixTech - prixTech[periode]) / prixTech[periode], 10)
+perfFin = ta.sma((prixFin - prixFin[periode]) / prixFin[periode], 10)
+perfConso = ta.sma((prixConso - prixConso[periode]) / prixConso[periode], 10)
+perfSante = ta.sma((prixSante - prixSante[periode]) / prixSante[periode], 10)
+perfIndustrie = ta.sma((prixIndustrie - prixIndustrie[periode]) / prixIndustrie[periode], 10)
+perfEnergie = ta.sma((prixEnergie - prixEnergie[periode]) / prixEnergie[periode], 10)
+
+// IREG global
+GCEI = ((perfTech + perfFin + perfConso + perfSante + perfIndustrie + perfEnergie) / 6)*100
+
+emaGCEI = ta.ema(GCEI, 10)
+
+var float positivREG = na
+var float negativREG = na
+var float crossovervalue = na
+var float crossundervalue = na
+
+if ta.crossover(GCEI, emaGCEI)
+    crossovervalue := GCEI
+if ta.crossunder(GCEI, emaGCEI)
+    crossundervalue := GCEI
+
+positivColor = color.rgb(82, 255, 91, 100)
+negativColor = color.rgb(255, 82, 82, 100)
+
+if GCEI > emaGCEI
+    positivREG :=GCEI - crossovervalue
+    negativREG := 0
+    positivColor := color.rgb(82, 255, 91)
+    negativColor := color.rgb(255, 82, 82, 100)
+else
+    positivREG := 0
+    negativREG :=GCEI - crossundervalue
+    positivColor := color.rgb(82, 255, 91,100)
+    negativColor := color.rgb(255, 82, 82)
+
+posReg = plot(positivREG, color = positivColor, linewidth = 3)
+negReg = plot(negativREG, color = negativColor, linewidth = 3)
+zerpP = plot(0, color = color.rgb(0, 0, 0, 100))
+
+fill(posReg, zerpP, color.from_gradient(positivREG, 0, 30, color.rgb(0, 0, 0, 100), color.rgb(82, 255, 91)), fillgaps = true)
+fill(negReg, zerpP, color.from_gradient(negativREG, -30, 0, color.rgb(255, 82, 82), color.rgb(0, 0, 0, 100)), fillgaps = true)

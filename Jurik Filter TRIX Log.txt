@@ -1,0 +1,58 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © loxx
+
+//@version=5
+indicator("Jurik Filter TRIX Log [Loxx]",
+     shorttitle="JFK", 
+     overlay=false)
+     
+import loxx/loxxjuriktools/1
+
+greencolor = #2DD204
+redcolor = #D2042D 
+
+lightgreencolor = #96E881 
+lightredcolor =  #DF4F6C
+
+srcin = input.source(close, "Source", group = "Basic Settings")
+per = input.int(14, "Period", group = "Basic Settings")
+phs =input.float(0, "Juirk Phase", group = "Basic Settings")
+
+colorbars = input.bool(false, "Color bars?", group = "UI Options")
+
+src = math.log(srcin)
+
+workTrix1 = loxxjuriktools.jurik_filt(src, per, phs)
+workTrix2 = loxxjuriktools.jurik_filt(workTrix1, per, phs)
+workTrix3 = loxxjuriktools.jurik_filt(workTrix2, per, phs)
+
+val = ta.change(workTrix3)
+signal = nz(val[1])
+middle = 0.
+colorout =   val > signal and val > middle ? greencolor : 
+     val < signal and val > middle ? lightgreencolor : 
+     val < signal and val < middle ? redcolor : 
+     val > signal and val < middle ? lightredcolor : 
+     color.gray
+    
+plot(middle, color = bar_index % 2 ? color.gray : na)
+
+plot(val, color = colorout)
+barcolor(colorbars ? colorout : na)
+
+bbstd1 = input(2)
+bbstd2 = input(3)
+bbstd3 = input(4)
+
+[bbMiddle1, bbUpper1, bbLower1] = ta.bb(val, input(252), bbstd1)
+[bbMiddle2, bbUpper2, bbLower2] = ta.bb(val, input(252), bbstd2)
+[bbMiddle3, bbUpper3, bbLower3] = ta.bb(val, input(252), bbstd3)
+
+plot(bbUpper1, color =color.yellow)
+plot(bbLower1, color =color.yellow)
+
+plot(bbUpper2, color =color.orange)
+plot(bbLower2, color =color.orange)
+
+plot(bbUpper3, color =color.red)
+plot(bbLower3, color =color.red)

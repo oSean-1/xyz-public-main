@@ -1,0 +1,43 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Futur, main Japanese Correlation Coefficient from alexgrover
+
+//@version=3
+study("Gaussian Oscillator")
+length = input(50)
+//----
+c = sma(close,length/2)
+h = sma(high,length/2)
+l = sma(low,length/2)
+v = sma(volume, length/2)
+hv = highest(volume,length/2)
+lv = lowest(volume, length/2)
+jo = change(c,length/2)/((highest(h,length/2) - lowest(l,length/2)))
+//----
+fish(a, b) => //Normal fisher, will have some lag if you use fish(), but test it out ;)
+    highval = highest(a, b)
+    lowval  = lowest(a, b)
+    val1    = 0.0
+    val1   := 0.66 * ((a - lowval) / max(highval - lowval, 0.001) - 0.5) + 0.67 * nz(val1[1])
+    val2    = val1 > 0.99 ? 0.999 : val1 < -0.99 ? -0.999 : val1
+    fish    = 0.0
+    fish   := 0.8 * log((1 + val2) / max(1 - val2, 0.001)) + 0.2 * nz(fish[1])
+
+//plot(jo,color=#e65100,transp=0) // Regular efficiency if you want to plot it
+val2    = jo > 0.99 ? 0.999 : jo < -0.99 ? -0.999 : jo
+fish1 = 0.0
+fish1   := 0.8 * log((1 + val2) / max(1 - val2, 0.001)) + 0.2 * nz(fish1[1])
+//plot(fish(jo,length/2),color=#e65100,transp=0)
+//plot(fish1)
+mean = cum(fish1)/n
+stdevx = sqrt(cum(pow(fish1-mean,2))/n)
+
+//plot(mean, color=red)
+//plot(stdevx)
+z_s = (fish1 - mean)/stdevx
+plot(z_s)
+
+twosigma = hline(2, title="Max Level", color=red)
+onesigma = hline(1, title="Overbought Level")
+midline = hline(0, title="Middle Level/Midline",color=white) //color.silver)
+neg1sigma = hline(-1, title="Oversold Level")//,color=color.gray)
+neg2sigma = hline(-2, title="Min Level", color=green)

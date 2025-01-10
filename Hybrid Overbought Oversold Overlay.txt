@@ -1,0 +1,304 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © informanerd
+//@version=5
+
+indicator("Hybrid Overbought/Oversold Overlay", "Hyb.OB/OS", true)
+
+// inputs & definitions {
+
+pos1 = "Top Left", pos2 = "Top Center", pos3 = "Top Right"
+pos4 = "Middle Left", pos5 = "Middle Center", pos6 = "Middle Right"
+pos7 = "Bottom Left", pos8 = "Bottom Center", pos9 = "Bottom Right"
+
+sc1 = "Price Pass Signal Levels"
+sc2 = "Price Come Back before Signal Levels"
+
+hybSrc = input.source(close, "Source", inline = "hyb")
+hybLen = input.int(14, "                        Length", 1, inline = "hyb")
+diagramPos = input.string(pos6, "Diagram Position                                              ", [pos1, pos2, pos3, pos4, pos5, pos6, pos7, pos8, pos9], display = display.data_window)
+tableLen = input.int(30, "Diagram Bars →", 1, inline = "hybBars")
+cellSize = input.float(.3, "     Thickness:", 0, step = .1, inline = "hybBars")
+obColor = input.color(color.red, "Colors →   OB:", inline = "hybColor")
+osColor = input.color(color.green, "  OS:", inline = "hybColor")
+curBarObColor = input.color(color.maroon, "     Current Bar:", inline = "hybColor")
+curBarOsColor = input.color(color.teal, "", inline = "hybColor")
+showSignal = input.bool(true, "Show Signals →", inline = "hybSignal")
+signalC = input.string(sc2, "                         Condition:", [sc1, sc2], inline = "hybSignal", display = display.data_window)
+hybOsManual = input.int(0, "Signal Levels →   OS:", 0, 100, inline = "hybLevel")
+hybObManual = input.int(100, "  OB:", 0, 100, tooltip = "(0, 100) = Auto.", inline = "hybLevel")
+
+signalCondition = signalC == sc1 ? 1 : 2
+oscCount = 12
+maxArraySize = 100000
+
+tablePos = switch diagramPos
+    pos1 => position.top_left
+    pos2 => position.top_center
+    pos3 => position.top_right
+    pos4 => position.middle_left
+    pos5 => position.middle_center
+    pos6 => position.middle_right
+    pos7 => position.bottom_left
+    pos8 => position.bottom_center
+    pos9 => position.bottom_right
+var table hybTable = table.new(tablePos, tableLen + 1, oscCount * 2 + 1, na, chart.fg_color, 1)
+hybTable.merge_cells(tableLen - 1, oscCount, tableLen, oscCount)
+
+var bObSum = array.new_int()
+var bOsSum = array.new_int()
+if array.size(bObSum) == maxArraySize
+    array.shift(bObSum)
+if array.size(bOsSum) == maxArraySize
+    array.shift(bOsSum)
+var cciObSum = array.new_int()
+var cciOsSum = array.new_int()
+if array.size(cciObSum) == maxArraySize
+    array.shift(cciObSum)
+if array.size(cciOsSum) == maxArraySize
+    array.shift(cciOsSum)
+var cmfObSum = array.new_int()
+var cmfOsSum = array.new_int()
+if array.size(cmfObSum) == maxArraySize
+    array.shift(cmfObSum)
+if array.size(cmfOsSum) == maxArraySize
+    array.shift(cmfOsSum)
+var cmoObSum = array.new_int()
+var cmoOsSum = array.new_int()
+if array.size(cmoObSum) == maxArraySize
+    array.shift(cmoObSum)
+if array.size(cmoOsSum) == maxArraySize
+    array.shift(cmoOsSum)
+var dixObSum = array.new_int()
+var dixOsSum = array.new_int()
+if array.size(dixObSum) == maxArraySize
+    array.shift(dixObSum)
+if array.size(dixOsSum) == maxArraySize
+    array.shift(dixOsSum)
+var kObSum = array.new_int()
+var kOsSum = array.new_int()
+if array.size(kObSum) == maxArraySize
+    array.shift(kObSum)
+if array.size(kOsSum) == maxArraySize
+    array.shift(kOsSum)
+var mfiObSum = array.new_int()
+var mfiOsSum = array.new_int()
+if array.size(mfiObSum) == maxArraySize
+    array.shift(mfiObSum)
+if array.size(mfiOsSum) == maxArraySize
+    array.shift(mfiOsSum)
+var rocObSum = array.new_int()
+var rocOsSum = array.new_int()
+if array.size(rocObSum) == maxArraySize
+    array.shift(rocObSum)
+if array.size(rocOsSum) == maxArraySize
+    array.shift(rocOsSum)
+var rsiObSum = array.new_int()
+var rsiOsSum = array.new_int()
+if array.size(rsiObSum) == maxArraySize
+    array.shift(rsiObSum)
+if array.size(rsiOsSum) == maxArraySize
+    array.shift(rsiOsSum)
+var rviObSum = array.new_int()
+var rviOsSum = array.new_int()
+if array.size(rviObSum) == maxArraySize
+    array.shift(rviObSum)
+if array.size(rviOsSum) == maxArraySize
+    array.shift(rviOsSum)
+var stoObSum = array.new_int()
+var stoOsSum = array.new_int()
+if array.size(stoObSum) == maxArraySize
+    array.shift(stoObSum)
+if array.size(stoOsSum) == maxArraySize
+    array.shift(stoOsSum)
+var tmfObSum = array.new_int()
+var tmfOsSum = array.new_int()
+if array.size(tmfObSum) == maxArraySize
+    array.shift(tmfObSum)
+if array.size(tmfOsSum) == maxArraySize
+    array.shift(tmfOsSum)
+
+var hybObSum = array.new_int()
+var hybOsSum = array.new_int()
+if array.size(hybObSum) == maxArraySize
+    array.shift(hybObSum)
+if array.size(hybOsSum) == maxArraySize
+    array.shift(hybOsSum)
+
+float hybrid = na
+
+//}
+// functions {
+
+normal(s, min, max) =>
+    var hMin = 1e11
+    var hMax = -1e11
+    hMin := math.min(nz(s, hMin), hMin)
+    hMax := math.max(nz(s, hMax), hMax)
+    min + (max - min) * (s - hMin) / math.max(hMax - hMin, 0)
+
+graphs(src, len) =>
+    b = normal((src - ta.sma(src, len) + ta.stdev(src, len)) / (2 * ta.stdev(src, len)), 0, 100)
+    cci = normal(ta.cci(src, len), 0, 100)
+    cmf = normal(math.sum((high == low) ? 0 : volume * (2 * src - low - high) / (high - low), len) / math.sum(volume, len), 0, 100)
+    cmo = (ta.cmo(src, len) + 100) / 2
+    dix = (((src - ta.sma(src, len)) / ta.sma(src, len) * 100) + 1) * 50
+    k = normal((src - (ta.ema(src, len) - ta.atr(len))) / (2 * ta.atr(len)), 0, 100)
+    mfi = ta.mfi(src, len)
+    roc = normal(ta.roc(src, len), 0, 100)
+    rsi = ta.rsi(src, len)
+    rvi = ((math.sum(ta.swma(close - open), len) / math.sum(ta.swma(high - low), len)) + 1) * 50
+    sto = ta.stoch(src, high, low, len)
+    tmf = normal(ta.ema((((src - math.min(low, src[1])) - (math.max(high, src[1]) - src)) / (math.max(high, src[1]) - math.min(low, src[1]))) * volume, len) / ta.ema(volume, len), 0, 100)
+    [b, cci, cmf, cmo, dix, k, mfi, roc, rsi, rvi, sto, tmf]
+
+obos(b, cci, cmf, cmo, dix, k, mfi, roc, rsi, rvi, sto, tmf, bOb, cciOb, cmfOb, cmoOb, dixOb, kOb, mfiOb, rocOb, rsiOb, rviOb, stoOb, tmfOb, bOs, cciOs, cmfOs, cmoOs, dixOs, kOs, mfiOs, rocOs, rsiOs, rviOs, stoOs, tmfOs) =>
+    cnt = 0
+    if b > bOb
+        cnt += 1
+    if b < bOs
+        cnt -= 1
+    if cci > cciOb
+        cnt += 1
+    if cci < cciOs
+        cnt -= 1
+    if cmf > cmfOb
+        cnt += 1
+    if cmf < cmfOs
+        cnt -= 1
+    if cmo > cmoOb
+        cnt += 1
+    if cmo < cmoOs
+        cnt -= 1
+    if dix > dixOb
+        cnt += 1
+    if dix < dixOs
+        cnt -= 1
+    if k > kOb
+        cnt += 1
+    if k < kOs
+        cnt -= 1
+    if mfi > mfiOb
+        cnt += 1
+    if mfi < mfiOs
+        cnt -= 1
+    if roc > rocOb
+        cnt += 1
+    if roc < rocOs
+        cnt -= 1
+    if rsi > rsiOb
+        cnt += 1
+    if rsi < rsiOs
+        cnt -= 1
+    if rvi > rviOb
+        cnt += 1
+    if rvi < rviOs
+        cnt -= 1
+    if sto > stoOb
+        cnt += 1
+    if sto < stoOs
+        cnt -= 1
+    if tmf > tmfOb
+        cnt += 1
+    if tmf < tmfOs
+        cnt -= 1
+    cnt * (50. / oscCount) + 50
+
+levels(b, cci, cmf, cmo, dix, k, mfi, roc, rsi, rvi, sto, tmf) =>
+    if close < open and close[1] > open[1] and
+     b[1] > 50 and cci[1] > 50 and cmf[1] > 50 and cmo[1] > 50 and
+     dix[1] > 50 and k[1] > 50 and mfi[1] > 50 and roc[1] > 50 and
+     rsi[1] > 50 and rvi[1] > 50 and sto[1] > 50 and tmf[1] > 50
+        array.push(bObSum, math.ceil(b[1]))
+        array.push(cciObSum, math.ceil(cci[1]))
+        array.push(cmfObSum, math.ceil(cmf[1]))
+        array.push(cmoObSum, math.ceil(cmo[1]))
+        array.push(dixObSum, math.ceil(dix[1]))
+        array.push(kObSum, math.ceil(k[1]))
+        array.push(mfiObSum, math.ceil(mfi[1]))
+        array.push(rocObSum, math.ceil(roc[1]))
+        array.push(rsiObSum, math.ceil(rsi[1]))
+        array.push(rviObSum, math.ceil(rvi[1]))
+        array.push(stoObSum, math.ceil(sto[1]))
+        array.push(tmfObSum, math.ceil(tmf[1]))
+    if close > open and close[1] < open[1] and
+     b[1] < 50 and cci[1] < 50 and cmf[1] < 50 and cmo[1] < 50 and
+     dix[1] < 50 and k[1] < 50 and mfi[1] < 50 and roc[1] < 50 and
+     rsi[1] < 50 and rvi[1] < 50 and sto[1] < 50 and tmf[1] < 50
+        array.push(bOsSum, math.floor(b[1]))
+        array.push(cciOsSum, math.floor(cci[1]))
+        array.push(cmfOsSum, math.floor(cmf[1]))
+        array.push(cmoOsSum, math.floor(cmo[1]))
+        array.push(dixOsSum, math.floor(dix[1]))
+        array.push(kOsSum, math.floor(k[1]))
+        array.push(mfiOsSum, math.floor(mfi[1]))
+        array.push(rocOsSum, math.floor(roc[1]))
+        array.push(rsiOsSum, math.floor(rsi[1]))
+        array.push(rviOsSum, math.floor(rvi[1]))
+        array.push(stoOsSum, math.floor(sto[1]))
+        array.push(tmfOsSum, math.floor(tmf[1]))
+    bOb = math.ceil(array.avg(bObSum)), bOs = math.floor(array.avg(bOsSum))
+    cciOb = math.ceil(array.avg(cciObSum)), cciOs = math.floor(array.avg(cciOsSum))
+    cmfOb = math.ceil(array.avg(cmfObSum)), cmfOs = math.floor(array.avg(cmfOsSum))
+    cmoOb = math.ceil(array.avg(cmoObSum)), cmoOs = math.floor(array.avg(cmoOsSum))
+    dixOb = math.ceil(array.avg(dixObSum)), dixOs = math.floor(array.avg(dixOsSum))
+    kOb = math.ceil(array.avg(kObSum)), kOs = math.floor(array.avg(kOsSum))
+    mfiOb = math.ceil(array.avg(mfiObSum)), mfiOs = math.floor(array.avg(mfiOsSum))
+    rocOb = math.ceil(array.avg(rocObSum)), rocOs = math.floor(array.avg(rocOsSum))
+    rsiOb = math.ceil(array.avg(rsiObSum)), rsiOs = math.floor(array.avg(rsiOsSum))
+    rviOb = math.ceil(array.avg(rviObSum)), rviOs = math.floor(array.avg(rviOsSum))
+    stoOb = math.ceil(array.avg(stoObSum)), stoOs = math.floor(array.avg(stoOsSum))
+    tmfOb = math.ceil(array.avg(tmfObSum)), tmfOs = math.floor(array.avg(tmfOsSum))
+    [bOb, bOs, cciOb, cciOs, cmfOb, cmfOs, cmoOb, cmoOs, dixOb, dixOs, kOb, kOs, mfiOb, mfiOs, rocOb, rocOs, rsiOb, rsiOs, rviOb, rviOs, stoOb, stoOs, tmfOb, tmfOs]
+
+hybLevels(hyb) =>
+    if close < open and close[1] > open[1] and hyb[1] > 50
+        array.push(hybObSum, math.ceil(hyb[1]))
+    if close > open and close[1] < open[1] and hyb[1] < 50
+        array.push(hybOsSum, math.floor(hyb[1]))
+    [math.ceil(array.avg(hybObSum)), math.floor(array.avg(hybOsSum))]
+
+showHybColumn(col, hyb) =>
+    columnCell = hyb / (100. / (oscCount * 2))
+    hybObColor = color.new(col == tableLen - 1 ? curBarObColor : obColor, (100. / oscCount) * (oscCount * 2 - columnCell))
+    hybOsColor = color.new(col == tableLen - 1 ? curBarOsColor : osColor, (100. / oscCount) * columnCell)
+    for i = 0 to oscCount - 1
+        hybTable.cell(col, i, "", cellSize, cellSize, bgcolor = columnCell > oscCount * 2 - 1 - i ? hybObColor : na)
+    hybTable.cell(col, oscCount, "", cellSize, cellSize, bgcolor = color.new(hybrid < 50 ? curBarOsColor : hybrid > 50 ? curBarObColor : chart.fg_color, 90))
+    for i = oscCount + 1 to oscCount * 2
+        hybTable.cell(col, i, "", cellSize, cellSize, bgcolor = columnCell < oscCount * 2 + 1 - i ? hybOsColor : na)
+    if col == tableLen - 1
+        hybTable.cell(col, oscCount, str.tostring(math.round(hybrid)), text_color = chart.bg_color, text_size = size.tiny, bgcolor = hybrid < 50 ? curBarOsColor : hybrid > 50 ? curBarObColor : chart.fg_color)
+
+//}
+// calculate ob/os levels & hybrid graph {
+
+[b, cci, cmf, cmo, dix, k, mfi, roc, rsi, rvi, sto, tmf] = graphs(hybSrc, hybLen)
+[bOb, bOs, cciOb, cciOs, cmfOb, cmfOs, cmoOb, cmoOs, dixOb, dixOs, kOb, kOs, mfiOb, mfiOs, rocOb, rocOs, rsiOb, rsiOs, rviOb, rviOs, stoOb, stoOs, tmfOb, tmfOs] = levels(b, cci, cmf, cmo, dix, k, mfi, roc, rsi, rvi, sto, tmf)
+hybrid := obos(b, cci, cmf, cmo, dix, k, mfi, roc, rsi, rvi, sto, tmf, bOb, cciOb, cmfOb, cmoOb, dixOb, kOb, mfiOb, rocOb, rsiOb, rviOb, stoOb, tmfOb, bOs, cciOs, cmfOs, cmoOs, dixOs, kOs, mfiOs, rocOs, rsiOs, rviOs, stoOs, tmfOs)
+
+//}
+// show diagram {
+
+for i = 1 to tableLen
+    showHybColumn(tableLen - i, hybrid[i - 1])
+c = 100. / (oscCount * 2 + 2)
+for i = 0 to oscCount - 1
+    hybTable.cell(tableLen, i, str.tostring(math.round(normal(i, 100 - c, 50 + c))), text_color = chart.fg_color, text_size = size.tiny)
+for i = oscCount + 1 to oscCount * 2
+    hybTable.cell(tableLen, i, str.tostring(math.round(normal(i, 50 - c, 0 + c))), text_color = chart.fg_color, text_size = size.tiny)
+
+//}
+// signals {
+
+[hybObAuto, hybOsAuto] = hybLevels(hybrid)
+hybOb = hybObManual == 100 ? hybObAuto : hybObManual
+hybOs = hybOsManual == 0 ? hybOsAuto : hybOsManual
+
+up = signalCondition == 1 ? hybrid < hybOs : ta.crossover(hybrid, hybOs)
+down = signalCondition == 1 ? hybrid > hybOb : ta.crossunder(hybrid, hybOb)
+
+plotshape(showSignal ? up : na, "Up", shape.triangleup, location.belowbar, curBarOsColor, size = size.tiny)
+plotshape(showSignal ? down : na, "Down", shape.triangledown, location.abovebar, curBarObColor, size = size.tiny)
+plot(up ? 1 : down ? -1 : 0, "External Signal", display = display.none)
+
+//}

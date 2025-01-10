@@ -1,0 +1,96 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © LazyBear
+
+
+//version=5
+  
+// 
+// List of my public indicators: http://bit.ly/1LQaPK8 
+// List of my app-store indicators: http://blog.tradingview.com/?p=970 
+//
+//
+study(title="JMA RSX Clone [LazyBear]", shorttitle="RSXC_LB", overlay=false)
+lvlob = input(70, title="OB Level")
+lvlos = input(30, title="OS Level")
+mid  = input(50, title="Mid Level")
+sf = input(6, title="Signal")
+src=input(close)
+clampmax = 100
+clampmin = 0
+
+//rsx1
+
+length=input(14)
+
+f90_ = (nz(f90_[1]) == 0.0) ? 1.0 : (nz(f88[1]) <= nz(f90_[1])) ? nz(f88[1])+1 : nz(f90_[1])+1
+f88 = (nz(f90_[1]) == 0.0) and (length-1 >= 5) ? length-1.0 : 5.0 
+f8 =  100.0*(src) 
+f18 = 3.0 / (length + 2.0) 
+f20 = 1.0 - f18 
+f10 = nz(f8[1])
+v8 = f8 - f10 
+f28 = f20 * nz(f28[1]) + f18 * v8 
+f30 = f18 * f28 + f20 * nz(f30[1])
+vC = f28 * 1.5 - f30 * 0.5 
+f38 = f20 * nz(f38[1]) + f18 * vC 
+f40 = f18 * f38 + f20 * nz(f40[1])
+v10 = f38 * 1.5 - f40 * 0.5 
+f48 = f20 * nz(f48[1]) + f18 * v10 
+f50 = f18 * f48 + f20 * nz(f50[1])
+v14 = f48 * 1.5 - f50 * 0.5 
+f58 = f20 * nz(f58[1]) + f18 * abs(v8) 
+f60 = f18 * f58 + f20 * nz(f60[1])
+v18 = f58 * 1.5 - f60 * 0.5
+f68 = f20 * nz(f68[1]) + f18 * v18 
+f70 = f18 * f68 + f20 * nz(f70[1])
+v1C = f68 * 1.5 - f70 * 0.5 
+f78 = f20 * nz(f78[1]) + f18 * v1C 
+f80 = f18 * f78 + f20 * nz(f80[1])
+v20 = f78 * 1.5 - f80 * 0.5
+f0 = ((f88 >= f90_) and (f8 != f10)) ? 1.0  : 0.0
+f90 = ((f88 == f90_) and (f0 == 0.0))  ? 0.0  : f90_
+v4_ = ((f88 < f90) and (v20 > 0.0000000001)) ? (v14 / v20 + 1.0) * 50.0 : 50.0
+rsx = (v4_ > 100.0) ? 100.0 : (v4_ < 0.0) ? 0.0 : v4_
+
+//rsx2
+
+length2=input(14)
+
+
+f90_2 = (nz(f90_2[1]) == 0.0) ? 1.0 : (nz(f882[1]) <= nz(f90_2[1])) ? nz(f882[1])+1 : nz(f90_2[1])+1
+f882 = (nz(f90_2[1]) == 0.0) and (length2-1 >= 5) ? length2-1.0 : 5.0 
+f82 =  100.0*(src) 
+f182 = 3.0 / (length2 + 2.0) 
+f202 = 1.0 - f182 
+f102 = nz(f82[1])
+v82 = f82 - f102 
+f282 = f202 * nz(f282[1]) + f182 * v82 
+f302 = f182 * f282 + f202 * nz(f302[1])
+vC2 = f282 * 1.5 - f302 * 0.5 
+f382 = f202 * nz(f382[1]) + f182 * vC2 
+f402 = f182 * f382 + f202 * nz(f402[1])
+v102 = f382 * 1.5 - f402 * 0.5 
+f482 = f202 * nz(f482[1]) + f182 * v102 
+f502 = f182 * f482 + f202 * nz(f502[1])
+v142 = f482 * 1.5 - f502 * 0.5 
+f582 = f202 * nz(f582[1]) + f182 * abs(v82) 
+f602 = f182 * f582 + f202 * nz(f602[1])
+v182 = f582 * 1.5 - f602 * 0.5
+f682 = f202 * nz(f682[1]) + f182 * v182 
+f702 = f182 * f682 + f202 * nz(f702[1])
+v1C2 = f682 * 1.5 - f702 * 0.5 
+f782 = f202 * nz(f782[1]) + f182 * v1C2 
+f802 = f182 * f782 + f202 * nz(f802[1])
+v202 = f782 * 1.5 - f802 * 0.5
+f02 = ((f882 >= f90_2) and (f82 != f102)) ? 1.0  : 0.0
+f902 = ((f882 == f90_2) and (f02 == 0.0))  ? 0.0  : f90_2
+v4_2 = ((f882 < f902) and (v202 > 0.0000000001)) ? (v142 / v202 + 1.0) * 50.0 : 50.0
+rsx2 = (v4_2 > 100.0) ? 100.0 : (v4_2 < 0.0) ? 0.0 : v4_2
+
+//
+
+hline(lvlob, color=red, title="OB Level"), hline(mid,linewidth=2, title="Mid Level"), hline(lvlos, color=green, title="OS Level"), 
+plot(rsx, color=red, linewidth=2, title="RSXC")
+//plot(rsx2, color=red, linewidth=2, title="RSXC2")
+//rsima = ema(rsx,sf)
+//plot(rsima,style=cross,color=red)

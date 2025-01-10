@@ -1,0 +1,107 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+//High of Day & Low of Day hourly timings.
+//This is best used on the hourly chart, since the minimum time chunks for categorizing timings are 1hr. Usage on timeframes > 1hr will give less precise stats. Usage on timeframes < 1hr will give less data history.
+
+//TODO: input user timezone (for hour() function)
+//TODO: Option to print vertical lines for the new day turnover time
+
+// © twingall
+
+//@version=5
+indicator("High/Low of day Timings: backtesting data, hour of day", shorttitle= "HoD LoD timings", overlay = true, max_labels_count = 400)
+//user inputs
+_userTimezone = input.string("America/New_York", "input your timezone", options =["syminfo.timezone", "America/New_York", "UTC-10", "UTC-9", "UTC-8", "UTC-7", "UTC-6", "UTC-5", "UTC-4", "UTC-3",
+     "UTC-2", "UTC-1","UTC", "UTC+1", "UTC+2", "UTC+3", "UTC+4","UTC+5","UTC+6","UTC+7","UTC+8","UTC+9","UTC+10","UTC+11","UTC+12","UTC+13"], tooltip = "NB: make sure this timezone is set the same as your chart's toggled timezone" )
+
+userTimezone =_userTimezone=="syminfo.timezone"?syminfo.timezone:_userTimezone
+
+userInputStartHr = input.bool(false, "use custom input day start hour:", inline ='2')
+stHr = input.int(12, "", inline ='2', tooltip = "Toggle this OFF to use the default Tradingview Day start time.\n\nThis input will likely not match your timeframe but it's not an issue: simply adjust input until vertical lines print at your preferred/correct hour\n\nThen you can trust that timing, and verify your using the 'show line/show label' toggles below, along with bar-replay, to ensure table is populating correctly")
+showVlines = input.bool(true, "show day-start lines", tooltip = "Just a visual aid:\n\nIncluded this for user to check and ensure timings are correct and avoid timezone confusion\n\nYou can also use this to along with bar replay to check your table is populating correctly", inline = '3')
+lstHoDlabel = input.bool(true, "show last HoD hour label",  inline = '3')
+tablePos = input.string(position.bottom_right, "table position", options = [position.top_left, position.top_center, position.top_right, position.middle_left, position.middle_center, position.middle_right, position.bottom_left, position.bottom_center, position.bottom_right], group="~~~~ Table ~~~~", inline = '1')
+textCol = input.color(color.blue, "| Text", group="~~~~ Table ~~~~", inline = '1')
+textSize = input.string(size.normal, "| Size", options = [size.auto, size.tiny, size.small, size.normal, size.large, size.huge], group="~~~~ Table ~~~~", inline = '1')
+showOnlyOnHourly = input.bool(false, "show only on hourly timeframe", group = "~~~~ Table ~~~~", tooltip = "This is best used on the hourly chart, since the minimum time chunks for categorizing timings are 1hr.\n\nUsage on timeframes > 1hr will give less precise stats.\n\nUsage on timeframes < 1hr will give less data history")
+useStartTime = input.bool(false, "use start date", inline = "1", group="~~~~ Start Date ~~~~", tooltip = "could be used along with bar replay function to study a particular HTF market state; \n\ni.e. compare results in consolidated mkts vs trending markets")
+startTime= input.time(timestamp("18 Jan 2023 00:00 +0300"), "Start Date", confirm = false, group="~~~~ Start Date ~~~~")
+startLineCol = input.color(color.red, "start line color", inline = "2", group="~~~~ Start Date ~~~~", tooltip = "this line can be set manually in dialog box, or dragged across the chart to change")
+startLineWidth = input.int(2, "width", options= [1,2,3,4,5], inline = "2", group="~~~~ Start Date ~~~~")
+startTimeCond = useStartTime? time>startTime:true
+newDayCond = userInputStartHr? hour == stHr and minute ==0:timeframe.change("D")
+
+var line lnStrt = na
+if barstate.islastconfirmedhistory and useStartTime
+    lnStrt:=line.new(startTime, high, startTime, low, xloc = xloc.bar_time, color= startLineCol, extend = extend.both, width = startLineWidth)
+    line.delete(lnStrt[1])
+
+var array<int> hrArrHoD = array.new<int>(24,0) 
+var array<int> hrArrLoD = array.new<int>(24,0) 
+var int dayCount=0
+var int hrH = na
+var int hrL = na
+var int count = na
+
+if timeframe.change(timeframe.period) and not newDayCond[1]
+    count+=1
+if newDayCond[1]
+    count:=1
+// if timeframe.change(timeframe.period)
+//     label.new(bar_index, low, str.tostring(count), style = label.style_label_up, size = size.small, color = color.new(color.white, 100))
+
+_lowest = ta.lowest(low, count!=0?count:1)
+lastLoD = ta.valuewhen(low == _lowest, time, 0 )
+_highest = ta.highest(high,count!=0?count:1)
+lastHoD  = ta.valuewhen(high == _highest, time, 0)
+
+if newDayCond and barstate.isconfirmed and startTimeCond
+    dayCount+=1
+    hrH:= hour(lastHoD, userTimezone)
+    array.set(hrArrHoD,hrH, (array.get(hrArrHoD,hrH)+1))
+    hrL:= hour(lastLoD, userTimezone)
+    array.set(hrArrLoD,hrL, (array.get(hrArrLoD,hrL)+1))
+    if lstHoDlabel
+        label.new(bar_index, high, "HoD\nhour\n"+str.tostring(hrH), style = label.style_label_down, color=color.new(color.white, 100), size = size.normal, textcolor = color.red)
+    if showVlines
+        line.new(bar_index, low, bar_index, low-1, extend=extend.right, style = line.style_dashed)
+
+pctFxn(array<int> _arr, int _ind)=>
+    float result = (array.get(_arr, _ind)/array.sum(_arr))*100
+
+var Table = table.new(tablePos, columns = 26, rows = 10, border_width = 1,border_color= color.black)
+table.cell(Table, 0, 1, "Days History = "+str.tostring(dayCount), bgcolor =color.new(color.red, 50), text_size = textSize, text_color =textCol, text_halign =text.align_center)
+table.merge_cells(Table, 1, 1, 24, 1), table.cell(Table, 1,1, "~~~~  High of Day & Low of Day hourly timings ~~~", bgcolor =color.new(color.gray, 70), text_size = textSize, text_color = textCol, text_halign =text.align_center)
+table.cell(Table, 0, 2, "HOUR of day: ", bgcolor =color.new(color.yellow, 60), text_size = textSize, text_color = textCol, text_halign =text.align_center)
+table.cell(Table, 0, 3, "High of Day (freq): ", bgcolor =color.new(color.green, 60), text_size = textSize, text_color=textCol, text_halign =text.align_center)
+table.cell(Table, 0, 4, "High of Day %: ", bgcolor =color.new(color.green, 60), text_size = textSize, text_color=textCol, text_halign =text.align_center)
+table.cell(Table, 0, 5, "Low of Day (freq): ", bgcolor =color.new(color.red, 60), text_size = textSize, text_color=textCol, text_halign =text.align_center)
+table.cell(Table, 0, 6, "Low of Day %: ", bgcolor =color.new(color.red, 60), text_size = textSize, text_color=textCol, text_halign =text.align_center)
+table.cell(Table, 0, 7, "Combined %: ", bgcolor =color.new(color.purple, 60), text_size = textSize, text_color=textCol, text_halign =text.align_center)
+
+    //table cell fill functions:
+titleCellFill()=>
+    for i=1 to 24
+        table.cell(Table, i, 2, str.tostring(i-1)+ " ", bgcolor =color.new(color.yellow, 70), text_size = textSize, text_color=textCol, text_halign =text.align_center)
+HoDCellFill()=>
+    for i=1 to 24
+        table.cell(Table, i, 3, str.tostring(array.get(hrArrHoD, i-1)), bgcolor =color.new(color.green, 70), text_size = textSize, text_color=textCol, text_halign =text.align_center)
+HoDpctFill()=>
+    for i=1 to 24
+        table.cell(Table, i, 4, str.tostring(pctFxn(hrArrHoD, i-1), '0.0')+ "%", bgcolor =color.new(color.green, 70), text_size = textSize, text_color=textCol, text_halign =text.align_center)
+LoDCellFill()=>
+    for i=1 to 24
+        table.cell(Table, i, 5, str.tostring(array.get(hrArrLoD, i-1)), bgcolor =color.new(color.red, 70), text_size = textSize, text_color=textCol, text_halign =text.align_center)
+LoDpctFill()=>
+    for i=1 to 24
+        table.cell(Table, i, 6, str.tostring(pctFxn(hrArrLoD, i-1), '0.0')+ "%", bgcolor =color.new(color.red, 70), text_size = textSize, text_color=textCol, text_halign =text.align_center)
+combinedPctFill()=>
+    for i=1 to 24
+        table.cell(Table, i, 7, str.tostring( math.avg( pctFxn(hrArrLoD, i-1), pctFxn(hrArrHoD, i-1)), '0.0')+ "%", bgcolor =color.new(color.purple, 70), text_size = textSize, text_color=textCol, text_halign =text.align_center)
+
+//populate the table
+titleCellFill()
+HoDCellFill()
+HoDpctFill()
+LoDCellFill()
+LoDpctFill()
+combinedPctFill()

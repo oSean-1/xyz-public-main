@@ -1,0 +1,240 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Sigaud
+
+//@version=5
+indicator("[SGM Geometric Brownian Motion]", 'GBM', overlay=false, max_lines_count = 500)
+
+////////////
+// Inputs //
+////////////
+
+nb_simulations = input(200, "Number of simulations")
+longueur_simulation = input(10, "Simulation length")
+alpha = input(80, "Transparency of Brownian motion")
+show_brownian = input.bool(true, "Show Brownian motions")
+show_brownian_dispersion = input.bool(true, "Show Brownian dispersion")
+show_sharpe_dispersion = input.bool(true, "Show Sharpe dispersion")
+GBM_color = input.color(color.orange, "Dispersion color")
+dispersion_color = input.color(color.green, "Dispersion color")
+sharpe_dispersion_color = input.color(color.blue, "Sharpe dispersion color")
+
+//////////////
+// Function //
+//////////////
+
+// Function to calculate drift and volatility
+calc_drift_volatility(log_returns, count) =>
+    float drift = (count != 0) ? (log_returns / count) : 0.0
+    float mean_squared_log_return = (count != 0) ? (log_returns / count) : 0.0
+    float volatility = math.sqrt(mean_squared_log_return - drift * drift)
+    [drift, volatility]
+
+// Function to generate random normal value
+normalRandom() =>
+    var float last = na
+    if (na(last))
+        last := math.random()
+    r = last
+    last := math.random()
+    math.sqrt(-2 * math.log(r)) * math.cos(2 * math.pi * last)
+
+// Function to simulate one trajectory
+simulate_trajectory(drift, volatility, longueur_simulation, alpha) =>
+    var float[] prices = array.new_float(longueur_simulation + 1)
+    array.set(prices, 0, close)
+    float sim_sum_log_returns = 0.0
+    float sim_sum_squared_log_returns = 0.0
+    float max_drawdown = 0.0
+    float peak = close
+    float total_return = 0.0
+
+    for i = 1 to longueur_simulation
+        float z = normalRandom()
+        float prev_price = array.get(prices, i - 1)
+        float next_price = prev_price * math.exp((drift - 0.5 * volatility * volatility) + volatility * z)
+        array.set(prices, i, next_price)
+        float sim_log_return = math.log(next_price / prev_price)
+        sim_sum_log_returns += sim_log_return
+        sim_sum_squared_log_returns += sim_log_return * sim_log_return
+        total_return += (next_price - prev_price) / prev_price
+
+        // Calculate drawdown
+        peak := math.max(peak, next_price)
+        float drawdown = (peak - next_price) / peak
+        max_drawdown := math.max(max_drawdown, drawdown)
+
+        if show_brownian
+            line.new(x1=bar_index + i - 1, y1=array.get(prices, i - 1), x2=bar_index + i, y2=array.get(prices, i), color=color.new(GBM_color,alpha), width=2, force_overlay = true)
+
+    [array.get(prices, longueur_simulation), max_drawdown, total_return, sim_sum_log_returns, sim_sum_squared_log_returns]
+
+// Function to calculate VaR using drift and volatility
+calc_var(drift, volatility, confidence_level) =>
+    // Calculate the z-score for the confidence level
+    z_score = confidence_level == 0.90 ? -1.2815 : (confidence_level == 0.95 ? -1.6449 : (confidence_level == 0.99 ? -2.3263 : na))
+    // VaR calculation using drift and volatility
+    VaR = close * math.exp((drift - 0.5 * volatility * volatility) * longueur_simulation + z_score * volatility * math.sqrt(longueur_simulation))
+    VaR
+
+////////////////
+// Main logic //
+////////////////
+
+var float sum_log_returns = 0.0
+var float sum_squared_log_returns = 0.0
+var int count_log_returns = 0
+
+if (bar_index > 0)
+    float log_return = math.log(close / close[1])
+    sum_log_returns += log_return
+    sum_squared_log_returns += log_return * log_return
+    count_log_returns += 1
+
+[drift, volatility] = calc_drift_volatility(sum_log_returns, count_log_returns)
+
+var float[] end_prices = array.new_float(nb_simulations)
+var float[] sharpe_ratios = array.new_float(nb_simulations)
+var float[] max_drawdowns = array.new_float(nb_simulations)
+var float[] returns = array.new_float(nb_simulations)
+
+if not barstate.islast
+    var line[] lines = array.new_line(nb_simulations * longueur_simulation)
+    for i = 0 to array.size(lines) - 1
+        if not na(array.get(lines, i))
+            line.delete(array.get(lines, i))
+            array.set(lines, i, na)
+
+    for sim = 0 to nb_simulations - 1
+        [end_price, max_drawdown, total_return, sim_sum_log_returns, sim_sum_squared_log_returns] = simulate_trajectory(drift, volatility, longueur_simulation, alpha)
+        array.set(end_prices, sim, end_price)
+        array.set(max_drawdowns, sim, max_drawdown)
+        array.set(returns, sim, total_return)
+
+        float sim_drift = sim_sum_log_returns / longueur_simulation
+        float sim_volatility = math.sqrt((sim_sum_squared_log_returns / longueur_simulation) - (sim_drift * sim_drift))
+        float sharpe_ratio = (sim_volatility != 0) ? sim_drift / sim_volatility : 0.0
+        array.set(sharpe_ratios, sim, sharpe_ratio)
+
+//////////////////////////////////////////////
+// Calculate the distribution of end prices //
+//////////////////////////////////////////////
+
+if barstate.islast
+    float min_price = array.min(end_prices)
+    float max_price = array.max(end_prices)
+    float interval = (max_price - min_price) / 10.0
+
+    // Create a table for the histogram of end prices
+    var table hist_table = table.new(position.middle_center, 31, 12)
+
+    // Table header
+    table.cell(hist_table, 0, 0, "Range")
+    table.cell(hist_table, 1, 0, "Variation %")
+    table.cell(hist_table, 2, 0, "Percentage")
+    for row = 3 to 30
+        table.cell(hist_table, row, 0, "")
+        table.cell(hist_table, row, 1, "")
+        table.cell(hist_table, row, 2, "")
+
+    if show_brownian_dispersion
+        for i = 0 to 9
+            float lower_bound = min_price + i * interval
+            float upper_bound = min_price + (i + 1) * interval
+            int count_in_interval = 0
+
+            for j = 0 to array.size(end_prices) - 1
+                float end_price = array.get(end_prices, j)
+                if end_price >= lower_bound and end_price < upper_bound
+                    count_in_interval += 1
+            
+            // Calculate the proportion of the interval count relative to the total simulations
+            float proportion = count_in_interval / nb_simulations
+            int num_cells = math.round(proportion * 30)
+            
+            // Calculate percentage variation range
+            float lower_bound_pct = (lower_bound - close) / close * 100
+            float upper_bound_pct = (upper_bound - close) / close * 100
+
+            // Populate the table with ranges and color the cells
+            table.cell(hist_table, 0, 10 - i, str.tostring(lower_bound, '#.##') + " - " + str.tostring(upper_bound, '#.##'))
+            table.cell(hist_table, 1, 10 - i, str.tostring(lower_bound_pct, '#.##') + "% - " + str.tostring(upper_bound_pct, '#.##') + "%")
+            table.cell(hist_table, 2, 10 - i, str.tostring(proportion * 100, '#.##') + "%")
+            for row = 3 to 30
+                table.cell(hist_table, row, 10 - i, "", bgcolor=(row - 3 < num_cells ? color.new(dispersion_color, 0) : na))
+
+    ///////////////////////////////////////////////
+    // Calculate and display Sharpe ratios table //
+    ///////////////////////////////////////////////
+    
+    float min_sharpe = array.min(sharpe_ratios)
+    float max_sharpe = array.max(sharpe_ratios)
+    float sharpe_interval = (max_sharpe - min_sharpe) / 10.0
+
+    // Create a table for the Sharpe ratios histogram
+    var table sharpe_table = table.new(position.middle_left, 31, 12)
+
+    // Table header
+    table.cell(sharpe_table, 0, 0, "Sharpe Ratio Range")
+    table.cell(sharpe_table, 1, 0, "Percentage")
+    for row = 2 to 30
+        table.cell(sharpe_table, row, 0, "")
+        table.cell(sharpe_table, row, 1, "")
+
+    if show_sharpe_dispersion
+        for i = 0 to 9
+            float lower_bound = min_sharpe + i * sharpe_interval
+            float upper_bound = min_sharpe + (i + 1) * sharpe_interval
+            int count_in_sharpe_interval = 0
+
+            for j = 0 to array.size(sharpe_ratios) - 1
+                float sharpe_ratio = array.get(sharpe_ratios, j)
+                if (sharpe_ratio >= lower_bound and sharpe_ratio < upper_bound)
+                    count_in_sharpe_interval += 1
+            
+            // Calculate the proportion of the interval count relative to the total simulations
+            float sharpe_proportion = count_in_sharpe_interval / nb_simulations
+            int sharpe_num_cells = math.round(sharpe_proportion * 30)
+            
+            // Populate the table with ranges and color the cells
+            table.cell(sharpe_table, 0, 10 - i, str.tostring(lower_bound, '#.##') + " - " + str.tostring(upper_bound, '#.##'))
+            table.cell(sharpe_table, 1, 10 - i, str.tostring(sharpe_proportion * 100, '#.##') + "%")
+            for row = 2 to 30
+                table.cell(sharpe_table, row, 10 - i, "", bgcolor=(row - 2 < sharpe_num_cells ? color.new(sharpe_dispersion_color, 0) : na))
+
+    //////////////////////////////////////////////
+    // Calculate and display summary statistics //
+    //////////////////////////////////////////////
+    
+    float max_drawdown = array.max(max_drawdowns)
+    float avg_return = array.avg(returns)
+    float max_return = array.max(returns)
+    float avg_sharpe = array.avg(sharpe_ratios)
+    
+    // Calculate VaR for 90%, 95%, and 99% confidence levels using drift and volatility
+    float var_90 = calc_var(drift, volatility, 0.90)
+    float var_95 = calc_var(drift, volatility, 0.95)
+    float var_99 = calc_var(drift, volatility, 0.99)
+
+    var table summary_table = table.new(position.middle_right, 3, 9, frame_width = 2)
+    
+    table.cell(summary_table, 0, 0, "Metric", bgcolor=#787b868e)
+    table.cell(summary_table, 1, 0, "Value", bgcolor=#787b868e)
+    table.cell(summary_table, 2, 0, "Percentage", bgcolor=#787b868e)
+    table.cell(summary_table, 0, 1, "Max Drawdown")
+    table.cell(summary_table, 1, 1, str.tostring(max_drawdown*100, format.percent))
+    table.cell(summary_table, 0, 2, "Average Return")
+    table.cell(summary_table, 1, 2, str.tostring(avg_return*100, format.percent))
+    table.cell(summary_table, 0, 3, "Max Return")
+    table.cell(summary_table, 1, 3, str.tostring(max_return*100, format.percent))
+    table.cell(summary_table, 0, 4, "Average Sharpe Ratio")
+    table.cell(summary_table, 1, 4, str.tostring(avg_sharpe))
+    table.cell(summary_table, 2, 4, "")
+    table.cell(summary_table, 0, 5, "VaR 90%")
+    table.cell(summary_table, 1, 5, str.tostring(var_90))
+    table.cell(summary_table, 2, 5, str.tostring((close - var_90) / close * 100, '#.##') + "%")
+    table.cell(summary_table, 0, 6, "VaR 95%")
+    table.cell(summary_table, 1, 6, str.tostring(var_95))
+    table.cell(summary_table, 2, 6, str.tostring((close - var_95) / close * 100, '#.##') + "%")
+    table.cell(summary_table, 0, 7, "VaR 99%")
+    table.cell(summary_table, 1, 7, str.tostring(var_99))
+    table.cell(summary_table, 2, 7, str.tostring((close - var_99) / close * 100, '#.##') + "%")

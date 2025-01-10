@@ -1,0 +1,73 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © jeesauce
+
+//Some of the formula here in the library are from https://www.tradingview.com/script/NlM312nK-CVD-Cumulative-Volume-Delta-Candles/
+
+//@version=5
+library("JeeSauceScripts", overlay = true)
+
+//Get Up and Down Volume
+export getupdnvol() =>
+    float positivevol = 0.0
+    float negativevol = 0.0
+    switch
+        //
+        close > open => positivevol += volume
+        close < open => negativevol -= volume
+        //
+        close > nz(close[1]) => positivevol += volume
+        close < nz(close[1]) => negativevol -= volume
+        //
+        nz(positivevol[1]) > 0 => positivevol += volume
+        nz(negativevol[1]) < 0 => negativevol -= volume
+    [positivevol, negativevol]
+
+//Get Total Positive Volume
+export GetTotalUpVolume(float[] upvolume) =>
+	nz(array.sum(upvolume))
+
+//Get Total Negative Volume
+export GetTotalDnVolume(float[] downvolume) =>
+	nz(array.sum(downvolume))
+
+//Get Delta
+export GetDelta(float totalupvolume, float totaldownvolume) =>
+	totalupvolume + totaldownvolume
+
+//Get Max Positive Volume
+export GetMaxUpVolume(float[] upvolume) =>
+	nz(array.max(upvolume))
+
+//Get Max Negative Volume
+export GetMaxDnVolume(float[] downvolume) =>
+	nz(array.min(downvolume))
+
+//Get CVD
+export Getcvd() =>
+	var float cvd = 0.0
+
+//Get CVD Open
+export Getcvdopen(float cvd) =>
+	cvd
+
+//Get CVD High
+export Getcvdhigh(float cvd, float maxvolumeup) =>
+	cvd + maxvolumeup
+
+//Get CVD Low
+export Getcvdlow(float cvd, float maxvolumedown) =>
+	cvd + maxvolumedown
+
+//Get CVD Close
+export Getcvdclose(float cvd, float delta) =>
+	cvd + delta
+
+//Add 6 numbers
+export CombineData(float data1, float data2, float data3, float data4, float data5, float data6) =>
+    data1 + data2 + data3 + data4 + data5 + data6
+
+//Find a Certain Character
+export FindData(string data, string find) =>
+    str.contains(data, find)
+
+

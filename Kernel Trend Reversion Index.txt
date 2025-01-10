@@ -1,0 +1,251 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+
+// © huisbeld
+
+ 
+
+//@version=5
+
+indicator(title='Kernel Trend Reversion Index', shorttitle='KTRI', overlay=false, precision = 0)
+
+up = input.int(60, "Overbought", tooltip='Recommended range: 50-70', group = "Indication")
+
+dn = input.int(10, "Oversold", tooltip='Recommended range: 20-5', group = "Indication")
+
+ 
+
+ 
+
+rw = input.float(8., 'Relative Weighting', step=0.25, tooltip='Relative weighting of time frames. As this value approaches zero, the longer time frames will exert more influence on the estimation. As this value approaches infinity, the behavior of the Rational Quadratic Kernel will become identical to the Gaussian kernel. Recommended range: 0.25-25', group = "Kernel Regression")
+
+x_0 = input.int(5, "Start Regression at Bar", tooltip='Bar index on which to start regression. The first bars of a chart are often highly volatile, and omission of these initial bars often leads to a better overall fit. Recommended range: 5-25', group = "Kernel Regression")
+
+h = input.float(8., 'Lookback Window', minval=3., tooltip='The number of bars used for the estimation. This is a sliding value that represents the most recent historical bars. Recommended range: 3-50', group = "CCI Kernel based")
+
+length1 = input.float(8., 'Lookback Window', minval=3., tooltip='The number of bars used for the estimation. This is a sliding value that represents the most recent historical bars. Recommended range: 3-50', group = "BB Percentile")
+
+length2 = input.float(8., 'Lookback Window', minval=3., tooltip='The number of bars used for the estimation. This is a sliding value that represents the most recent historical bars. Recommended range: 3-50', group = "SMI Kernel based")
+
+srcX = input(hlc3, title="Source", group = "CCI kernel based")
+
+length = input(14, 'CI Length', group = "Choppiness Index")
+
+chopLength = input(14, 'Chop Length', group = "Choppiness Index")
+
+lag = input.int(2, "Lag", tooltip="Lag for crossover detection. Lower values result in earlier crossovers. Recommended range: 1-2", inline='1', group = "Kernel Regression")
+
+ 
+
+smoothColors = input.bool(false, "Smooth Colors", tooltip="Uses a crossover based mechanism to determine colors. This often results in less color transitions overall.", inline='1', group='Colors')
+
+ 
+
+// The Kernel Cookbook: Advice on Covariance functions. David Duvenaud. Published June 2014.
+
+// Estimation of the bandwidth parameter in Nadaraya-Watson kernel non-parametric regression based on universal threshold level. Ali T, Heyam Abd Al-Majeed Hayawi, Botani I. Published February 26, 2021.
+
+kernel_regression(_src, _size, _h) =>
+
+    float _currentWeight = 0.
+
+    float _cumulativeWeight = 0.
+
+    for i = 0 to _size + x_0
+
+        y = _src[i]
+
+        w = math.pow(1 + (math.pow(i, 2) / ((math.pow(_h, 2) * 2 * rw))), -rw)
+
+        _currentWeight += y*w
+
+        _cumulativeWeight += w
+
+    _currentWeight / _cumulativeWeight
+
+ 
+
+//CCI kernel based
+
+size = array.size(array.from(srcX)) // size of the data series
+
+maX = kernel_regression(srcX, size, h)
+
+cci = (srcX - maX) / (0.015 * ta.dev(srcX, int(h)))
+
+cci := cci/2
+
+ 
+
+// Choppiness Index Calculation
+
+ci = 100 * math.log10(math.sum(ta.atr(1), chopLength) / (ta.highest(chopLength) - ta.lowest(chopLength))) / math.log10(chopLength)
+
+ 
+
+//BB%
+
+src = input(close, title="Source", group = "BB Percentile")
+
+mult = input.float(2.0, minval=0.001, maxval=50, title="StdDev", group = "BB Percentile")
+
+basis = kernel_regression(src, size, length1)
+
+dev = mult * ta.stdev(src, int(length1))
+
+upper = basis + dev
+
+lower = basis - dev
+
+bbr = (src - lower)/(upper - lower)
+
+bbr := bbr*100
+
+ 
+
+//SMI
+
+ 
+
+highestHigh = ta.highest(int(length2))
+
+lowestLow =   ta.lowest(int(length2))
+
+highestLowestRange = highestHigh - lowestLow
+
+relativeRange = close - (highestHigh + lowestLow) / 2
+
+smi = 200 * (kernel_regression(relativeRange, size, h) / kernel_regression(highestLowestRange, size, h))
+
+ 
+
+KernelSMI = kernel_regression(smi, size, h)
+
+ 
+
+//MFI
+
+res = timeframe.period
+
+rawMoneyFlow = hlc3 * volume
+
+ 
+
+// functions
+
+positiveMoneyFlow() =>
+
+    a = 0.0
+
+    a := hlc3 > hlc3[1] ? a + rawMoneyFlow : a
+
+   
+
+negativeMoneyFlow() =>
+
+    b = 0.0
+
+    b := hlc3 < hlc3[1] ? b + rawMoneyFlow : b
+
+ 
+
+moneyFlowRatio = kernel_regression(positiveMoneyFlow(), size, length) / kernel_regression(negativeMoneyFlow(), size, length)
+
+ 
+
+moneyFlowIndex = request.security(syminfo.tickerid, res, 100 - 100 / (1 + moneyFlowRatio))
+
+ 
+
+ 
+
+//Average
+
+comb = (ci + cci + bbr + KernelSMI + moneyFlowIndex)/5
+
+combX = kernel_regression(comb, size, h)
+
+ 
+
+// Estimations
+
+combX2 = kernel_regression(comb, size, h-lag)
+
+ 
+
+// Rates of Change
+
+bool wasBearish = combX[2] > combX[1]
+
+bool wasBullish = combX[2] < combX[1]
+
+bool isBearish = combX[1] > combX
+
+bool isBullish = combX[1] < combX
+
+bool isBearishChange = isBearish and wasBullish
+
+bool isBullishChange = isBullish and wasBearish
+
+ 
+
+// Crossovers
+
+bool isBullishCross = ta.crossover(combX2, combX)
+
+bool isBearishCross = ta.crossunder(combX2, combX)
+
+bool isBullishSmooth = combX2 > combX
+
+bool isBearishSmooth = combX2 < combX
+
+ 
+
+// Colors
+
+color c_bullish = input.color(#3AFF17, 'Bullish Color', group='Colors')
+
+color c_bearish = input.color(#FD1707, 'Bearish Color', group='Colors')
+
+color colorByCross = isBullishSmooth ? c_bullish : c_bearish
+
+color colorByRate = isBullish ? c_bullish : c_bearish
+
+color plotColor = smoothColors ? colorByCross : colorByRate
+
+ 
+
+// Plot
+
+ 
+
+ 
+
+//Plotting
+
+up1 = plot(up, "Overbought", color = color.rgb(255, 255, 255))
+
+dn1 = plot(dn, "Oversold", color = color.white)
+
+mid = plot(33.5, display = display.none)
+
+combX1 = plot(combX, "Rational Quadratic Kernel Estimate", color=plotColor, linewidth=2)
+
+ 
+
+// Crossover Signals
+
+bearishCross = ta.crossunder(combX, up)
+
+bullishCross = ta.crossover(combX, dn)
+
+ 
+
+plotshape(bullishCross, color=#00ff2a, style=shape.triangleup, location=location.bottom ,size=size.small)
+
+plotshape(bearishCross, color=#ff0000, style=shape.triangledown, location=location.top,size=size.small)
+
+ 
+
+fill(combX1, mid, 75, 25, top_color = color.new(#1dff28, 0), bottom_color = color.new(#000000, 100),  title = "Overbought Gradient Fill")
+
+fill(combX1, mid, 25, -5, top_color = color.new(#000000, 100), bottom_color = color.new(#ff0000, 0),  title = "Overbought Gradient Fill")

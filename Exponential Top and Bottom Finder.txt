@@ -1,0 +1,30 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © spacekadet17
+// 
+//@version=5
+
+indicator(title="Exponential Top and Bottom Finder", shorttitle="ETPF", format=format.price, precision=4, overlay = true)
+
+// time frame?
+tfc = 1
+if timeframe.isdaily
+    tfc := 24
+
+ALMAlen = input(140)
+// indicators: price normalized alma, its 1st and 2nd derivatives and stochastic versions
+ema = ta.alma(close,ALMAlen,1.1,6)
+dema = (ema-ema[1])/ema
+stodema = ta.ema(ta.ema(ta.stoch(dema,dema,dema,100),3),3)
+
+d2ema = ta.ema(dema-dema[1],21)
+stod2ema = ta.ema(ta.ema(ta.stoch(d2ema,d2ema,d2ema,100),3),3)
+
+ind = (close-ta.ema(close,120*24/tfc))/close
+heat = ta.ema(ta.stoch(ind,ind,ind,120*24/tfc),3)
+index = ta.ema(heat,7*24/tfc)
+
+condpeak = stodema>stod2ema and dema>0 and d2ema<0.0001 and stodema>50 and stod2ema>50 and stod2ema<80 and index>70 and ind>0.2 ? true : false
+condbottom = stodema<stod2ema and dema<0 and d2ema>-0.0005 and stodema<40 and stod2ema>30 and index<35 and ind<-0.2 ? true : false
+plotshape(condpeak, style = shape.triangledown, color = color.red, location = location.abovebar, size = size.tiny)
+plotshape(condbottom, style = shape.triangleup, color = color.green, location = location.belowbar, size = size.tiny)
+

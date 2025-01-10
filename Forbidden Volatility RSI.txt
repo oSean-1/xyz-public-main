@@ -1,0 +1,152 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © chervolino
+
+
+//@version=5
+indicator(title="Forbidden Volatility RSI", shorttitle=" ッ ", format=format.price, precision=2, timeframe="", timeframe_gaps=true)
+
+// ——————————————————————————————————————————————————————— Inputs ——————————————————————————————————————————————————————————————————————————————————
+RSI_Length = input.int(6, title='RSI_Length')
+tr = input.int(2, 'Trigger Length')
+
+pvSourceInput = input.source(hlc3, "PV +/- Source", group="PV Settings")
+pvLengthInput = input.int(3, minval=1, title="PV +/- Length", group="PV Settings")
+
+maTypeInput = input.string("SMA", title="MA Type", options=["None", "SMA", "EMA", "SMMA (RMA)", "WMA", "VWMA", "Angle", "Angle (Normalized)"], group="MA Settings")
+maLengthInput = input.int(7, title="MA Length", group="MA Settings")
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
+
+// —————————————————————————————————————————————————— Calculations PVM ————————————————————————————————————————————————————————————————————————————— 
+calcSlope_Normalized(source, length) =>
+    u = math.sum(source, length)/length
+    o = ta.stdev(source, length)
+
+    sumX = 0.0
+    sumY = 0.0
+    sumXSqr = 0.0
+    sumXY = 0.0
+    for i = 0 to length - 1 by 1
+        val = (100.0/3.0)*(source[i]-u)/o
+        per = i + 1.0
+        sumX += per
+        sumY += val
+        sumXSqr += per * per
+        sumXY += val * per
+    slope = (length * sumXY - sumX * sumY) / (length * sumXSqr - sumX * sumX)
+    average = sumY / length
+    intercept = average - slope * sumX / length + slope
+    [slope, average, intercept]
+
+calcAngle_Normalized(source, length) =>
+    [slope, average, intercept] = calcSlope_Normalized(source, length)
+
+    ang = ta.rma(math.todegrees(-1.0*math.atan(slope)), length)
+
+calcAngle(source, length) =>
+    u = math.sum(source, length)/length
+    o = ta.stdev(source, length)
+    val0 = (source[0]-u)/o
+    val1 = (u[length]-u)/o
+
+    ang = ta.rma(math.todegrees(-1.0*math.atan((val1 - val0)/length)), 5*length)
+
+ma(source, length, type) =>
+    switch type
+        "None" => source
+        "SMA" => ta.sma(source, length)
+        "EMA" => ta.ema(source, length)
+        "SMMA (RMA)" => ta.rma(source, length)
+        "WMA" => ta.wma(source, length)
+        "VWMA" => ta.vwma(source, length)
+        "Angle" => ((calcAngle(source, length)+90)/180)*100
+        "Angle (Normalized)" => ((calcAngle_Normalized(source, length)+90)/180)*100
+
+percentVolatility (source, length, offset, direction) =>
+    perc = ((source[offset]-source[offset+1])/source[offset+1])
+    percAbs = math.abs(perc)
+
+    percSum = percAbs[length-1]+1.0
+    percSumNeg = (direction == -1 and perc[length-1] > 0.0) ? 1.0 : percAbs[length-1]+1.0
+    percSumPos = (direction == 1 and perc[length-1] < 0.0) ? 1.0 : percAbs[length-1]+1.0
+
+    for i = 0 to length-2 by 1
+        percSum := percSum*(1+percAbs[i])
+        
+        if (direction == -1 and perc[i] < 0.0)
+            percSumNeg := percSumNeg*(1+percAbs[i])
+
+        if (direction == 1 and perc[i] > 0.0)
+            percSumPos := percSumPos*(1+percAbs[i])
+
+    percSum := percSum - 1.0
+    percSumNeg := percSumNeg - 1.0
+    percSumPos := percSumPos - 1.0
+
+    percTotal = math.abs(((source[offset] - source[offset+length])/source[offset+length]))
+
+    percVol = 0.0
+
+    if (direction == -1)
+        percVol := ta.sma((percSumNeg >= percTotal) ? 100*(percTotal/percSumNeg) : 100*(percSumNeg/percTotal), length)
+    else if (direction == 1)
+        percVol := ta.sma((percSumPos >= percTotal) ? 100*(percTotal/percSumPos) : 100*(percSumPos/percTotal), length)
+    else
+        percVol := ta.sma(100*(percTotal/percSum), length)
+
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
+
+pv = ta.sma(percentVolatility(pvSourceInput, 2*pvLengthInput, 0, 0), maLengthInput)
+pv_neg = ma(percentVolatility(pvSourceInput, pvLengthInput, 0, -1), maLengthInput, maTypeInput)
+pv_pos = ma(percentVolatility(pvSourceInput, pvLengthInput, 0, +1), maLengthInput, maTypeInput)
+
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
+
+// —————————————————————————————————————————————————— Plot PVM —————————————————————————————————————————————————————————————————————————————————————
+
+//plot(pv, "PV Momentum", color.blue)
+plot(pv_neg, "PV-", color.rgb(24, 211, 139))
+//plot(pv_pos, "PV+", color.green)
+
+//pvUpperBand = hline(70, "PV Upper Band", color=#787B86)
+//hline(50, "PV Middle Band", color=color.new(#787B86, 50))
+//pvLowerBand = hline(30, "PV Lower Band", color=#787B86)
+//fill(pvUpperBand, pvLowerBand, color=color.rgb(126, 87, 194, 90), title="PV Background Fill")
+
+// —————————————————————————————————————————————————— Plot PVM ————————————————————————————————————————————————————————————————————————————————————
+
+// ——————————————————————————————————————————— Forbidden RSI Calculations ———————————————————————————————————————————————————————————————————————————
+HP = 0.00, a1 = 0.00, b1 = 0.00, c1 = 0.00, c2 = 0.00, c3 = 0.00, ag = 0.00, Sp = 0.00, X = 0.00, Quotient1 = 0.00, Quotient2 = 0.00, w = math.sqrt(.5)
+// ————— Calculations
+HP := 2500 * (close - 2 * nz(close[1]) + nz(close[2])) + 1.92 * nz(HP[1]) - .9216 * nz(HP[2])
+a1 := math.exp(-math.sqrt(2) * math.pi / RSI_Length)
+b1 := 2 * a1 * math.cos(math.sqrt(2) * math.pi / RSI_Length)
+c2 := b1
+c3 := -a1 * a1
+c1 := 1 - c2 - c3
+ag := c1 * (HP + nz(HP[1])) / 2 + c2 * nz(ag[1]) + c3 * nz(ag[2])
+Sp := .991 * nz(Sp[1])
+if math.abs(ag) > Sp
+    Sp := math.abs(ag)
+    Sp
+if Sp != 0
+    X := ag / Sp
+    X
+q1 = X * 60 + 50
+
+// ——————————————————————————————————————————— Forbidden RSI  ———————————————————————————————————————————————————————————————————————————
+
+rsi = ta.sma(q1, tr)
+
+// ——————————————————————————————————————————— Forbidden RSI  ———————————————————————————————————————————————————————————————————————————
+
+// ———————————————————————————————————————————————————————————————————————————————— FR Plot
+
+plot(rsi, "RSI", color=#7E57C2)
+
+// ———————————————————————————————————————————————————————————————————————————————— FR Plot
+
+// Measuring distance and quantifying entanglement 
+
+Distance = (rsi - pv_neg) / 100
+
+plot(Distance)

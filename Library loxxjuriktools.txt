@@ -1,0 +1,152 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © loxx
+
+//@version=5
+
+// @description loxxjuriktools: Jurik tools used in Loxx's idicators and strategies
+library("loxxjuriktools", overlay = true)
+
+// @function jcfbaux
+// @param src float
+// @param len int
+// @returns result float
+export jcfbaux(float src, float depth) =>
+    jrc04 = 0.0, jrc05 = 0.0, jrc06 = 0.0, jrc13 = 0.0, jrc03 = 0.0, jrc08 = 0.0
+    if (bar_index >= bar_index - depth * 2) 
+        for k = math.ceil(depth) - 1 to 0
+            jrc04 += math.abs(nz(src[k]) - nz(src[k+1]))
+            jrc05 += (depth + k) * math.abs(nz(src[k]) - nz(src[k+1]))
+            jrc06 += nz(src[k+1])
+    if(bar_index < bar_index - depth * 2)
+        jrc03 := math.abs(src - nz(src[1]))
+        jrc13 := math.abs(nz(src[depth]) - nz(src[depth+1]))
+        jrc04 := jrc04 - jrc13 + jrc03
+        jrc05 := jrc05 - jrc04 + jrc03 * depth
+        jrc06 := jrc06 - nz(src[depth+1]) + nz(src[1])
+    jrc08 := math.abs(depth * src - jrc06)
+    jcfbaux = jrc05 == 0.0 ? 0.0 : jrc08/jrc05
+    jcfbaux
+
+// @function jcfb
+// @param src float
+// @param len int
+// @param len int
+// @returns result float
+export jcfb(float src, int len, int smth) =>
+    a1 = array.new<float>(0, 0)
+    c1 = array.new<float>(0, 0)
+    d1 = array.new<float>(0, 0)
+    cumsum = 2.0, result = 0.0
+
+    //crete an array of 2^index, pushed onto itself
+    //max values with injest of depth = 10: [1, 1, 2, 2, 4, 4, 8, 8, 16, 16, 32, 32, 64, 64, 128, 128, 256, 256, 512, 512]
+    for i = 0 to len -1
+        array.push(a1, math.pow(2, i))
+        array.push(a1, math.pow(2, i))
+        
+    //cumulative sum of 2^index array
+    //max values with injest of depth = 10: [2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64, 96, 128, 192, 256, 384, 512, 768, 1024, 1536]
+    for i = 0 to array.size(a1) - 1 
+        array.push(c1, cumsum)
+        cumsum += array.get(a1, i)
+        
+    //add values from jcfbaux calculation using the cumumulative sum arrary above
+    for i = 0 to array.size(c1) - 1 
+        array.push(d1, jcfbaux(src, array.get(c1, i)))
+    
+    baux = array.copy(d1)
+    cnt = array.size(baux)
+    arrE = array.new<float>(cnt, 0)
+    arrX = array.new<float>(cnt, 0)
+    
+    if bar_index <= smth
+        for j = 0 to bar_index - 1
+            for k = 0 to cnt - 1
+                eget = array.get(arrE, k)
+                array.set(arrE, k, eget + nz(array.get(baux, k)[bar_index - j]))
+        for k = 0 to cnt - 1
+            eget = nz(array.get(arrE, k))
+            array.set(arrE, k, eget / bar_index)
+    else
+        for k = 0 to cnt - 1
+            eget = nz(array.get(arrE, k))
+            array.set(arrE, k, eget + (nz(array.get(baux, k)) - nz(array.get(baux, k)[smth])) / smth)
+    if bar_index > 5
+        a = 1.0, b = 1.0
+        for k = 0 to cnt - 1
+            if (k % 2 == 0)
+                array.set(arrX, k, b * nz(array.get(arrE, k)))
+                b := b * (1 - nz(array.get(arrX, k)))
+            else
+                array.set(arrX, k, a * nz(array.get(arrE, k)))
+                a := a * (1 - nz(array.get(arrX, k)))
+        sq = 0.0, sqw = 0.0 
+        for i = 0 to cnt - 1
+            sqw += nz(array.get(arrX, i)) * nz(array.get(arrX, i)) * nz(array.get(c1, i))
+        for i = 0 to array.size(arrX) - 1
+            sq += math.pow(nz(array.get(arrX, i)), 2)
+        result := sq == 0.0 ? 0.0 : sqw / sq
+        result
+     
+
+// @function jurik_filt
+// @param src float
+// @param len int
+// @param phase float
+// @returns result float       
+export jurik_filt(float src, int len, float phase) =>
+    //static variales
+    volty = 0.0, avolty = 0.0, vsum = 0.0, bsmax = src, bsmin = src
+    len1 = math.max(math.log(math.sqrt(0.5 * (len-1))) / math.log(2.0) + 2.0, 0)
+    len2 = math.sqrt(0.5 * (len - 1)) * len1
+    pow1 = math.max(len1 - 2.0, 0.5)
+    beta = 0.45 * (len - 1) / (0.45 * (len - 1) + 2)
+    div = 1.0 / (10.0 + 10.0 * (math.min(math.max(len-10, 0), 100)) / 100)
+    phaseRatio = phase < -100 ? 0.5 : phase > 100 ? 2.5 : 1.5 + phase * 0.01
+    bet = len2 / (len2 + 1)
+
+    //Price volatility
+    del1 = src - nz(bsmax[1])
+    del2 = src - nz(bsmin[1])
+    volty := math.abs(del1) > math.abs(del2) ? math.abs(del1) : math.abs(del2)
+
+    //Relative price volatility factor
+    vsum := nz(vsum[1]) + div * (volty - nz(volty[10]))
+    avolty := nz(avolty[1]) + (2.0 / (math.max(4.0 * len, 30) + 1.0)) * (vsum - nz(avolty[1]))
+    dVolty = avolty > 0 ? volty / avolty : 0
+    dVolty := math.max(1, math.min(math.pow(len1, 1.0/pow1), dVolty))
+   
+   //Jurik volatility bands
+    pow2 = math.pow(dVolty, pow1)
+    Kv = math.pow(bet, math.sqrt(pow2))
+    bsmax := del1 > 0 ? src : src - Kv * del1
+    bsmin := del2 < 0 ? src : src - Kv * del2
+    
+    //Jurik Dynamic Factor
+    alpha = math.pow(beta, pow2)
+
+    //1st stage - prelimimary smoothing by adaptive EMA
+    jrkout = 0.0, ma1 = 0.0, det0 = 0.0, e2 = 0.0
+    ma1 := (1 - alpha) * src + alpha * nz(ma1[1])
+    
+    //2nd stage - one more prelimimary smoothing by Kalman filter
+    det0 := (src - ma1) * (1 - beta) + beta * nz(det0[1])
+    ma2 = ma1 + phaseRatio * det0
+
+    //3rd stage - final smoothing by unique Jurik adaptive filter
+    e2 := (ma2 - nz(jrkout[1])) * math.pow(1 - alpha, 2) + math.pow(alpha, 2) * nz(e2[1])
+    jrkout := e2 + nz(jrkout[1])
+    jrkout 
+    
+//example usage
+out = jurik_filt(close, 25, 0)
+plot(out)
+
+
+
+
+
+
+
+
+

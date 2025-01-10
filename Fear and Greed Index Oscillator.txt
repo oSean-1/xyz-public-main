@@ -1,0 +1,292 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © barnabygraham
+
+// 1 to 7 are the original variables which this indicator is based upon. I've added others to add range, diversification and to improve the greed signals so that they (are more likely to) occur before downward moves. 
+
+//@version=5
+indicator("Fear and Greed Index", overlay=false, timeframe="D", timeframe_gaps=true)
+length=input(1, "Length (Smoothing)")
+LengthSMA=input(125,"Length of SMAs")
+
+// 1. Advancers minus decliners - the original index uses NYSE 52 week high/lows. That's now variable #14.
+ADD = request.security('ADD', "D", close)
+ADD2 = ADD/30
+ADDma= ta.ema(ADD2,5)
+ADDavg=((ADD2*2)+ADDma)/3
+ADD4 = ADDavg > 100 ? 100 : ADDavg < -100 ? -100 : ADDavg
+ADD3 = na(ADD4) ? 0 : ADD4
+//plot(ADD3)
+
+// 2. Volume Breadth - VOLD
+VOLD = request.security('VOLD', 'D', hlc3)
+VOLD2 = VOLD/20000000
+VOLDma= ta.ema(VOLD2,5)
+VOLDavg=((VOLD2*2)+VOLDma)/3
+VOLD4 = VOLDavg > 100 ? 100 : VOLDavg < -100 ? -100 : VOLDavg
+VOLD3 = na(VOLD4) ? 0 : VOLD4
+//plot(VOLD3)
+
+// 3. Market momentum - SPY vs simple moving average
+SPY = request.security('SPY', 'D', close)
+Spy125sma = ta.sma(SPY,LengthSMA)
+momentum = ((SPY/Spy125sma)-0.95)*400
+momo2 = momentum > 100 ? 100 : momentum < -100 ? -100 : momentum
+momo = na(momo2) ? 0 : momo2
+//plot(momo)
+
+// 4. Put to Call ratio - Ticker 'PC' occasionally doesn't work - (this may be the cause if the script breaks) if so, and you want results now, you can replace PC with PCSP or any other PUT:CALL ratio symbol of your choice. 
+PC = request.security('PC', 'D', close)
+PC2 = ((PC*100)-100)*-1.5
+PC3 = PC2 > 100 ? 100 : PC2 < -100 ? 100 : PC2
+PC4 = na(PC3) ? 0 : PC3
+//plot(PC4)
+
+// 5. Safe haven demand; stocks vs bonds
+TLT = request.security('TLT','D',close)
+TLTma = ((-TLT/ta.sma(-TLT,LengthSMA))*-800)+800
+TLT2 = na(TLTma) ? 0 : TLTma
+SvB2 = (TLT2 + momentum)/2
+SvB = na(SvB2) ? 0 : SvB2
+//plot(SvB)
+
+// 6. HYG vs TLT, high yeild vs low yeild
+HYG2 = request.security('HYG','D',close)
+HYG = na(HYG2) ? 0 : HYG2
+HYGma = ((HYG/ta.sma(HYG,LengthSMA))*800)-800
+HTG2 = na(HYGma) ? 0 : HYGma
+HvL2 = HTG2+TLT2 > 100 ? 100 : HTG2+TLT2 < -100 ? -100 : HTG2+TLT2
+HvL = na(HvL2) ? 0 : HvL2
+//(HvL)
+
+// 7. VIX - Volatility
+VIX = request.security('VIX', 'D', close)
+VIX2=(((VIX-10)*5)-100)*-1
+VIX4 = VIX2 > 100 ? 100 : VIX2 < -100 ? -100 : VIX2
+VIX3 = na(VIX4) ? 0 : VIX4
+//plot(VIX3)
+
+// 8. Risk Sentiment - XBI vs XLP; Biotech vs staples
+XBI = request.security('XBI','D',close)
+XLP = request.security('XLP','D',close)
+xlp50sma = ta.sma(XLP,LengthSMA)
+xlpmomentum = ((XLP/xlp50sma)-0.95)*400
+xlpmomo2 = xlpmomentum > 100 ? 100 : xlpmomentum < -100 ? -100 : xlpmomentum
+XBI50sma = ta.sma(XBI,LengthSMA)
+XBImomentum = ((XBI/XBI50sma)-0.95)*400
+XBImomo = XBImomentum > 100 ? 100 : XBImomentum < -100 ? -100 : XBImomentum
+XVIvsXLP2 = XBImomo-xlpmomo2
+XVIvsXLP = na(XVIvsXLP2) ? 0 : XVIvsXLP2
+//plot(XVIvsXLP)
+
+// 9.  VUG vs VTV; growth vs value
+VUG = request.security('VUG','D',close)
+VTV = request.security('VTV','D',close)
+GvV = (ta.roc(VTV,30)+ta.roc(VUG,30))*5
+GvVz= GvV > 100 ? 100 : GvV < -100 ? -100 : GvV
+GvVzFin=na(GvVz) ? 0 : GvVz
+//plot(GvVzFin)
+
+// 10. DXY rate of change
+DXY = request.security('DXY', 'D', close)
+DXYROC=ta.roc(DXY,100)*-5
+DXYz2 = DXYROC > 100 ? 100 : DXYROC < -100 ? -100 : DXYROC
+DXYz = na(DXYz2) ? 0 : DXYz2
+//plot(DXYz)
+
+// 11. Aussie Dollar rate of change
+AUDUSD = request.security('AUDUSD','D',close)
+AUDROC = ta.roc(AUDUSD,69)*5
+AUDz2 = AUDROC > 100 ? 100 : AUDROC < -100 ? -100 : AUDROC
+AUDz = na(AUDz2) ? 0 : AUDz2
+//plot(AUDz)
+
+
+// 12. SPY / VIX 10-day correlation - Early greed signals - (I felt this indicator was lacking appropriate greed signals before adding these)
+SPYVIXa=ta.correlation(SPY,VIX,10)
+SPYVIX10=(((SPYVIXa)*69)+60)
+SPYVIXa102=SPYVIX10 > 100 ? 100 : SPYVIX10 < -100 ? -100 : SPYVIX10
+SPYVIXa10 = na(SPYVIXa102) ? 0 : SPYVIXa102
+//plot(SPYVIXa10)
+
+
+// 13. SPY / VIX 20-day correlation - Early greed signals - (I felt this indicator was lacking appropriate greed signals before adding these)
+SPYVIXb=ta.correlation(SPY,VIX,20)
+SPYVIX20=(((SPYVIXb)*69)+60)
+SPYVIXb202=SPYVIX20 > 100 ? 100 : SPYVIX20 < -100 ? -100 : SPYVIX20
+SPYVIXb20 = na(SPYVIXb202) ? 0 : SPYVIXb202
+//plot(SPYVIXb20)
+
+
+// 14. NYSE 52 week highs vs 52 week lows
+HIGN = request.security('HIGN','D',close)
+LOWN = request.security('LOWN','D',close)
+HIGNSMA = ta.sma(HIGN,1000)
+LOWNSMA = ta.sma(LOWN,1000)
+HIGNr = (HIGN/HIGNSMA)*15
+LOWNr = (LOWN/LOWNSMA)*-5
+HighsAndLows=(HIGNr+LOWNr)
+HisLows2=HighsAndLows > 100 ? 100 : HighsAndLows < -100 ? -100 : HighsAndLows
+HisLows = na(HisLows2) ? 0 : HisLows2
+// plot(HisLows)
+
+// 15. SPY Short Volume
+SSV = request.security('SPY_SHORT_VOLUME','D',close)
+SSVsma=ta.sma(SSV,LengthSMA)
+SSVf=(SSV/SSVsma)
+SSVf2 = na(SSVf) ? 0 : ((SSVf*-30)+30)
+SSVf32=SSVf2 > 1 ? SSVf2*5 : SSVf2 < -100 ? -100 : SSVf2
+SSVf3 = na(SSVf32) ? 0 : SSVf32
+//plot(SSVf3)
+
+// 16. % of stocks above/below moving averages
+Per5MA  = request.security('MMFD','D',close)
+Per20MA = request.security('MMTW','D',close)
+Per50MA = request.security('MMFI','D',close)
+Per100MA= request.security('MMOH','D',close)
+Per150MA= request.security('MMOF','D',close)
+Per200MA= request.security('MMTH','D',close)
+PerAverage=(Per5MA+Per20MA+Per50MA+Per100MA+Per150MA+Per200MA)/6
+PerFin2=na(PerAverage) ? 0 : (PerAverage*2)-100
+PerFin = na(PerFin2) ? 0 : PerFin2
+//plot(PerFin)
+
+// 17. McClellan Oscillator
+ai = request.security('ADVN','D',close)
+di = request.security('DECN','D',close)
+rana=1000 * (ai-di)/(ai+di)
+e1=ta.ema(rana, 19)
+e2=ta.ema(rana, 39)
+mo=e1-e2
+mcclellan2 = mo > 100 ? 100 : mo < -100 ? -100 : mo
+mcclellan = na(mcclellan2) ? 0 : mcclellan2
+//plot(mcclellan)
+
+// // 18. this is just an idea for now and may be better to use GS or some other large investment bank.... let me know if you have any ideas about this
+// IBKR = request.financial('NASDAQ:IBKR', 'TOTAL_LIABILITIES' ,'FQ', barmerge.gaps_on)
+// IBKRSMA = (ta.ema(IBKR,2))
+// IBKRfin = IBKR/IBKRSMA
+// IBKRfin2=ta.highest((((IBKRfin)-1.01)*2000),10)
+// plot(IBKRfin2)
+
+subTotal = ((ADD3 + VOLD3 + momo + PC4 + SvB + HvL + VIX3 + XVIvsXLP + GvVzFin + DXYz + AUDz + SPYVIXa10 + SPYVIXb20 + HisLows + SSVf3 + PerFin + mcclellan) / 8)
+Total = subTotal > 100 ? 100 : subTotal < -100 ? -100 : subTotal
+Final = ta.ema(Total,length)
+
+
+plot = plot(Final, color=color.from_gradient(Total, -100, 100, #17CC00, #FF0000))
+
+hline(0, linestyle=hline.style_dotted, color=color.new(color.white,85))
+hline(50, linestyle=hline.style_dotted, color=color.new(color.red,70))
+hline(100, linestyle=hline.style_dotted, color=color.new(color.red,50))
+hline(-50, linestyle=hline.style_dotted, color=color.new(color.green,70))
+hline(-100, linestyle=hline.style_dotted, color=color.new(color.green,50))
+
+// END OF FEAR AND GREED CALCULATIONS // Below are optional indicators which could be helpful, currently divergence lines and long range bollinger bands
+
+// DIVERGENCE LINES
+lbR = input(title='Pivot Lookback Right', defval=2)
+lbL = input(title='Pivot Lookback Left', defval=30)
+rangeUpper = input(title='Max of Lookback Range', defval=60)
+rangeLower = input(title='Min of Lookback Range', defval=5)
+plotBull = input(title='Plot Bullish', defval=true)
+plotHiddenBull = input(title='Plot Hidden Bullish', defval=false)
+plotBear = input(title='Plot Bearish', defval=true)
+plotHiddenBear = input(title='Plot Hidden Bearish', defval=false)
+
+bearColor = color.new(color.red,66)
+bullColor = color.new(color.green,66)
+hiddenBullColor = color.new(color.green, 80)
+hiddenBearColor = color.new(color.red, 80)
+textColor = color.white
+noneColor = color.new(color.white, 100)
+[macdline, _, _] = ta.macd(close, 12, 26, 9)
+
+P = (close - open) / open
+DI = 0.0
+Spread = 0.0
+H = 0.0
+L = 0.0
+
+if high > high[1]
+    H := high
+    H
+else
+    H := high[1]
+    H
+if low < low[1]
+    L := low
+    L
+else
+    L := low[1]
+    L
+Spread := H - L
+Spread := math.avg(Spread, 10)
+if Spread == 0
+    Spread := 1
+    Spread
+K = 3 * close / Spread
+P *= K
+BP = 1.0
+SP = 1.0
+if close > open
+    BP := volume
+    SP := volume / P
+    SP
+else
+    BP := volume / P
+    SP := volume
+    SP
+if math.abs(BP) > math.abs(SP)
+    DI := 100 * SP / BP
+    DI
+else
+    DI := 100 * BP / SP
+    DI
+DI := ta.ema(DI, 10)
+
+ad = close == high and close == low or high == low ? 0 : (2 * close - low - high) / (high - low) * volume
+cmf = math.sum(ad, 20) / math.sum(volume, 20) * 100
+
+osc = Final
+
+plFound = na(ta.pivotlow(osc, lbL, lbR)) ? false : true
+phFound = na(ta.pivothigh(osc, lbL, lbR)) ? false : true
+
+_inRange(cond) =>
+    bars = ta.barssince(cond == true)
+    rangeLower <= bars and bars <= rangeUpper
+
+oscHL = osc[lbR] > ta.valuewhen(plFound, osc[lbR], 1) and _inRange(plFound[1])
+
+// Price: Lower Low
+priceLL = low[lbR] < ta.valuewhen(plFound, low[lbR], 1)
+bullCond = plotBull and priceLL and oscHL and plFound
+plot(plFound ? osc[lbR] : na, offset=-lbR, title='Regular Bullish', linewidth=2, color=bullCond ? bullColor : noneColor, transp=0)
+oscLL = osc[lbR] < ta.valuewhen(plFound, osc[lbR], 1) and _inRange(plFound[1])
+priceHL = low[lbR] > ta.valuewhen(plFound, low[lbR], 1)
+hiddenBullCond = plotHiddenBull and priceHL and oscLL and plFound
+plot(plFound ? osc[lbR] : na, offset=-lbR, title='Hidden Bullish', linewidth=2, color=hiddenBullCond ? hiddenBullColor : noneColor, transp=0)
+oscLH = osc[lbR] < ta.valuewhen(phFound, osc[lbR], 1) and _inRange(phFound[1])
+priceHH = high[lbR] > ta.valuewhen(phFound, high[lbR], 1)
+bearCond = plotBear and priceHH and oscLH and phFound
+plot(phFound ? osc[lbR] : na, offset=-lbR, title='Regular Bearish', linewidth=2, color=bearCond ? bearColor : noneColor, transp=0)
+oscHH = osc[lbR] > ta.valuewhen(phFound, osc[lbR], 1) and _inRange(phFound[1])
+priceLH = high[lbR] < ta.valuewhen(phFound, high[lbR], 1)
+hiddenBearCond = plotHiddenBear and priceLH and oscHH and phFound
+plot(phFound ? osc[lbR] : na, offset=-lbR, title='Hidden Bearish', linewidth=2, color=hiddenBearCond ? hiddenBearColor : noneColor, transp=0)
+
+
+
+// BOLLINGER BANDS
+bblength = input.int(2000, minval=1, title="Bollinger Band Length")
+src = Final
+mult = input.float(2.0, minval=0.001, maxval=50, title="Bollinger Band Std Dev")
+basis = ta.sma(src, bblength)
+dev = mult * ta.stdev(src, bblength)
+upper = basis + dev
+lower = basis - dev
+plot(basis, "Basis", color=color.new(#FF6D00,50))
+p1 = plot(upper, "Upper", color=color.new(#2962FF,50))
+p2 = plot(lower, "Lower", color=color.new(#2962FF,50))
+
+
