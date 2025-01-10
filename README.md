@@ -1,5 +1,3 @@
-# xyz-public-
-
 ## Licensing Information
 This repository contains Pine Script™ code subject to the terms of either or both:
 
