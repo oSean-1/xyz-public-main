@@ -1,0 +1,101 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © mertenes3
+
+
+//@version=5
+indicator("Footprint Boxes", overlay=false,max_boxes_count = 500)
+
+// === Input Parameters ===
+cnum = input.int(10, "Number of Bins", minval=1, tooltip="Number of price bins to divide the candle's range")
+tutorial = input(false,'this is a footprint chart approximation\n the bin with white border is total delta\n other bins are top to down delta percentage at price extracted from lower tf')
+// === Initialize Arrays ===
+var float[] bins = array.new_float(cnum, 0.0)
+// This array will hold references to all boxes created over time
+var box[] historicalBoxes = array.new_box()
+
+// === Lower timeframe settings ===
+lower_tf = input.timeframe('1')
+
+// Function to determine signed volume
+f_get_signed_volume() =>
+    close > open ? volume : close < open ? -volume : 0.0
+
+// Get lower timeframe data
+signed_vol = request.security_lower_tf(syminfo.tickerid, lower_tf, f_get_signed_volume())
+[tfc,tfo] = request.security_lower_tf(syminfo.tickerid, lower_tf, [close,open])
+
+// Only process after candle completion
+if barstate.isconfirmed
+    // Determine main candle price range based on lower timeframe extremes
+    main_high = low
+    main_low = high
+    array.fill(bins, 0.0)
+    
+    // Find the true min and max price across lower timeframe intervals that make up the higher timeframe candle
+    if array.size(tfc) > 0
+        for i = 0 to array.size(tfc)-1
+            c_ = array.get(tfc,i)
+            o_ = array.get(tfo,i)
+            main_high := math.max(main_high, math.max(c_, o_))
+            main_low := math.min(main_low, math.min(c_, o_))
+            
+        price_range = main_high - main_low
+        bin_size = price_range / cnum
+        
+        // Aggregate volume into bins
+        for i = 0 to array.size(tfc)-1
+            c_ = array.get(tfc,i)
+            o_ = array.get(tfo,i)
+            lower_bin = int((math.min(c_, o_) - main_low) / bin_size)
+            higher_bin = int((math.max(c_, o_) - main_low) / bin_size)
+            
+            // Distribute the volume equally among the touched bins
+            width = math.max(math.abs(lower_bin - higher_bin),1)
+            unit_volume = array.get(signed_vol,i) / width
+            
+            start_bin = math.max(math.min(higher_bin, lower_bin), 0)
+            end_bin   = math.min(math.max(higher_bin, lower_bin), cnum - 1)
+            for j = math.min(start_bin,cnum-1) to math.min(end_bin,cnum-1)
+                array.set(bins, j, array.get(bins,j) + unit_volume)
+                
+        // Once we have final bin volumes, create new boxes for this candle
+        total_abs = 0.0
+        for i = 0 to array.size(bins)-1
+            total_abs += math.abs(array.get(bins, i))
+        
+        // If total_abs is zero, avoid division by zero
+        total_abs := total_abs == 0 ? 1 : total_abs
+        
+        for b = 0 to cnum - 1
+            bin_value = array.get(bins, b)
+            
+            // Determine the bin's vertical boundaries
+            bin_low_price = main_low + b * bin_size
+            bin_high_price = bin_low_price + bin_size
+            
+            // X-coordinates: place boxes around the current bar_index
+            // Adjust as necessary for better visual alignment
+            x1 = bar_index
+            x2 = bar_index +1
+            
+            // Create a new box for each bin on this candle
+            new_box = box.new(x1, b+1, x2, b, border_color=color.black, border_width=1, bgcolor=bin_value>0?color.rgb(0,75+int(180*bin_value/total_abs),0):color.rgb(75+int(180*math.abs(bin_value)/total_abs),0,0),text_color = color.white)
+            
+            
+            text_str = str.tostring(100*bin_value/total_abs , format.mintick)//*100
+            box.set_text(new_box, text_str)
+            
+            // Store the newly created box reference if needed
+            array.push(historicalBoxes, new_box)
+        bin_value = array.sum(bins)
+  
+        new_box = box.new(bar_index, cnum+1, bar_index +1, cnum, border_color=color.white, border_width=2, bgcolor=bin_value>0?color.green:color.red,text_color = color.black)
+            
+        // Convert bin_value to percentage and display sign based on bin_value
+        txt_color = bin_value >= 0 ? color.green : color.red
+        text_str = str.tostring(bin_value, format.mintick)
+        box.set_text(new_box, text_str)
+        
+        // Store the newly created box reference if needed
+        array.push(historicalBoxes, new_box)
+
