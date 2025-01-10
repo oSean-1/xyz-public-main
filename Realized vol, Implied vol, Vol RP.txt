@@ -1,0 +1,121 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © voided
+
+//@version=5
+indicator("rv_iv_vrp")
+
+// inputs
+
+sym = input.string("SPX", "symbol", options = [ "SPX", "NDX", "RUT", "DJX", "TLT", "FXI", "EFA", "EEM", "EWZ", "USO", "GC1!", "GDX", "SLV", "FXE", "AAPL", "AMZN", "GOOG", "GS", "IBM" ])
+iv_sym = sym == "SPX" ? "VIX" : sym == "NDX" ? "VXN" : sym == "RUT" ? "RVX" : sym == "DJX" ? "VXD" : sym == "TLT" ? "VXTLT" : sym == "FXI" ? "VXFXI" : sym == "EFA" ? "VXEFA" : sym == "EEM" ? "VXEEM" : sym == "EWZ" ? "VXEWZ" : sym == "USO" ? "OVX" : sym == "GC1!" ? "GVZ" : sym == "GDX" ? "VXGDX" : sym == "SLV" ? "VXSLV" : sym == "FXE" ? "EVZ" : sym == "AAPL" ? "VXAPL" : sym == "AMZN" ? "VXAZN" : sym == "GOOG" ? "VXGOG" : sym == "GS" ? "VXGS" : sym == "IBM" ? "VXIBM" : na
+start = input.time(timestamp("1 Jan 1900"), "start")
+end = input.time(timestamp("1 Jan 2100"), "end")
+
+// securities
+
+ul = request.security(sym, "D", close)
+iv = request.security(iv_sym, "D", close) / 100
+
+
+// volatility
+
+squared_returns = math.pow(math.log(ul / ul[1]), 2)
+smoothed_returns = ta.ema(squared_returns, 20)
+rv = math.sqrt(smoothed_returns * 252)
+vrp = iv - rv
+
+// data collection
+
+var float[] ivs = array.new_float()
+var float[] rvs = array.new_float()
+var float[] vrps = array.new_float()
+
+in_range = time >= start and time < end
+
+if in_range
+
+    array.push(ivs, iv)
+    array.push(rvs, rv)
+    array.push(vrps, vrp)
+
+in_clr = color.new(color.gray, 98)
+bgcolor(in_range ? in_clr : na)
+
+// output
+
+current_color = rv >= iv ? color.red : color.blue
+
+plot(iv, color = color.new(color.gray, 85))
+plot(rv, color = current_color)
+
+if barstate.islast
+
+    // median and percentile
+    
+    array.sort(ivs)
+    iv_pct = array.indexof(ivs, iv) / array.size(ivs)
+    
+    array.sort(rvs)
+    rv_pct = array.indexof(rvs, rv) / array.size(rvs)
+    
+    array.sort(vrps)
+    vrp_pct = array.indexof(vrps, vrp) / array.size(vrps)
+    
+    iv_med = array.median(ivs)
+    rv_med = array.median(rvs)
+    vrp_med = array.median(vrps)
+    
+
+    // colors and formatting
+    
+    iv_lbl_clr = color.new(iv > iv_med ? color.red : color.blue, 70)
+    iv_data_clr = color.new(iv > iv_med ? color.red : color.blue, 70)
+    
+    rv_lbl_clr = color.new(current_color, 70)
+    rv_data_clr = color.new(current_color, 90)
+    
+    vrp_lbl_clr = color.new(vrp > vrp_med ? color.red : color.blue, 70)
+    vrp_data_clr = color.new(vrp > vrp_med ? color.red : color.blue, 90)
+    
+    med_lbl_clr = color.new(color.fuchsia, 70)
+    med_data_clr = color.new(color.fuchsia, 90)
+    
+    fmt = "#.###"
+
+
+    // table
+
+    t = table.new(position.middle_right, 2, 9)
+
+    table.cell(t, 0, 0, "iv", bgcolor = iv_lbl_clr, text_color=color.white)
+    table.cell(t, 1, 0, str.tostring(iv, fmt), bgcolor = iv_data_clr, text_color=color.white)
+
+    table.cell(t, 0, 1, "iv %", bgcolor = iv_lbl_clr, text_color=color.white)
+    table.cell(t, 1, 1, str.tostring(iv_pct, fmt), bgcolor = iv_data_clr, text_color=color.white)    
+
+    table.cell(t, 0, 2, "iv median", bgcolor = med_lbl_clr, text_color=color.white)
+    table.cell(t, 1, 2, str.tostring(iv_med, fmt), bgcolor = med_data_clr, text_color=color.white)
+
+    table.cell(t, 0, 3, "rv", bgcolor = rv_lbl_clr, text_color=color.white)
+    table.cell(t, 1, 3, str.tostring(rv, fmt), bgcolor = rv_data_clr, text_color=color.white)
+
+    table.cell(t, 0, 4, "rv %", bgcolor = rv_lbl_clr, text_color=color.white)
+    table.cell(t, 1, 4, str.tostring(rv_pct, fmt), bgcolor = rv_data_clr, text_color=color.white)    
+
+    table.cell(t, 0, 5, "rv median", bgcolor = med_lbl_clr, text_color=color.white)
+    table.cell(t, 1, 5, str.tostring(rv_med, fmt), bgcolor = med_data_clr, text_color=color.white)
+    
+    table.cell(t, 0, 6, "vrp", bgcolor = vrp_lbl_clr, text_color=color.white)
+    table.cell(t, 1, 6, str.tostring(vrp, fmt), bgcolor = vrp_data_clr, text_color=color.white)
+
+    table.cell(t, 0, 7, "vrp %", bgcolor = vrp_lbl_clr, text_color=color.white)
+    table.cell(t, 1, 7, str.tostring(vrp_pct, fmt), bgcolor = vrp_data_clr, text_color=color.white, text_color=color.white)
+    
+    table.cell(t, 0, 8, "vrp median", bgcolor = med_lbl_clr, text_color=color.white)
+    table.cell(t, 1, 8, str.tostring(vrp_med, fmt), bgcolor = med_data_clr, text_color=color.white)
+    
+    // iv/rv median
+    
+    line.new(x1 = time_close - bar_index * (24 * 60 * 60 * 1000), y1 = iv_med, x2 = time_close, y2 = iv_med, color = color.new(color.fuchsia, 70), xloc = xloc.bar_time)
+    line.new(x1 = time_close - bar_index * (24 * 60 * 60 * 1000), y1 = rv_med, x2 = time_close, y2 = rv_med, color = color.fuchsia, xloc = xloc.bar_time)
+    
