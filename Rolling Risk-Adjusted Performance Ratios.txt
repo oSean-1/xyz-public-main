@@ -1,0 +1,45 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © EliCobra
+
+//@version=5
+indicator("Rolling Risk-Adjusted Performance Ratios", "{Ʌ} - RAPR", false, timeframe = "", timeframe_gaps = true)
+
+stat_calc(src, lookback) =>
+    float daily_return = src / src[1] - 1
+    returns_array = array.new_float(0)
+    negative_returns_array = array.new_float(0)
+    positive_returns_array = array.new_float(0)
+
+    for i = 0 to lookback
+        array.push(returns_array, daily_return[i])
+        if daily_return[i] <= 0.0
+            array.push(negative_returns_array, daily_return[i])
+        else
+            array.push(positive_returns_array, daily_return[i])
+
+
+    ////STAT CALCULATIONS
+    standard_deviation = array.stdev(returns_array)
+    negative_returns_standard_deviation = array.stdev(negative_returns_array)
+    mean = array.avg(returns_array)
+    sharpe = math.round(mean / standard_deviation * math.sqrt(lookback), 2)
+    sortino = math.round(mean / negative_returns_standard_deviation * math.sqrt(lookback), 2)
+    postive_area = array.sum(positive_returns_array)
+    negative_area = array.sum(negative_returns_array) * (-1)
+    omega = math.round(postive_area / negative_area, 2)
+
+    [sharpe, sortino, omega]
+
+
+src = input.source(close, "Source")
+lookback = input.int(30, "Lookback")
+boolsharpe = input.bool(true, "Display Sharpe")
+boolsortino = input.bool(true, "Display Sortino")
+boolomega = input.bool(true, "Display Omega")
+
+[sharpe, sortino, omega] = stat_calc(src, lookback)
+
+plot(boolsharpe ? sharpe : na, "Sharpe Ratio", #529cca)
+plot(boolsortino ? sortino : na, "Sortino Ratio", #bb6cbb)
+plot(boolomega ? omega : na, "Omega Ratio", #4fa34f)
+hline(0, 'Zero Line', #ffffff80, hline.style_solid)

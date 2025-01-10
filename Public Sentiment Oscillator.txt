@@ -1,0 +1,66 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © peacefulLizard50262
+
+//@version=5
+indicator("Public Sentiment", overlay = false)
+
+ha_close(float Open = open, float High = high, float Low = low, float Close = close, bool enable = true) =>
+    ha_close = (Open + High + Low + Close) / 4
+    out      = enable == true ? ha_close : Close
+ 
+ha_open(float Open = open, float High = high, float Low = low, float Close = close, bool enable = true) =>
+    ha_open  = float(na)
+    ha_close = ha_close(Open, High, Low, Close)
+    ha_open := na(ha_open[1]) ? (Open + Close) / 2 : (nz(ha_open[1]) + nz(ha_close[1])) / 2 
+    out      = enable == true ? ha_open : Open
+
+smoothing_enable = input.bool(false, "Smoothing", inline = "sm")
+smoothing        = input.int(3, "", 1, inline = "sm")
+
+high_thresh = input.float(8 , "Threshold", 0)
+low_thresh  = input.float(3 , "Threshold", 0)
+
+ha_close = ha_close()
+ha_open  = ha_open()
+ha_score = ha_open < ha_close ? 1 : 0
+
+oc_trend = ta.sma(ta.ema(close, 20) - ta.ema(close[1], 20), 2)
+oc_score = oc_trend > 0 ? 1 : 0
+
+fast_e = ta.ema(close, 9)
+slow_e = ta.ema(close, 21)
+ema_cross = fast_e > slow_e ? 1 : 0
+
+fast_s = ta.sma(close, 13)
+slow_s = ta.sma(close, 48)
+sma_cross = fast_s > slow_s ? 1 : 0
+
+rsi       = ta.rsi(close, 14)
+rsi_score = rsi < 30 ? 0 : rsi > 30 and rsi < 70 ? 0.5 : rsi > 70 ? 1 : 0
+
+[macd1, macd2, hist] = ta.macd(close, 12, 26, 9)
+macd_score = macd1 > macd2 ? 0.5 : macd1 < macd2 ? 0 : 0
+hist_score = (hist >=0 ? (hist[1] < hist ? 0.5 : 0.25) : (hist[1] < hist ? 0.25 : 0))
+
+stoch       = ta.sma(ta.stoch(close, high, low, 14), 2)
+stoch_score = stoch < 20 ? 0 : stoch > 20 and stoch < 80 ? 0.5 : stoch > 80 ? 1 : 0
+
+ma200       = ta.sma(close, 200)
+ma200_score = close > ma200 ? 1 : close <= ma200 ? 0 : 0
+
+mfi       = ta.mfi(close, 14)
+mfi_score = mfi < 20 ? 0 : mfi > 20 and mfi < 80 ? 0.5 : mfi > 80 ? 1 : 0 
+
+cci       = ta.cci(close, 20)
+cci_score = cci < -100 ? 0 : cci > -100 and cci < 100 ? 0.5 : cci > 100 ? 1 : 0
+
+sent      = ema_cross + sma_cross + rsi_score + macd_score + hist_score + stoch_score + ma200_score + mfi_score + cci_score + oc_score + ha_score
+sentiment = smoothing_enable ? ta.wma(sent, smoothing) : sent
+
+signal = plot(sentiment, "Signal", color.new(color.orange, 1))
+top    = hline(10, "Top Line", color.new(color.gray, 50), hline.style_solid)
+bot    = hline(5, "Center Line", color.new(color.gray, 50), hline.style_solid)
+center = hline(0, "Bottom Line", color.new(color.gray, 50), hline.style_solid)
+High   = hline(high_thresh, "High", color.new(color.gray, 50))
+Low    = hline(low_thresh, "High", color.new(color.gray, 50))
+fill(High, Low, color.new(color.blue, 90))

@@ -1,0 +1,19 @@
+// https://creativecommons.org/licenses/by-nc-sa/4.0/
+// © kaigouthro
+//@version=5
+// experimental, checks highest distance from source to output
+// and adjusts source input feed accordingly
+// Recent Distance Dynamic Average
+indicator("rdda" , 'rdda' , true )
+varip src    = float(na)
+varip out    = src
+src         := input.source  ( close , 'Source'                                )   
+length       = input.float   ( 2     , 'Length'    , 1 , 50  , step = 0.25     )
+dynamic      = input.float   ( 1     , 'dynamic'   , 1 , 50  , step = 0.25     )
+out         := nz ( out [1]          ,  src                                    )
+dist         = input.int ( 2 , 'Strain Distance' , 2 , 50 ) 
+dif          = nz (out[dist],src )
+len          = ( math.pow(ta.highest(math.max ( dif , src ) / math.min ( dif , src ),dist), dynamic ) ) / length
+out         += src * len 
+out         /= 1   + len 
+plot(out,'ed',out>out[1]?input.color(#00ffff,'Rising'):input.color(#ff9001,'Falling'),input.bool(true,'Show')?2:na)

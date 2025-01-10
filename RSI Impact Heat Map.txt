@@ -1,0 +1,163 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Trendoscope
+
+
+// ---------------------------------------------------What the DATA Means---------------------------------------------------------------------------------------
+
+//Q1 - If more coloured dots appear on the top right corner of the table, then the event is considered to trigger high volatility and high risk environment.
+//Q2 - If more coloured dots appear on the top left corner, then the events are considered to trigger bearish environment.
+//Q3 - If more coloured dots appear on the bottom left corner of the chart, then the events are considered insignificant as they neither generate higher displacement in positive or negative side. You can further alter outlier percentage to reduce the bracket and hence have higher distribution move towards
+//Q4 - If more coloured dots appear on the bottom right corner, then the events are considered to trigger bullish    environment. 
+
+//@version=5
+indicator("Impact Heat Map ", "IHM", overlay = true)
+rsiSource = input.source(close, 'Source', inline='r', group='RSI')
+rsiLength = input.int(14, '', 2, 1440, 1, inline='r', group='RSI', tooltip = 'RSI configuration')
+rsiTrigger = input.string('Crossover', 'Trigger', ['Crossover', 'Crossunder'], inline='rt', group = 'RSI')
+
+threshhold_lower = input.float(-0, title = "low_thrsh", tooltip = 'Lower Fisher Threshhold for Crossover Trigger')
+threshhold_upper = input.float(0, title = "high_thrsh", tooltip = 'Upper Fisher Threshhold for Crossover Trigger')
+
+barsback = input(1, title = "barsback")
+
+//use rsi ??
+//rsiTriggerValue = input.int(50, '', 0, 100, 5, inline='rt', group = 'RSI', tooltip = 'Trigger for which we need to plot the impact')
+
+//use Fisher Transform ??
+rsiTriggerValue = input.int(0, '', 0, 100, 5, inline='rt', group = 'RSI', tooltip = 'Trigger for which we need to plot the impact')
+
+impactDuration = input.int(30, 'Duration', 0, 500, 10, group='Impact', tooltip = 'Duration for which impact needs to be measured')
+reference = input.string('Percentage', 'Reference', ['ATR', 'Percentage'], group='Impact', tooltip='Reference on which the impact is measured')
+
+matrixSize = input.int(40, 'Heat Map Size', 10, 99, 10, group='Display', tooltip = 'Number of rows, columns for heat map matrix')
+outliersPercentile = input.int(95, 'Outliers Percentile', 50, 100, 5, group='Display', tooltip = 'Percentile to filter outliers. Value of 95 means, 95th percentile is considered as max displacement')
+
+backgroundColor = input.color(#000000, 'Background', group='Display', tooltip = 'Background color')
+heatmapColor = input.color(#6b39f5, 'Heatmap', group='Display', tooltip = 'Heatmap color')
+borderColor = input.color(#131722, 'Border', group='Display', tooltip = 'Border color')
+
+sizeBorder = input(1)
+
+string i_position = input.string(title='Table Position:', defval=position.middle_center, options=[position.top_left, position.top_center, position.top_right, position.middle_left, position.middle_center, position.middle_right, position.bottom_left, position.bottom_center, position.bottom_right], group='Style:', tooltip='Table position.')
+
+type Event
+    float xValue
+    float yValue
+
+var array<Event> events = array.new<Event>()
+
+//use rsi ??
+//rsi = ta.rsi(rsiSource, rsiLength)
+
+//use Fisher Transform ??
+
+//use Regular Candles ??
+sHigh = request.security(syminfo.tickerid , timeframe.period, high)
+sLow = request.security(syminfo.tickerid , timeframe.period, low)
+
+//use Heikin Ashi ??
+//sHigh = request.security(ticker.heikinashi(syminfo.tickerid), timeframe.period, high)
+//sLow = request.security(ticker.heikinashi(syminfo.tickerid), timeframe.period, low)
+_src = (sHigh + sLow) / 2
+
+f_fisher(_src, _window) =>
+    min_Median = ta.lowest(_src, _window)
+    max_Median = ta.highest(_src, _window)
+    temp = (_src - min_Median) / (max_Median - min_Median)
+    value = 0.0
+    value := .5 * 2 * ((temp - .5) + (.5 * nz(value[1])))
+    value1 = value >= .9999 ? .9999 : value <= -.9999 ? -.9999 : value
+    temp2 = (1 + value1) / (1 - value1)
+    fisher_Value = 0.0
+    fisher_Value := (.25 * math.log(temp2)) + (.5 * nz(fisher_Value[1]))
+    fisher_Value
+//
+fish = f_fisher(_src, rsiLength)
+
+//use rsi ??
+//trigger = rsiTrigger == 'Crossover' ? ta.crossover(rsi, rsiTriggerValue) : ta.crossunder(rsi, rsiTriggerValue)
+
+// --------------------------------- ADX ---------------------------------------------------------- \\
+
+adxlen = input(14, title="ADX Smoothing")
+dilen = input(14, title="DI Length")
+dirmov(len) =>
+	up = ta.change(high)
+	down = -ta.change(low)
+	plusDM = na(up) ? na : (up > down and up > 0 ? up : 0)
+	minusDM = na(down) ? na : (down > up and down > 0 ? down : 0)
+	truerange = ta.rma(ta.tr, len)
+	plus = fixnan(100 * ta.rma(plusDM, len) / truerange)
+	minus = fixnan(100 * ta.rma(minusDM, len) / truerange)
+	[plus, minus]
+adx(dilen, adxlen) =>
+	[plus, minus] = dirmov(dilen)
+	sum = plus + minus
+	adx = 100 * ta.rma(math.abs(plus - minus) / (sum == 0 ? 1 : sum), adxlen)
+sig = adx(dilen, adxlen)
+
+// --------------------------------- ADX ---------------------------------------------------------- \\
+
+//use Fisher Transform ??
+
+confirm_lower = fish <= threshhold_lower 
+confirm_upper = fish >= threshhold_upper
+
+trigger = rsiTrigger == 'Crossover' ? ta.crossover(fish, fish[1]) and confirm_lower[barsback] and sig[1] >= input(25, "ADX") and sig < sig[1] : ta.crossunder(fish, fish[1]) and confirm_upper[barsback]
+
+//
+atr = ta.atr(rsiLength)
+
+highest = ta.highest(impactDuration-1)
+lowest = ta.lowest(impactDuration-1)
+
+var array<float> displacements = array.new<float>()
+
+if(trigger[impactDuration])
+    price = close[impactDuration]
+    positiveDisplacement = math.abs(highest-price)
+    negativeDisplacement = math.abs(price-lowest)
+    xValue = reference == 'ATR'? positiveDisplacement/atr[impactDuration] : reference == 'Percentage' ? positiveDisplacement/price : positiveDisplacement
+    yValue = reference == "ATR"? negativeDisplacement/atr[impactDuration] : reference == 'Percentage' ? negativeDisplacement/price : negativeDisplacement
+    array.push(displacements, xValue)
+    array.push(displacements, yValue)
+
+    Event event = Event.new(xValue, yValue)
+    array.push(events, event)
+
+if(barstate.isfirst)
+    var titleTable = table.new(position.top_center, 2, 3, color.rgb(136, 14, 79, 100), color.rgb(136, 14, 79, 100), 1, color.rgb(136, 14, 79, 100), 1)
+    title = 'Impact of RSI('+str.tostring(rsiLength)+') '+rsiTrigger+' '+str.tostring(rsiTriggerValue)+ ' after '+str.tostring(impactDuration)+ ' bars measured in terms of '+reference
+    table.cell(titleTable, 0, 0, title, text_color = color.white)
+
+if(barstate.islast)
+    matrix<int> counts = matrix.new<int>(matrixSize+1, matrixSize+1, 0)
+    maxRange = array.percentile_linear_interpolation(displacements, outliersPercentile)
+    for event in events
+        xIndex = math.min(int(event.xValue*matrixSize/maxRange), matrixSize)
+        yIndex = matrixSize - math.min(int(event.yValue*matrixSize/maxRange), matrixSize)
+        matrix.set(counts, xIndex, yIndex, matrix.get(counts, xIndex, yIndex)+1)
+
+    var heatmap = table.new(i_position, matrixSize+1, matrixSize+1, color.new(backgroundColor, 0), color.new(borderColor, 0), sizeBorder)
+    table.clear(heatmap, 0, 0, matrixSize, matrixSize)
+    maxCount = matrix.max(counts)
+    totalCount = array.size(events)
+    sums = array.new<int>(4,0)
+    for [i, columns] in counts
+        for [j, count] in columns
+            countPercent = int(count*90/maxCount)
+            sumIndex = 2*(i < ((matrixSize+1)/2) ? 0 : 1) + (j < ((matrixSize+1)/2)? 0: 1)
+            array.set(sums, sumIndex, array.get(sums, sumIndex)+count)
+            xRange = 'Positive Displaecment : ' + (reference == 'Percentage'? str.tostring(maxRange*i*100/matrixSize, format.percent) : (str.tostring(maxRange*i/matrixSize, format.mintick) + 'X'))
+                                              + ' - '+ ((i==matrixSize)? '' : 
+                                             (reference == 'Percentage'? str.tostring(maxRange*(i+1)*100/matrixSize, format.percent) : (str.tostring(maxRange*(i+1)/matrixSize, format.mintick) + 'X')))
+            yRange = 'Negative Displacement : ' + (reference == 'Percentage'? str.tostring(maxRange*(matrixSize-j)*100/matrixSize, format.percent) : (str.tostring(maxRange*(matrixSize-j)/matrixSize, format.mintick) + 'X'))
+                                              + ' - '+ ((j==matrixSize)? '' : 
+                                             (reference == 'Percentage'? str.tostring(maxRange*(matrixSize-j+1)*100/matrixSize, format.percent) : (str.tostring(maxRange*(matrixSize-j+1)/matrixSize, format.mintick) + 'X')))
+            tooltip = 'Count '+str.tostring(count)+'/'+str.tostring(totalCount)+'\n'+xRange+'\n'+yRange+'\n('+str.tostring(i)+','+str.tostring(j)+')'
+            table.cell(heatmap, i, j, '', width=1, height = 1, text_color=color.yellow, bgcolor = color.new(heatmapColor, countPercent==0? 100 : 90-countPercent), text_size = size.tiny, tooltip = tooltip)
+
+    var positions = array.from(position.top_left, position.bottom_left, position.top_right, position.bottom_right)
+    for [i, sum] in sums
+        tab = table.new(array.get(positions, i), 1,1, color.teal, color.teal, 1, color.teal, 1)
+        table.cell(tab, 0, 0, str.tostring(sum), text_color = color.white, text_size = size.normal)

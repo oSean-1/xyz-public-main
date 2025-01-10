@@ -1,0 +1,172 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+// @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+// @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@    ,@@@@@@@@@@@@@@@@@@@@@@@
+// @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@      @@@@@@@@@@@@@@@@@@@
+// @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@        @@@@@@@@@@@@@@@
+// @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@         @@@@@@@@@@@@@
+// @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@           @@@@@@@@@@
+// @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@        .@@@@@@@@@@@@@@@            @@@@@@@@
+// @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@          *@@@@@@@@@@@@@@             @@@@@@@
+// @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@         @@@@@@@@@@@@@@@               @@@@@
+// @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@     @@@@@@@@@@@@@@@@                 @@@@
+// @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@                  @@@
+// @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@.                    @@
+// @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@                      @@
+// @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@.                         @
+// @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@                             @
+// @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@,                                       @
+// @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@                                                @
+// @@@@@@@@@@@@@@@@@@@@@@@@@@@                                                    @
+// @@@@@@@@@@@@@@@@@@@@@@@@@                                                     @@
+// @@@@@@@@@@@@@@@@@@@@@@@                                                       @@
+// @@@@@@@@@@@@@@@@@@@@@@                                                       @@@
+// @@@@@@@@@@@@@@@@@@@@@*                @@@@@                                 @@@@
+// @@@@@@@@@@@@@@@@@@@@@               @@@@@@@@@                              @@@@@
+// @@@@@@@@@@@@@@@@@@@@@              @@@@@@@@@@@                           @@@@@@@
+// @@@@@@@@@@@@@@@@@@@@@               @@@@@@@@%                           @@@@@@@@
+// @@@@@@@@@@@@@@@@@@@@@@                                                @@@@@@@@@@
+// @@@@@@@@@@@@@@@@@@@@@@@                                            @@@@@@@@@@@@@
+// @@@@@@@@@@@@@@@@@@@@@@@@                                        %@@@@@@@@@@@@@@@
+// @@@@@@@@@@@@@@@@@@@@@@@@@@                                   @@@@@@@@@@@@@@@@@@@
+// @@@@@@@@@@@@@@@@@@@@@@@@@@@@@                           @@@@@@@@@@@@@@@@@@@@@@@@
+// @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@                @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+// © YinYangAlgorithms
+
+//@version=5
+indicator("Optimal Length BackTester [YinYangAlgorithms]", overlay=true, max_bars_back=5000)
+// ~~~~~~~~~~~~ INPUTS ~~~~~~~~~~~~ //
+//Optimal Length
+outputType = input.string("All", "Output Type", options=["Neutral", "Fast", "Slow", "Fast + Slow", "Fast + Neutral", "Slow + Neutral", "All"])
+lengthSource = input.source(close, "Neutral Length")
+lengthSource_fast = input.source(close, "Fast Length")
+lengthSource_slow = input.source(close, "Slow Length")
+maType = input.string("SMA", "MA Type", options=["SMA", "EMA", "VWMA"])
+displayType = input.string("MA", "Display Type", options=["MA", "Bollinger Bands", "Donchian Channels", "Envelope", "Envelope Adjusted"])
+
+// ~~~~~~~~~~~~ VARIABLES ~~~~~~~~~~~~ //
+src = close
+showNeutral = outputType == "Neutral" or outputType == "Fast + Neutral" or outputType == "Slow + Neutral" or outputType == "All"
+showFast = outputType == "Fast" or outputType == "Fast + Neutral" or outputType == "Fast + Slow" or outputType == "All"
+showSlow = outputType == "Slow" or outputType == "Slow + Neutral" or outputType == "Fast + Slow" or outputType == "All"
+neutralColor = color.blue
+slowColor = color.red
+fastColor = color.green
+
+// ~~~~~~~~~~~~ FUNCTIONS ~~~~~~~~~~~~ //
+pine_ema(src, series int length) =>
+    alpha = 2 / (length + 1)
+    sum = 0.0
+    sum := na(sum[1]) ? src : alpha * src + (1 - alpha) * nz(sum[1])
+    
+getMA(_src, _len) =>
+    switch maType
+        "SMA" => ta.sma(_src, _len)
+        "EMA" => pine_ema(_src, _len)
+        "VWMA" => ta.vwma(_src, _len)
+
+// ~~~~~~~~~~~~ CALCULATIONS ~~~~~~~~~~~~ //
+//Determining the Optimal Length with 'Failsafe's' to ensure there aren't errors
+optimalLength = 14
+optimalMA = getMA(src, optimalLength)
+optimalLength_fast = 14
+optimalMA_fast = getMA(src, optimalLength_fast)
+optimalLength_slow = 14
+optimalMA_slow = getMA(src, optimalLength_slow)
+if showNeutral
+    optimalLength := math.min(math.max(math.round(lengthSource), 1), 1000)
+    optimalMA := getMA(src, optimalLength)
+if showFast
+    optimalLength_fast := math.min(math.max(math.round(lengthSource_fast), 1), 1000)
+    optimalMA_fast := getMA(src, optimalLength_fast)
+if showSlow
+    optimalLength_slow := math.min(math.max(math.round(lengthSource_slow), 1), 1000)
+    optimalMA_slow := getMA(src, optimalLength_slow)
+
+// ~~ Bollinger Bands ~~ //
+mult = 2.0
+//Neutral Bollinger Bands
+dev = mult * ta.stdev(src, math.round(optimalLength))
+upper = optimalMA + dev
+lower = optimalMA - dev
+plot(displayType == "Bollinger Bands" and showNeutral ? optimalMA : na, "Basis", color=color.new(neutralColor, 0))
+p1 = plot(displayType == "Bollinger Bands" and showNeutral ? upper : na, "Upper", color=color.new(neutralColor, 50))
+p2 = plot(displayType == "Bollinger Bands" and showNeutral ? lower : na, "Lower", color=color.new(neutralColor, 50))
+fill(p1, p2, title = "Background", color=color.new(neutralColor, 96))
+//Slow Bollinger Bands
+dev_slow = mult * ta.stdev(src, math.round(optimalLength_slow))
+upper_slow = optimalMA_slow + dev_slow
+lower_slow = optimalMA_slow - dev_slow
+plot(displayType == "Bollinger Bands" and showSlow ? optimalMA_slow : na, "Basis", color=color.new(slowColor, 0))
+p1_slow = plot(displayType == "Bollinger Bands" and showSlow ? upper_slow : na, "Upper", color=color.new(slowColor, 50))
+p2_slow = plot(displayType == "Bollinger Bands" and showSlow ? lower_slow : na, "Lower", color=color.new(slowColor, 50))
+fill(p1_slow, p2_slow, title = "Background", color=color.new(slowColor, 96))
+//Fast Bollinger Bands
+dev_fast = mult * ta.stdev(src, math.round(optimalLength_fast))
+upper_fast = optimalMA_fast + dev_fast
+lower_fast = optimalMA_fast - dev_fast
+plot(displayType == "Bollinger Bands" and showFast ? optimalMA_fast : na, "Basis", color=color.new(fastColor, 0))
+p1_fast = plot(displayType == "Bollinger Bands" and showFast ? upper_fast : na, "Upper", color=color.new(fastColor, 50))
+p2_fast = plot(displayType == "Bollinger Bands" and showFast ? lower_fast : na, "Lower", color=color.new(fastColor, 50))
+fill(p1_fast, p2_fast, title = "Background", color=color.new(fastColor, 96))
+
+// ~~ Donchian Channels ~~ //
+//Neutral Donchian Channels
+lower_dc =  ta.lowest(optimalLength)
+upper_dc =  ta.highest(optimalLength)
+basis_dc =  math.avg(upper_dc, lower_dc)
+plot(displayType == "Donchian Channels" and showNeutral ? basis_dc : na, "Donchain Channel - Neutral Basis", color=color.new(neutralColor, 0))
+u = plot(displayType == "Donchian Channels" and showNeutral ? upper_dc : na, "Donchain Channel - Neutral Upper", color=color.new(neutralColor, 50))
+l = plot(displayType == "Donchian Channels" and showNeutral ? lower_dc : na, "Donchain Channel - Neutral Lower", color=color.new(neutralColor, 50))
+fill(u, l, color=color.new(neutralColor, 96), title = "Donchain Channel - Neutral Background")
+//Fast Donchian Channels
+lower_dc_fast =  ta.lowest(optimalLength_fast)
+upper_dc_fast =  ta.highest(optimalLength_fast)
+basis_dc_fast =  math.avg(upper_dc_fast, lower_dc_fast)
+plot(displayType == "Donchian Channels" and showFast ? basis_dc_fast : na, "Donchain Channel - Fast Neutral Basis", color=color.new(fastColor, 0))
+u_fast = plot(displayType == "Donchian Channels" and showFast ? upper_dc_fast : na, "Donchain Channel - Fast Upper", color=color.new(fastColor, 50))
+l_fast = plot(displayType == "Donchian Channels" and showFast ? lower_dc_fast : na, "Donchain Channel - Fast Lower", color=color.new(fastColor, 50))
+fill(u_fast, l_fast, color=color.new(fastColor, 96), title = "Donchain Channel - Fast Background")
+//Slow Donchian Channels
+lower_dc_slow =  ta.lowest(optimalLength_slow)
+upper_dc_slow =  ta.highest(optimalLength_slow)
+basis_dc_slow =  math.avg(upper_dc_slow, lower_dc_slow)
+plot(displayType == "Donchian Channels" and showSlow ? basis_dc_slow : na, "Donchain Channel - Slow Neutral Basis", color=color.new(slowColor, 0))
+u_slow = plot(displayType == "Donchian Channels" and showSlow ? upper_dc_slow : na, "Donchain Channel - Slow Upper", color=color.new(slowColor, 50))
+l_slow = plot(displayType == "Donchian Channels" and showSlow ? lower_dc_slow : na, "Donchain Channel - Slow Lower", color=color.new(slowColor, 50))
+fill(u_slow, l_slow, color=color.new(slowColor, 96), title = "Donchain Channel - Slow Background")
+
+// ~~ Moving Average ~~ //
+plot(displayType == "MA" and showNeutral ? optimalMA : na, color=neutralColor)
+plot(displayType == "MA" and showFast ? optimalMA_fast : na, color=fastColor)
+plot(displayType == "MA" and showSlow ? optimalMA_slow : na, color=slowColor)
+
+// ~~ Envelopes ~~ //
+percent = 10.0
+maxAmount = math.max(optimalLength, optimalLength_fast, optimalLength_slow)
+//Neutral
+k = displayType == "Envelope" ? percent/100.0 : (percent/100.0) / (optimalLength / maxAmount)
+upper_env = optimalMA * (1 + k)
+lower_env = optimalMA * (1 - k)
+plot(displayType == "Envelope" or displayType == "Envelope Adjusted" ? optimalMA : na, "Envelope - Neutral Basis", color=color.new(neutralColor, 0))
+u_env = plot(displayType == "Envelope" or displayType == "Envelope Adjusted" ? upper_env : na, "Envelope - Neutral Upper", color=color.new(neutralColor, 50))
+l_env = plot(displayType == "Envelope" or displayType == "Envelope Adjusted" ? lower_env : na, "Envelope - Neutral Lower", color=color.new(neutralColor, 50))
+fill(u_env, l_env, color=color.new(neutralColor, 96), title = "Envelope - Neutral Background")
+//Fast
+k_fast = displayType == "Envelope" ? percent/100.0 : (percent/100.0) / (optimalLength_fast / maxAmount)
+upper_env_fast = optimalMA_fast * (1 + k_fast)
+lower_env_fast = optimalMA_fast * (1 - k_fast)
+plot(displayType == "Envelope" or displayType == "Envelope Adjusted" ? optimalMA_fast : na, "Envelope - Fast Basis", color=color.new(fastColor, 0))
+u_env_fast = plot(displayType == "Envelope" or displayType == "Envelope Adjusted" ? upper_env_fast : na, "Envelope - Fast Upper", color=color.new(fastColor, 50))
+l_env_fast = plot(displayType == "Envelope" or displayType == "Envelope Adjusted" ? lower_env_fast : na, "Envelope - Fast Lower", color=color.new(fastColor, 50))
+fill(u_env_fast, l_env_fast, color=color.new(fastColor, 96), title = "Envelope - Fast Background")
+//Slow
+k_slow = displayType == "Envelope" ? percent/100.0 : (percent/100.0) / (optimalLength_slow / maxAmount)
+upper_env_slow = optimalMA_slow * (1 + k_slow)
+lower_env_slow = optimalMA_slow * (1 - k_slow)
+plot(displayType == "Envelope" or displayType == "Envelope Adjusted" ? optimalMA_slow : na, "Envelope - Slow Basis", color=color.new(slowColor, 0))
+u_env_slow = plot(displayType == "Envelope" or displayType == "Envelope Adjusted" ? upper_env_slow : na, "Envelope - Slow Upper", color=color.new(slowColor, 50))
+l_env_slow = plot(displayType == "Envelope" or displayType == "Envelope Adjusted" ? lower_env_slow : na, "Envelope - Slow Lower", color=color.new(slowColor, 50))
+fill(u_env_slow, l_env_slow, color=color.new(slowColor, 96), title = "Envelope - Slow Background")
+
+// ~~~~~~~~~~~~ END ~~~~~~~~~~~~ //

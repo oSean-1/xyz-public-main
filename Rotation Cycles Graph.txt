@@ -1,0 +1,148 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © VanHe1sing
+
+//@version=5
+indicator("Rotation Cycles Graph", shorttitle = "[RC]")
+
+//----------------------------------------------------------------------------------------------------------------------
+// - User Inputs
+//----------------------------------------------------------------------------------------------------------------------
+int z_len    = input(40, 'Length', inline = "Z score", group = "Z Score")
+int z_smooth = input(5, 'Smooth', inline = "Z score", group = "Z Score")
+
+int barScale  = input.int(140, "Bar Scale:", step= 5, group = "Graph Settings")
+int offset    = input.int(200, "X Axis Graph Position:", step= 5, group = "Graph Settings")
+int len_tail  = input.int(30, "Length of the Tail", step= 5, group = "Graph Settings")
+
+bool showbarcolor = input.bool(false, "Show colors of bars")
+
+series float src = close
+
+//----------------------------------------------------------------------------------------------------------------------
+// - Functions
+//----------------------------------------------------------------------------------------------------------------------
+z_score(src, len)=>
+    float u = ta.sma(src, len)
+    s = array.new<float>(10000,0)
+    array.push(s, src)
+    stdv = array.stdev(s)
+    z = (src-u)/stdv
+    z
+
+// The Ehlers Loop
+EhlerLoop(float xPosition, float yPosition, color  Color,
+           int  Segments,   int  BarScale,   int Offset) =>
+    if barstate.islast
+        var aSegments = array.new<line> (Segments    )
+        var aNodes    = array.new<label>(Segments + 1)
+        for i=0 to Segments
+            float Y2 =     nz(yPosition[  i  ])
+            int   X2 = int(nz(xPosition[  i  ]) * BarScale)
+            int   X1 = int(nz(xPosition[1 + i]) * BarScale)
+            float Y1 =     nz(yPosition[1 + i])
+            X2 := math.min(500, X2 + Offset) + bar_index
+            X1 := math.min(500, X1 + Offset) + bar_index
+            if i < Segments
+                width = int(4 * (Segments - i) / Segments + 1)
+                line.delete(array.get(aSegments, i))
+                segment= line.new(X1, Y1, X2, Y2, color=color.new(Color, 60),
+                         style=line.style_solid,  width=width)
+                array.set( aSegments, i, segment)
+            nodeSize = i==0 ? size.normal : size.small
+            nodeChar = i==0 ? "⦿"+ syminfo.ticker : ""
+            label.delete(array.get(aNodes, i))
+            node = label.new(X2, Y2, nodeChar,  size=nodeSize,
+                             color=#00000000, textcolor=Color,
+                              style=label.style_label_center)
+
+// Draws Box
+drawBox(float Width, int Offset, float Height, color  Color) =>
+    if barstate.islast
+        var Box = box.new(
+          bar_index, Height * 0.5, bar_index, Height * -0.5,
+         border_color=Color, border_style=line.style_dotted,
+         bgcolor=color.new(Color, 95), text_size=size.small,
+           text="",
+           text_color=Color,  text_valign=text.align_bottom)
+        width = int(Width)
+        box.set_left( Box, int(bar_index - width) + Offset)
+        box.set_right(Box, int(bar_index + width) + Offset)
+
+// Draw Lable
+labels(offset_, h, txt, color, size = size.normal)=>
+    if barstate.islast
+        label.new(bar_index + offset + offset_, h, txt, style = label.style_none, 
+                                                     textcolor = color, size = size)
+
+//----------------------------------------------------------------------------------------------------------------------
+// - X & Y defining
+//----------------------------------------------------------------------------------------------------------------------
+src  := ta.hma(z_score(src,  z_len), z_smooth)
+
+x_ = src/40
+x = x_ > 1 ? 1 : x_ < -1 ? -1 : x_
+
+y_ = ta.change(x, z_len-15)
+y = y_ > 1 ? 1 : y_ < -1 ? -1 : y_ 
+
+//----------------------------------------------------------------------------------------------------------------------
+// - Visualization
+//----------------------------------------------------------------------------------------------------------------------
+
+// Graph Boxes
+drawBox(barScale, offset, 2.0, color.white)
+drawBox(barScale+25, offset, 2.8, color.white)
+// Lines
+// Horizontal line
+hline( 0.0, "Zero", #808000, hline.style_dotted)
+// Vertical line
+if barstate.islast
+    X = offset + bar_index
+    var zero = line.new(X, -1.0, X, 1.0, color=#808000,
+                     style=line.style_dotted,  width=1)
+    line.set_x1(zero, X + 1)
+    line.set_x2(zero, X)
+
+// Colors
+color = x > 0 and y > 0 ? color.lime
+ : x > 0 and y < 0 ? color.orange
+ : x < 0 and y < 0 ? color.red 
+ : x < 0 and y > 0 ? color.aqua : na
+
+color_ = x > 0 and y > 0 ? #55bd5e
+ : x > 0 and y < 0 ? #bd9155
+ : x < 0 and y < 0 ? #bd5c55 
+ : x < 0 and y > 0 ? #557bbd : na
+
+// The Ehler Loop
+EhlerLoop(y, x, color, len_tail, barScale, offset)
+
+// Labels
+labels(100, 0.75, "𝙶𝚛𝚘𝚠𝚒𝚗𝚐", #55bd5e)
+labels(-100, 0.75, "𝚆𝚎𝚊𝚔𝚎𝚗𝚒𝚗𝚐", #bd9155)
+labels(100, -0.85, "𝚁𝚎𝚌𝚘𝚟𝚎𝚛𝚢", #557bbd)
+labels(-100, -0.85, "𝙲𝚘𝚗𝚝𝚛𝚊𝚌𝚝𝚒𝚘𝚗", #bd5c55)
+labels(0, 1.1, "𝚁𝚘𝚝𝚊𝚝𝚒𝚘𝚗 𝙲𝚢𝚌𝚕𝚎𝚜 𝙶𝚛𝚊𝚙𝚑", #a3a7a8, size.large)
+
+if barstate.islast
+    label.new(bar_index, x, "⦿ 𝙓", style = label.style_label_center, color = #00000000, 
+                                                                     textcolor = color.orange, size = size.small)
+    label.new(bar_index, y, "⦿ 𝙔", style = label.style_label_center, color = #00000000, 
+                                                                     textcolor = color.blue, size = size.small)
+
+// Table
+var tbl = table.new(position.bottom_center, 10, 10, border_color = color.gray, border_width = 1)
+table.cell(tbl, 0, 0, '𝚆𝚎𝚊𝚔𝚎𝚗𝚒𝚗𝚐', text_color = x > 0 and y < 0 ? color.orange : color.gray,
+                                     text_size = x > 0 and y < 0 ? size.large : size.normal)
+table.cell(tbl, 1, 0, '𝙶𝚛𝚘𝚠𝚒𝚗𝚐', text_color = x > 0 and y > 0 ? color.green : color.gray,
+                                     text_size = x > 0 and y > 0 ? size.large : size.normal)
+table.cell(tbl, 0, 1, '𝙲𝚘𝚗𝚝𝚛𝚊𝚌𝚝𝚒𝚘𝚗', text_color = x < 0 and y < 0 ? color.red : color.gray,
+                                     text_size = x < 0 and y < 0 ? size.large : size.normal)
+table.cell(tbl, 1, 1, '𝚁𝚎𝚌𝚘𝚟𝚎𝚛𝚢', text_color = x < 0 and y > 0 ? color.rgb(63, 149, 219) : color.gray,
+                                     text_size = x < 0 and y > 0 ? size.large : size.normal)
+
+// Bar color
+barcolor(showbarcolor ? color_ : na)
+
+// X and Y plots
+plot(x, color = #ba7c45), plot(y, color = #4583ba)

@@ -1,0 +1,102 @@
+// This work is licensed under a Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0) https://creativecommons.org/licenses/by-nc-sa/4.0/
+// © LuxAlgo
+
+//@version=5
+strategy('astro gf', overlay=true, process_orders_on_close=true, default_qty_type=strategy.percent_of_equity, default_qty_value=100, initial_capital=10000)
+
+//----
+
+new = input.time(title='New Moon Reference Date', defval=timestamp('2018-12-31:05:00'))
+
+buy = input.string('Full Moon', options=['New Moon', 'Full Moon', 'Higher Moon', 'Lower Moon'], inline='buy')
+sell = input.string('New Moon', options=['New Moon', 'Full Moon', 'Higher Moon', 'Lower Moon'], inline='sell')
+
+longcol = input.color(color.new(#2157f3, 80), '', inline='buy')
+shortcol = input.color(color.new(#ff1100, 80), '', inline='sell')
+
+//----
+
+//----
+n = bar_index
+cycle = 2551442876.8992
+day = 8.64e+7
+diff = (new + time + day * 2) % cycle / cycle
+
+//----
+newmoon = ta.crossover(diff, .5)
+fullmoon = diff < diff[1]
+//----
+
+//----
+src = close
+var bool long = na
+var bool short = na
+if buy == 'New Moon'
+    long := newmoon
+    long
+else if buy == 'Full Moon'
+    long := fullmoon
+    long
+else if buy == 'Higher Moon'
+    long := ta.valuewhen(newmoon or fullmoon, src, 0) > ta.valuewhen(newmoon or fullmoon, src, 1)
+    long
+else
+    long := ta.valuewhen(newmoon or fullmoon, src, 0) < ta.valuewhen(newmoon or fullmoon, src, 1)
+    long
+//----
+if sell == 'New Moon'
+    short := newmoon
+    short
+else if sell == 'Full Moon'
+    short := fullmoon
+    short
+else if sell == 'Higher Moon'
+    short := ta.valuewhen(newmoon or fullmoon, src, 0) > ta.valuewhen(newmoon or fullmoon, src, 1)
+    short
+else
+    short := ta.valuewhen(newmoon or fullmoon, src, 0) < ta.valuewhen(newmoon or fullmoon, src, 1)
+    short
+//----
+
+var float FIRST_LVL_LNG_PROFIT = input.float(1.030, title="1st long tp", tooltip="", step = 0.01)
+var float SECOND_LVL_LNG_PROFIT = input.float(1.040, title="2nd long tp", tooltip="",  step = 0.01)
+var float THIRD_LVL_LNG_PROFIT = input.float(1.050, title="3rd long tp", tooltip="", step = 0.01)
+
+var float FIRST_LVL_SHRT_PROFIT = input.float(0.990, title="1st short tp", tooltip="", step = 0.01)
+var float SECOND_LVL_SHRT_PROFIT = input.float(0.980, title="2nd short tp", tooltip="",  step = 0.01)
+var float THIRD_LVL_SHRT_PROFIT = input.float(0.970, title="3rd short tp", tooltip="", step = 0.01)
+//----------------
+
+//----------------
+//
+var pos = 0
+if long and close >= ta.hma(close,input(28))
+    pos := 1
+    strategy.entry('Long', strategy.long)
+if strategy.position_size > 0 and strategy.position_avg_price * input.float(0.92, title = "long_sl", step = 0.01) >= low
+    strategy.close('Long')
+
+if strategy.position_size > 0 and strategy.position_avg_price * FIRST_LVL_LNG_PROFIT < close
+    strategy.close("Long", "Take Profit 1", qty=strategy.position_size/2)
+if strategy.position_size > 0 and strategy.position_avg_price * SECOND_LVL_LNG_PROFIT < close
+    strategy.close("Long", "Take Profit 2", qty=strategy.position_size/2)
+if strategy.position_size > 0 and strategy.position_avg_price * THIRD_LVL_LNG_PROFIT < close
+    strategy.close("Long", "Take Profit 3", qty=strategy.position_size/2)
+
+if short and close <= ta.hma(close,input(31))
+    pos := -1
+    strategy.entry('Short', strategy.short)
+if strategy.position_size < 0 and strategy.position_avg_price * input.float(1.01, title = "short_sl", step = 0.01) <= high
+    strategy.close('Short')
+
+if strategy.position_size < 0 and strategy.position_avg_price * FIRST_LVL_SHRT_PROFIT > close
+    strategy.close("Short","Take Profit 1", qty=strategy.position_size/2)
+if strategy.position_size < 0 and strategy.position_avg_price * SECOND_LVL_SHRT_PROFIT > close
+    strategy.close("Short","Take Profit 2", qty=strategy.position_size/2)
+if strategy.position_size < 0 and strategy.position_avg_price * THIRD_LVL_SHRT_PROFIT > close
+    strategy.close("Short","Take Profit 3", qty=strategy.position_size/2)
+//----
+
+//bgcolor(pos == 1 ? longcol : shortcol)
+plotshape(newmoon ? low : na, 'New Moon', shape.labelup, location.abovebar, na, text='🌑', size=size.tiny, transp=0)
+plotshape(fullmoon ? high : na, 'Full Moon', shape.labeldown, location.belowbar, na, text='🌕', size=size.tiny, transp=0)

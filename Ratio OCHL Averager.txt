@@ -1,0 +1,31 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © alexgrover
+
+
+//@version=5
+indicator('Ratio OCHL Averager', shorttitle='R-OCHL', overlay=true)
+Recursive = input(false)
+//----
+H = request.security(syminfo.tickerid, 'M', high)
+L = request.security(syminfo.tickerid, 'M', low)
+d = 0.
+//----
+a = Recursive ? nz(d[1], open) : open
+b = math.abs(close - a) / (H - L)
+c = b > 1 ? 1 : b
+d := c * close + (1 - c) * nz(d[1], close)
+//----
+plot(d, color=color.new(#00bcd4, 0), linewidth=2)
+
+//function
+
+//ratio_ohlc(recursive)=>
+//    H = request.security(syminfo.tickerid, "M", high)
+//    L = request.security(syminfo.tickerid, "M", low)
+//    d = 0.
+    
+//    a = recursive ? nz(d[1],open) : open
+//    b = math.abs(close-a)/(H - L)
+//    c = b > 1 ? 1 : b
+//    d := c*close+(1-c)*nz(d[1],close)
+

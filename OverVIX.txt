@@ -1,0 +1,17 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © gianluca.puglia
+
+//@version=5
+indicator("OverVIX")
+
+vol_sym = input.symbol("CBOE:VIX", "Vol. Symbol")
+vol = request.security(vol_sym, timeframe.period, close)
+
+vol_change = vol - vol[1]
+sym_change_pct = (close - close[1]) / close[1] * 100
+
+overvix = vol_change - (-136.95 * (sym_change_pct / 100) + 0.0954)
+
+plot(0, color=color.black)
+plot(2.5, color=color.red)
+plot(overvix, color=color.blue)

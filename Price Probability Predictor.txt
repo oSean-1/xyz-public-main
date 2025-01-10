@@ -1,0 +1,35 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Karmoros
+
+//@version=4
+study(title="Price Probability Predictor V2.0 [Karmoros]", shorttitle="PPP V2.0 [Karmoros]")
+
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © karmoros
+
+// Рассчитываем индикаторы, которые мы будем использовать для анализа вероятностей
+[macdLine, signalLine, _] = macd(close, 12, 26, 9)
+volumeProfile = volume[1]
+emaShort = ema(close, 5)
+emaLong = ema(close, 21)
+rsiValue = rsi(close, 14)
+volumeEMA = ema(volume, 10)
+atrValue = atr(14)
+bbWidth = stdev(close, 20) * 2 / sma(close, 20)
+oscillator = rsiValue - 50
+
+// Рассчитываем вероятность повышения цены с учетом других индикаторов
+upProbability = sum(macdLine > signalLine and volume > volumeEMA and emaShort > emaLong and rsiValue > 50 and atrValue > 0 and close > sma(close, 20) and bbWidth < 0.1 and oscillator > 0 ? 1 : 0, 30) / 30
+
+// Рассчитываем вероятность понижения цены с учетом других индикаторов
+downProbability = sum(macdLine < signalLine and volume > volumeEMA and emaShort < emaLong and rsiValue < 50 and atrValue > 0 and close < sma(close, 20) and bbWidth < 0.1 and oscillator < 0 ? 1 : 0, 30) / 30
+
+// Суммируем значения вероятностей, чтобы получить общую вероятность
+totalProbability = upProbability + downProbability
+
+// Выводим значения на график
+plot(upProbability, title="upProbability", color=color.green)
+plot(downProbability, title="downProbability", color=color.red)
+//plot(totalProbability, title="totalProbability", color=color.blue)
+
+barcolor(upProbability > downProbability ? color.green : downProbability > upProbability ? color.red : color.gray)

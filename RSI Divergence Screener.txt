@@ -1,0 +1,367 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © zdmre
+
+//@version=5
+indicator("RSI Divergence Screener by zdmre", overlay=false, max_bars_back = 500)
+
+//Divergence
+inputgroup = "Divergence"
+srcDIV = close
+timeframe = timeframe.period
+shdiv = input.bool(defval = true, title = "Show Divergences", group=inputgroup)
+shdate = input.bool(defval = false, title = "Show Dates", group=inputgroup)
+colorwg_data = input.string('Red/Green', 'Line Color    ',
+     options=['Red/Green', 'White', 'Yellow', 'Blue'],
+     group = inputgroup, inline='0')
+lwidth_data = input.int(2,'Line Width   ',
+     group = inputgroup, minval=0,maxval=4)
+
+//Table Position
+in_table_pos = input.string(title="Position     ", defval= "Top Right", 
+     options =["Top Right",  "Middle Right",  "Bottom Right", 
+               "Top Center", "Middle Center", "Bottom Center", 
+               "Top Left",   "Middle Left",   "Bottom Left"], 
+     group= "Table Styling", inline= "1")
+
+//Table Size
+in_table_size = input.string(title="Size       ", defval="Small", 
+     options=["Auto",  "Huge",  "Large", "Normal", "Small", "Tiny"], 
+     group= "Table Styling" , inline= "2")
+
+// Color
+column_title_bgcol  = input.color(color.gray  , title="Title Color    ", group = "Table Styling" , inline="3")
+cell_bgcol          = input.color(#aaaaaa     , title="Cell Color    ", group = "Table Styling" , inline="4")
+cell_txtcol         = input.color(color.black , title="Text Color       ", group = "Table Styling" , inline="5")
+bull_color          = input.color(color.green, title = "Gradient Colors  ", group = "Table Styling", inline = "6")
+bear_color          = input.color(color.red,   title = "", group = "Table Styling", inline = "6")
+
+//Sorting
+table_sort_by       = input.string(title="Sort by     ", defval="None",
+                         options =["None", "Symbol"],
+                         group = "Table Sorting", inline="7")
+table_sort_dir      = input.string(title="Direction    ", defval="Ascending",
+                         options =["Ascending", "Descending"],
+                         group = "Table Sorting", inline="8")
+
+//RSI
+len_data = 14
+up_data = ta.rma(math.max(ta.change(close), 0), len_data)
+down_data = ta.rma(-math.min(ta.change(close), 0), len_data)
+rsi_data = down_data == 0 ? 100 : up_data == 0 ? 0 : 100 - 100 / (1 + up_data / down_data)
+plot(rsi_data, 'RSI', color=color.new(#7E57C2, 0))
+
+//Chart Vis
+lengthdiv_data = 21
+lengthright_data = 0
+lengthwg_data = lengthright_data
+length2wg_data = lengthright_data
+upwg_data = ta.pivothigh(rsi_data, lengthdiv_data,  lengthright_data)
+dnwg_data = ta.pivotlow(rsi_data, lengthdiv_data,  lengthright_data)
+upchart_data = ta.pivothigh(close, lengthdiv_data, lengthright_data)
+dnchart_data = ta.pivotlow(close, lengthdiv_data, lengthright_data)
+astart_data = 1 
+aend_data = 0
+bstart_data = 1
+bend_data = 0
+
+nw_data = bar_index
+a1_data = ta.valuewhen(not na(upwg_data), nw_data, astart_data)
+b1_data = ta.valuewhen(not na(dnwg_data), nw_data, bstart_data)
+a2_data = ta.valuewhen(not na(upwg_data), nw_data, aend_data)
+b2_data = ta.valuewhen(not na(dnwg_data), nw_data, bend_data)
+
+ach1_data = ta.valuewhen(not na(upchart_data), nw_data, astart_data)
+bch1_data = ta.valuewhen(not na(dnchart_data), nw_data, bstart_data)
+ach2_data = ta.valuewhen(not na(upchart_data), nw_data, aend_data)
+bch2_data = ta.valuewhen(not na(dnchart_data), nw_data, bend_data)
+
+//Colors Div
+color1 = color.red
+color2 = color.green
+if colorwg_data == 'White'
+    color1 := color.white
+    color2 := color.white
+    color2
+if colorwg_data == 'Yellow'
+    color1 := color.yellow
+    color2 := color.yellow
+    color2
+if colorwg_data == 'Blue'
+    color1 := color.blue
+    color2 := color.blue
+    color2
+if colorwg_data == 'Red/Green'
+    color1 := color.red
+    color2 := color.green
+    color2
+
+//Divergence
+div1_data = upwg_data[nw_data - a2_data] < upwg_data[nw_data - a1_data] and upchart_data[nw_data - ach2_data] > upchart_data[nw_data - ach1_data] and upchart_data > high[nw_data - ach1_data]
+div2_data = dnwg_data[nw_data - b2_data] > dnwg_data[nw_data - b1_data] and dnchart_data[nw_data - bch2_data] < dnchart_data[nw_data - bch1_data] and dnchart_data < low[nw_data - bch1_data]
+
+//Label
+if div1_data and shdiv
+    line.new(nw_data[nw_data - a1_data + lengthwg_data], upwg_data[nw_data - a1_data], nw_data[nw_data - a2_data + lengthwg_data], upwg_data[nw_data - a2_data], extend=extend.none,color=color1, width=lwidth_data,style=line.style_dotted)
+    label1 = label.new(nw_data[nw_data - a2_data + lengthwg_data], 70 , text="Divergence\n|", style=label.style_label_down, color=color.new(color.red,100))
+    label.set_size(label1, size.small)
+    label.set_textcolor(label1, color.red) 
+if div2_data and shdiv
+    line.new(nw_data[nw_data - b1_data + length2wg_data], dnwg_data[nw_data - b1_data], nw_data[nw_data - b2_data + length2wg_data], dnwg_data[nw_data - b2_data], extend=extend.none, color=color2, width=lwidth_data, style=line.style_dotted)
+    label2 = label.new(nw_data[nw_data - b2_data + length2wg_data], 30, text="|\nDivergence", style=label.style_label_up, color=color.new(color.green,100))
+    label.set_size(label2, size.small)
+    label.set_textcolor(label2, color.green) 
+if div1_data and shdate
+    label1 = label.new(nw_data[nw_data - a2_data + lengthwg_data], 80 , text = str.format("{0,date, y\nMMM-d\n}", time[nw_data - a2_data + lengthwg_data]), style=label.style_label_down, color=color.new(color.red,100))
+    label.set_size(label1, size.small)
+    label.set_textcolor(label1, color.red)
+if div2_data and shdate
+    label2 = label.new(nw_data[nw_data - b2_data + length2wg_data], 20 , text = str.format("{0,date, \ny\nMMM-d}", time[nw_data - b2_data + length2wg_data]), style=label.style_label_up, color=color.new(color.green,100))
+    label.set_size(label2, size.small)
+    label.set_textcolor(label2, color.green)
+
+//SYMBOLs
+u01 = input.bool(true,  title = "", group = 'Symbols', inline = 's01')
+u02 = input.bool(true,  title = "", group = 'Symbols', inline = 's02')
+u03 = input.bool(true,  title = "", group = 'Symbols', inline = 's03')
+u04 = input.bool(true,  title = "", group = 'Symbols', inline = 's04')
+u05 = input.bool(true,  title = "", group = 'Symbols', inline = 's05')
+u06 = input.bool(true,  title = "", group = 'Symbols', inline = 's06')
+u07 = input.bool(true,  title = "", group = 'Symbols', inline = 's07')
+u08 = input.bool(true,  title = "", group = 'Symbols', inline = 's08')
+u09 = input.bool(true,  title = "", group = 'Symbols', inline = 's09')
+u10 = input.bool(true,  title = "", group = 'Symbols', inline = 's10')
+u11 = input.bool(false,  title = "", group = 'Symbols', inline = 's11')
+u12 = input.bool(false,  title = "", group = 'Symbols', inline = 's12')
+u13 = input.bool(false,  title = "", group = 'Symbols', inline = 's13')
+u14 = input.bool(false,  title = "", group = 'Symbols', inline = 's14')
+u15 = input.bool(false,  title = "", group = 'Symbols', inline = 's15')
+u16 = input.bool(false,  title = "", group = 'Symbols', inline = 's16')
+u17 = input.bool(false,  title = "", group = 'Symbols', inline = 's17')
+u18 = input.bool(false,  title = "", group = 'Symbols', inline = 's18')
+u19 = input.bool(false,  title = "", group = 'Symbols', inline = 's19')
+u20 = input.bool(false,  title = "", group = 'Symbols', inline = 's20')
+
+
+// Symbols
+s01 = input.symbol('BTCUSDT',   group = 'Symbols', inline = 's01')
+s02 = input.symbol('ETHUSDT',   group = 'Symbols', inline = 's02')
+s03 = input.symbol('BNBUSDT',  group = 'Symbols', inline = 's03')
+s04 = input.symbol('XRPUSDT',   group = 'Symbols', inline = 's04')
+s05 = input.symbol('ADAUSDT',   group = 'Symbols', inline = 's05')
+s06 = input.symbol('DOGEUSDT',   group = 'Symbols', inline = 's06')
+s07 = input.symbol('LTCUSDT',  group = 'Symbols', inline = 's07')
+s08 = input.symbol('SOLUSDT',  group = 'Symbols', inline = 's08')
+s09 = input.symbol('TRXUSDT', group = 'Symbols', inline = 's09')
+s10 = input.symbol('DOTUSDT',   group = 'Symbols', inline = 's10')
+s11 = input.symbol('MATICUSDT',   group = 'Symbols', inline = 's11')
+s12 = input.symbol('BCHUSDT',   group = 'Symbols', inline = 's12')
+s13 = input.symbol('TONUSDT',  group = 'Symbols', inline = 's13')
+s14 = input.symbol('AVAXUSDT',  group = 'Symbols', inline = 's14')
+s15 = input.symbol('SHIBUSDT',   group = 'Symbols', inline = 's15')
+s16 = input.symbol('LINKUSDT',   group = 'Symbols', inline = 's16')
+s17 = input.symbol('ATOMUSDT',  group = 'Symbols', inline = 's17')
+s18 = input.symbol('UNIUSDT',   group = 'Symbols', inline = 's18')
+s19 = input.symbol('XMRUSDT',   group = 'Symbols', inline = 's19')
+s20 = input.symbol('XLMUSDT',   group = 'Symbols', inline = 's20')
+
+//Calc
+f_strLeftOf(_str, _of) =>
+    string[] _chars = str.split(_str, '')
+    int _len = array.size(_chars)
+    int _ofPos = array.indexof(_chars, _of)
+    string[] _substr = array.new_string(0)
+    if _ofPos > 0 and _ofPos <= _len - 1
+        _substr := array.slice(_chars, 0, _ofPos)
+        _substr
+    string _return = array.join(_substr, '')
+    _return
+
+// Get only symbol
+only_symbol(s) => 
+    array.get(str.split(s, ":"), 1)
+
+// Get Table Position
+table_pos(p) => 
+    switch p
+        "Top Right"     => position.top_right     
+        "Middle Right"  => position.middle_right   
+        "Bottom Right"  => position.bottom_right  
+        "Top Center"    => position.top_center    
+        "Middle Center" => position.middle_center
+        "Bottom Center" => position.bottom_center
+        "Top Left"      => position.top_left      
+        "Middle Left"   => position.middle_left 
+        => position.bottom_left
+
+// Get Table Size
+table_size(s) => 
+    switch s
+        "Auto"   => size.auto   
+        "Huge"   => size.huge   
+        "Large"  => size.large  
+        "Normal" => size.normal 
+        "Small"  => size.small
+        => size.tiny
+
+screener_func(flag) =>
+    out_screener_func = array.new_string(5, string(na))
+    
+    if flag 
+        src = srcDIV
+        len = 14
+        up = ta.rma(math.max(ta.change(src), 0), len)
+        down = ta.rma(-math.min(ta.change(src), 0), len)
+        rsi = down == 0 ? 100 : up == 0 ? 0 : 100 - 100 / (1 + up / down)
+
+        lengthdiv = 21
+        lengthright = 0
+
+        lengthwg = lengthright
+        length2wg = lengthright
+        upwg = ta.pivothigh(rsi, lengthdiv,  lengthright)
+        dnwg = ta.pivotlow(rsi, lengthdiv,  lengthright)
+        upchart = ta.pivothigh(close, lengthdiv, lengthright)
+        dnchart = ta.pivotlow(close, lengthdiv, lengthright)
+        astart = 1
+        aend = 0
+        bstart = 1
+        bend = 0
+
+        nw = bar_index
+        a1 = ta.valuewhen(not na(upwg), nw, astart)
+        b1 = ta.valuewhen(not na(dnwg), nw, bstart)
+        a2 = ta.valuewhen(not na(upwg), nw, aend)
+        b2 = ta.valuewhen(not na(dnwg), nw, bend)
+
+        ach1 = ta.valuewhen(not na(upchart), nw, astart)
+        bch1 = ta.valuewhen(not na(dnchart), nw, bstart)
+        ach2 = ta.valuewhen(not na(upchart), nw, aend)
+        bch2 = ta.valuewhen(not na(dnchart), nw, bend)
+
+        //Div
+        div1 = upwg[nw - a2] < upwg[nw - a1] and upchart[nw - ach2] > upchart[nw - ach1] and upchart > high[nw - ach1]
+        div2 = dnwg[nw - b2] > dnwg[nw - b1] and dnchart[nw - bch2] < dnchart[nw - bch1] and dnchart < low[nw - bch1] 
+
+        t_div = 0
+        t_div_ = 0
+        t_div := bar_index == 0 ? time : div1[1] == true ? time : t_div[1]
+        days_div_bear = math.round((timenow - t_div) / 86400000)
+        t_div_ := bar_index == 0 ? time : div2[1] == true ? time : t_div_[1]
+        days_div_bull = math.round((timenow - t_div_) / 86400000)
+
+        array.set(out_screener_func, 0, str.tostring(rsi, "#"))
+        array.set(out_screener_func, 1, str.tostring(days_div_bull))
+        array.set(out_screener_func, 2, str.tostring(days_div_bear))
+
+    out_screener_func
+
+//IMPORT
+s01_data = request.security(s01, timeframe, screener_func(u01))
+s02_data = request.security(s02, timeframe, screener_func(u02))
+s03_data = request.security(s03, timeframe, screener_func(u03))
+s04_data = request.security(s04, timeframe, screener_func(u04))
+s05_data = request.security(s05, timeframe, screener_func(u05))
+s06_data = request.security(s06, timeframe, screener_func(u06))
+s07_data = request.security(s07, timeframe, screener_func(u07))
+s08_data = request.security(s08, timeframe, screener_func(u08))
+s09_data = request.security(s09, timeframe, screener_func(u09))
+s10_data = request.security(s10, timeframe, screener_func(u10))
+s11_data = request.security(s11, timeframe, screener_func(u11))
+s12_data = request.security(s12, timeframe, screener_func(u12))
+s13_data = request.security(s13, timeframe, screener_func(u13))
+s14_data = request.security(s14, timeframe, screener_func(u14))
+s15_data = request.security(s15, timeframe, screener_func(u15))
+s16_data = request.security(s16, timeframe, screener_func(u16))
+s17_data = request.security(s17, timeframe, screener_func(u17))
+s18_data = request.security(s18, timeframe, screener_func(u18))
+s19_data = request.security(s19, timeframe, screener_func(u19))
+s20_data = request.security(s20, timeframe, screener_func(u20))
+
+//OUTPUTs
+// Set Table
+var tbl = table.new(table_pos(in_table_pos),  5,  22, frame_color = #151715, 
+         frame_width=1, border_width=1, border_color=color.new(color.white, 100))
+
+// Set Up Screener Matrix
+screener_mtx = matrix.new<string>(20,  4, na)
+
+// Fill Up Matrix Cells 
+mtx(mtxName, row, symbol, s_data)=>
+    if not na(array.get(s_data, 0))
+        matrix.set(mtxName, row,  0, symbol    ) //Symbol
+        matrix.set(mtxName, row,  1, array.get(s_data, 0)) //Rsi
+        matrix.set(mtxName, row,  2, array.get(s_data, 1)) //Bull
+        matrix.set(mtxName, row,  3, array.get(s_data, 2)) //Bear
+
+if barstate.islast 
+    mtx(screener_mtx, 0,    only_symbol(s01), s01_data)
+    mtx(screener_mtx, 1,    only_symbol(s02), s02_data)
+    mtx(screener_mtx, 2,    only_symbol(s03), s03_data)
+    mtx(screener_mtx, 3,    only_symbol(s04), s04_data)
+    mtx(screener_mtx, 4,    only_symbol(s05), s05_data)
+    mtx(screener_mtx, 5,    only_symbol(s06), s06_data)
+    mtx(screener_mtx, 6,    only_symbol(s07), s07_data)
+    mtx(screener_mtx, 7,    only_symbol(s08), s08_data)
+    mtx(screener_mtx, 8,    only_symbol(s09), s09_data)
+    mtx(screener_mtx, 9,    only_symbol(s10), s10_data)
+    mtx(screener_mtx, 10,   only_symbol(s11), s11_data)
+    mtx(screener_mtx, 11,   only_symbol(s12), s12_data)
+    mtx(screener_mtx, 12,   only_symbol(s13), s13_data)
+    mtx(screener_mtx, 13,   only_symbol(s14), s14_data)
+    mtx(screener_mtx, 14,   only_symbol(s15), s15_data)
+    mtx(screener_mtx, 15,   only_symbol(s16), s16_data)
+    mtx(screener_mtx, 16,   only_symbol(s17), s17_data)
+    mtx(screener_mtx, 17,   only_symbol(s18), s18_data)
+    mtx(screener_mtx, 18,   only_symbol(s19), s19_data)
+    mtx(screener_mtx, 19,   only_symbol(s20), s20_data)
+    
+    if table_sort_by != "None"
+        matrix.sort(screener_mtx, table_sort_by == "Symbol" ? 0 : na, table_sort_dir == "Ascending" ?  order.ascending : order.descending)
+   
+    //Remove NaN rows
+    q= 0 
+    while q <= matrix.rows(screener_mtx) - 1 and matrix.rows(screener_mtx) > 1
+        if na(matrix.get(screener_mtx, q, 0))
+            matrix.remove_row(screener_mtx, q)
+            q := q
+        else 
+            q := q + 1
+    
+    // Fill up Table    
+    table.cell(tbl,  0, 0, 'Symbol',     bgcolor   = column_title_bgcol, 
+                 text_color = cell_txtcol, text_size = table_size(in_table_size))
+    table.cell(tbl,  1, 0, 'RSI',     bgcolor   = column_title_bgcol, 
+                 text_color = cell_txtcol, text_size = table_size(in_table_size))
+    table.cell(tbl,  2, 0, 'Bullish-Days Ago',      bgcolor   = color.green, 
+                 text_color = cell_txtcol, text_size = table_size(in_table_size))
+    table.cell(tbl,  3, 0, 'Bearish-Days Ago',     bgcolor   = color.red, 
+                 text_color = cell_txtcol, text_size = table_size(in_table_size))
+
+    // Output
+    max_row = 1
+    for i = 0 to matrix.rows(screener_mtx) - 1
+    
+        if not na(matrix.get(screener_mtx, i, 1)) 
+            // Symbol 
+            table.cell(tbl, 0, i + 2, matrix.get(screener_mtx, i, 0), 
+                 text_halign = text.align_center, bgcolor = column_title_bgcol, 
+                 text_color = cell_txtcol, text_size = table_size(in_table_size))
+            // Rsi
+            rsi_value = str.tonumber(matrix.get(screener_mtx, i, 1))
+            rsi_col = color.from_gradient(rsi_value, 30, 70, bull_color, bear_color)
+            table.cell(tbl, 1, i + 2, matrix.get(screener_mtx, i, 1), 
+                 text_halign = text.align_center, bgcolor = rsi_col, 
+                 text_color = cell_txtcol, text_size = table_size(in_table_size))          
+            // Bull
+            bull_value = str.tonumber(matrix.get(screener_mtx, i, 2))
+            bull_col = color.from_gradient(bull_value, 0, 100, bull_color, color.white)
+            table.cell(tbl, 2, i + 2, matrix.get(screener_mtx, i, 2), 
+                 text_halign = text.align_center, bgcolor = bull_col, 
+                 text_color = cell_txtcol, text_size = table_size(in_table_size))
+            // Bear
+            bear_value = str.tonumber(matrix.get(screener_mtx, i, 3))
+            bear_col = color.from_gradient(bear_value, 0, 100, bear_color, color.white)
+            table.cell(tbl, 3, i + 2, matrix.get(screener_mtx, i, 3), 
+                 text_halign = text.align_center, bgcolor = bear_col,//cell_bgcol,
+                 text_color = cell_txtcol, text_size = table_size(in_table_size))
+            max_row := max_row + 1

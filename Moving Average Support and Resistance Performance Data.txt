@@ -1,0 +1,169 @@
+// © bebaps
+// ============================================================================
+// @indicator: Moving Average Support and Resistance
+// @description: This indicator will analyze how frequently a Moving Average acts as support or resistance within a given range.
+// @author: bebaps
+// @license: MIT
+// ====================================
+// This indicator takes a moving average, creates an envelope, and analyzes how
+// frequently the moving average and its deviations act as areas of support or
+// resistance. Using this information, you can determine how strong the moving
+// average is as a support or resistance. For example, if the 200 SMA with a 5%
+// range and 1% buffer has an S/R ratio of 1:1.5, then the 200 SMA is acting as
+// resistance more frequently than support. This indicator uses the "buffer" as an
+// envelope extension. The best way to think of this buffer is to envision areas
+// where false breakouts and stop runs may occur. Use this indicator to experiment
+// with different moving averages, ranges, and buffers to find the best combination
+// for your trading style.
+// ====================================
+// 1. User Settings
+// 2. Envelope
+// 3. Ranges and Buffers
+// 4. Stats Table
+// ====================================
+// @todo: Enhance the table to show data from each support and resistance data point.
+// ============================================================================
+// @version=5
+
+indicator("Moving Average Support and Resistance", "MASR", overlay=true)
+
+colorWhite = #FFFFFF
+colorGray = #D1D4DC
+colorBlue = #00BCD4
+colorGreen = #4CAF50
+colorOrange = #FF9800
+colorRed = #E91E63
+colorTrueRed = #F23645
+
+// ============================================================================
+// 1. User Settings
+// ============================================================================
+
+// Begin user settings --------------------------------------------------------
+src = input.source(close, "Source", group="Envelope")
+len = input.int(200, "Length", minval=1, group="Envelope")
+type = input.string("SMA", "Type", ["EMA", "HMA", "RMA", "SMA", "VWMA", "WMA"], group="Envelope")
+priceRange = input.float(5.00, "Range", 0.00, 100.00, 0.01, "Price range above and below the moving average.", group="Envelope")
+buffer = input.float(1.00, "Buffer", 0.00, 100.00, 0.01, "Buffer range above and below the price range.", group="Envelope")
+calcAsPercentage = input.bool(false, "Calculate range and buffer as percentage", group="Envelope")
+
+showSR = input.bool(true, "Show supports and resistances", group="Envelope Display")
+showSRByRange = input.bool(false, "Show support and resistance by range", "Show support and resistance per range segment.", group="Envelope Display")
+showSRByBuffer = input.bool(false, "Show support and resistance by buffer", "Show support and resistance per buffer segment.", group="Envelope Display")
+showBreakouts = input.bool(false, "Show envelope breakouts", "Show when the price breaks out of the overall envelope.", group="Envelope Display")
+
+showStatsTable = input.bool(true, "Show stats table", group="Stats")
+tableLocation = input.string("Bottom right", "Table location", ["Bottom left", "Bottom right", "Top right"], group="Stats")
+
+// ============================================================================
+// 2. Envelope
+// ============================================================================
+
+// Begin helper functions -----------------------------------------------------
+ma(src, len, type) =>
+    switch type
+        "EMA" => ta.ema(src, len)
+        "HMA" => ta.hma(src, len)
+        "RMA" => ta.rma(src, len)
+        "SMA" => ta.sma(src, len)
+        "VWMA" => ta.vwma(src, len)
+        "WMA" => ta.wma(src, len)
+
+// Begin calculations ---------------------------------------------------------
+basis = ma(src, len, type)
+var upper = 0.00
+var lower = 0.00
+var upperBuffer = 0.00
+var lowerBuffer = 0.00
+
+if calcAsPercentage
+    upper := basis * (1 + priceRange / 100.00)
+    lower := basis * (1 - priceRange / 100.00)
+    upperBuffer := basis * (1 + (priceRange + buffer) / 100.00)
+    lowerBuffer := basis * (1 - (priceRange + buffer) / 100.00)
+else
+    upper := basis + priceRange
+    lower := basis - priceRange
+    upperBuffer := basis + priceRange + buffer
+    lowerBuffer := basis - priceRange - buffer
+
+// Begin plots ----------------------------------------------------------------
+plot(basis, "Moving Average", color.new(colorWhite, 25))
+u = plot(upper, "Upper range", color.new(colorBlue, 25))
+l = plot(lower, "Lower range", color.new(colorBlue, 25))
+ub = plot(upperBuffer, "Upper range buffer", color.new(colorOrange, 25))
+lb = plot(lowerBuffer, "Lower range buffer", color.new(colorOrange, 25))
+
+// Begin fills ----------------------------------------------------------------
+fill(u, l, color.new(colorBlue, 90), "Range background")
+fill(ub, lb, color.new(colorBlue, 95), "Buffer background")
+
+// ============================================================================
+// 3. Ranges and Buffers
+// ============================================================================
+
+// Begin range supports -------------------------------------------------------
+rangeSupport = low > lower and low < upper
+rangeSupportUpper = low > basis and low < upper
+rangeSupportLower = low > lower and low < basis
+plotshape(rangeSupport, "Support within range", shape.circle, location.belowbar, color.new(colorGreen, 0), size=size.tiny, display=showSR ? display.all : display.none)
+plotshape(rangeSupportUpper, "Support only within upper range", shape.circle, location.belowbar, color.new(colorBlue, 0), size=size.tiny, display=showSRByRange ? display.all : display.none)
+plotshape(rangeSupportLower, "Support only within lower range", shape.circle, location.belowbar, color.new(colorBlue, 0), size=size.tiny, display=showSRByRange ? display.all : display.none)
+
+// Begin range resistances ----------------------------------------------------
+rangeResistance = high > lower and high < upper
+rangeResistanceUpper = high > basis and high < upper
+rangeResistanceLower = high > lower and high < basis
+plotshape(rangeResistance, "Resistance within range", shape.circle, location.abovebar, color.new(colorTrueRed, 0), size=size.tiny, display=showSR ? display.all : display.none)
+plotshape(rangeResistanceUpper, "Resistance within upper range", shape.circle, location.abovebar, color.new(colorOrange, 0), size=size.tiny, display=showSRByRange ? display.all : display.none)
+plotshape(rangeResistanceLower, "Resistance within lower range", shape.circle, location.abovebar, color.new(colorOrange, 0), size=size.tiny, display=showSRByRange ? display.all : display.none)
+
+// Begin buffer supports ------------------------------------------------------
+bufferSupport = low > lowerBuffer and low < lower or low < upperBuffer and low > upper
+bufferSupportUpper = low < upperBuffer and low > upper
+bufferSupportLower = low > lowerBuffer and low < lower
+plotshape(bufferSupport, "Support within the buffer", shape.circle, location.belowbar, color.new(colorGreen, 0), size=size.tiny, display=showSR ? display.all : display.none)
+plotshape(bufferSupportUpper, "Support within the upper buffer", shape.circle, location.belowbar, color.new(colorBlue, 0), size=size.tiny, display=showSRByBuffer ? display.all : display.none)
+plotshape(bufferSupportLower, "Support within the lower buffer", shape.circle, location.belowbar, color.new(colorBlue, 0), size=size.tiny, display=showSRByBuffer ? display.all : display.none)
+
+// Begin buffer resistances ---------------------------------------------------
+bufferResistance = high > upper and high < upperBuffer or high < lower and high > lowerBuffer
+bufferResistanceUpper = high > upper and high < upperBuffer
+bufferResistanceLower = high < lower and high > lowerBuffer
+plotshape(bufferResistance, "Resistance within the buffer", shape.circle, location.abovebar, color.new(colorTrueRed, 0), size=size.tiny, display=showSR ? display.all : display.none)
+plotshape(bufferResistanceUpper, "Resistance within the upper buffer", shape.circle, location.abovebar, color.new(colorOrange, 0), size=size.tiny, display=showSRByBuffer ? display.all : display.none)
+plotshape(bufferResistanceLower, "Resistance within the lower buffer", shape.circle, location.abovebar, color.new(colorOrange, 0), size=size.tiny, display=showSRByBuffer ? display.all : display.none)
+
+// Begin breakout signals -----------------------------------------------------
+breakoutAbove = close > upperBuffer and close[1] < upperBuffer and close[1] > lowerBuffer
+breakoutBelow = close < lowerBuffer and close[1] > lowerBuffer and close[1] < upperBuffer
+plotshape(breakoutAbove, "Breakout above", shape.triangleup, location.belowbar, color.new(colorGreen, 0), size=size.small, display=showBreakouts ? display.all : display.none)
+plotshape(breakoutBelow, "Breakout below", shape.triangledown, location.abovebar, color.new(colorTrueRed, 0), size=size.small, display=showBreakouts ? display.all : display.none)
+
+// ============================================================================
+// 4. Stats Table
+// ============================================================================
+
+// Begin counters -------------------------------------------------------------
+var counterRangeSupport = 0
+var counterRangeResistance = 0
+
+// Begin counter logic --------------------------------------------------------
+if rangeSupport
+    counterRangeSupport := counterRangeSupport + 1
+if rangeResistance
+    counterRangeResistance := counterRangeResistance + 1
+
+// Begin table ----------------------------------------------------------------
+tablePosition = tableLocation == 'Bottom left' ? position.bottom_left : tableLocation == 'Bottom right' ? position.bottom_right : position.top_right
+counterTable = table.new(tablePosition, 3, 1, border_width=3)
+
+ratio(num1, num2) =>
+    a = num1 / num1
+    b = num2 / num1
+    str.tostring(a) + ":" + str.tostring(math.round(b, 2))
+
+if barstate.islast and showStatsTable
+    table.cell(counterTable, 0, 0, "Total Supports: " + str.tostring(counterRangeSupport), bgcolor=color.new(colorGray, 10))
+    table.cell(counterTable, 1, 0, "Total Rejections: " + str.tostring(counterRangeResistance), bgcolor=color.new(colorGray, 10))
+    table.cell(counterTable, 2, 0, "S/R Ratio: " + ratio(counterRangeSupport, counterRangeResistance), bgcolor=color.new(colorGray, 10))

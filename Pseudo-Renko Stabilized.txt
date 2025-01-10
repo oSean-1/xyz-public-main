@@ -1,0 +1,58 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © kaigouthro
+
+//@version=5
+indicator("Pseudo-Renko Stabilized (Val)", overlay=true)
+
+// Function to calculate and return the Pseudo-Renko Stabilized close price using an input value
+pseudo_renko(float val, float sensitivity = 1.0, int length = 7) =>
+    // Initialize variables
+    varip  float lastRenkoClose = val  // Store the closing price of the last Renko brick
+    varip  int   renkoDirection = 0      // Store the direction of the current Renko brick (1 for up, -1 for down)
+    varip  int   brickCount     = na       // Keep track of the number of completed Renko bricks
+    lastRenkoClose := nz(lastRenkoClose, val) 
+    renkoDirection := nz(renkoDirection, 0)
+    brickCount     := nz(brickCount, 10)
+    maxcount        = ta.max(brickCount)
+    countmod        = (maxcount/2 + brickCount/2)/maxcount
+
+    // Calculate dynamic brick size based on volatility of the input value
+    brickSize = math.max(val/1000,ta.sma(
+          ta.highest(ta.sma(ta.highest(val,length),length) 
+          - ta.sma(ta.lowest(val,length), length),length),length)
+          * sensitivity
+          * countmod
+          )
+    brickSize /= math.abs(ta.ema(val / val[1] - 1, length)) / math.abs(ta.sma(val / val[1] - 1, length * 2))
+
+    // Calculate Renko bricks
+    if barstate.isnew // Only calculate on new bars
+        // Check for uptrend
+        if val > lastRenkoClose + brickSize
+            renkoDirection := 1
+            brickCount := math.floor((val - lastRenkoClose) / brickSize) 
+            lastRenkoClose := lastRenkoClose + brickCount * brickSize
+        // Check for downtrend
+        else if val < lastRenkoClose - brickSize
+            renkoDirection := -1
+            brickCount := math.floor((lastRenkoClose - val) / brickSize)
+            lastRenkoClose := lastRenkoClose - brickCount * brickSize
+
+    // Return the Renko close and direction
+    [lastRenkoClose, renkoDirection]
+
+// Demo
+
+// Get user inputs
+sensitivityInput = input.float(0.1, "Sensitivity",0.01,step=0.01)
+lengthInput = input.int(5, "Length",2)
+
+// Example usage with the 'close' price as the input value
+[renkoClose, renkoDirection] = pseudo_renko(math.avg(close,open), sensitivityInput, lengthInput)
+
+// Plot the Renko close price
+plot(renkoClose, "Renko Close", renkoDirection>0?color.aqua:color.orange,2)
+
+// You can also use other values as input, such as:
+// [renkoCloseHigh, renkoDirectionHigh] = pseudo_renko(high, sensitivityInput, lengthInput)
+// [renkoCloseLow, renkoDirectionLow] = pseudo_renko(low, sensitivityInput, lengthInput) 

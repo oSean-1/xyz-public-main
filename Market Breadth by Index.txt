@@ -1,0 +1,186 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © syntaxgeek
+
+//           _____            _____                   _____            _____                   _____                                          _____                   _____                   _____                   _____          
+//          /\    \          |\    \                 /\    \          /\    \                 /\    \                ______                  /\    \                 /\    \                 /\    \                 /\    \         
+//         /::\    \         |:\____\               /::\____\        /::\    \               /::\    \              |::|   |                /::\    \               /::\    \               /::\    \               /::\____\        
+//        /::::\    \        |::|   |              /::::|   |        \:::\    \             /::::\    \             |::|   |               /::::\    \             /::::\    \             /::::\    \             /:::/    /        
+//       /::::::\    \       |::|   |             /:::::|   |         \:::\    \           /::::::\    \            |::|   |              /::::::\    \           /::::::\    \           /::::::\    \           /:::/    /         
+//      /:::/\:::\    \      |::|   |            /::::::|   |          \:::\    \         /:::/\:::\    \           |::|   |             /:::/\:::\    \         /:::/\:::\    \         /:::/\:::\    \         /:::/    /          
+//     /:::/__\:::\    \     |::|   |           /:::/|::|   |           \:::\    \       /:::/__\:::\    \          |::|   |            /:::/  \:::\    \       /:::/__\:::\    \       /:::/__\:::\    \       /:::/____/           
+//     \:::\   \:::\    \    |::|   |          /:::/ |::|   |           /::::\    \     /::::\   \:::\    \         |::|   |           /:::/    \:::\    \     /::::\   \:::\    \     /::::\   \:::\    \     /::::\    \           
+//   ___\:::\   \:::\    \   |::|___|______   /:::/  |::|   | _____    /::::::\    \   /::::::\   \:::\    \        |::|   |          /:::/    / \:::\    \   /::::::\   \:::\    \   /::::::\   \:::\    \   /::::::\____\________  
+//  /\   \:::\   \:::\    \  /::::::::\    \ /:::/   |::|   |/\    \  /:::/\:::\    \ /:::/\:::\   \:::\    \ ______|::|___|___ ____ /:::/    /   \:::\ ___\ /:::/\:::\   \:::\    \ /:::/\:::\   \:::\    \ /:::/\:::::::::::\    \ 
+// /::\   \:::\   \:::\____\/::::::::::\____/:: /    |::|   /::\____\/:::/  \:::\____/:::/  \:::\   \:::\____|:::::::::::::::::|    /:::/____/  ___\:::|    /:::/__\:::\   \:::\____/:::/__\:::\   \:::\____/:::/  |:::::::::::\____\
+// \:::\   \:::\   \::/    /:::/~~~~/~~     \::/    /|::|  /:::/    /:::/    \::/    \::/    \:::\  /:::/    |:::::::::::::::::|____\:::\    \ /\  /:::|____\:::\   \:::\   \::/    \:::\   \:::\   \::/    \::/   |::|~~~|~~~~~     
+//  \:::\   \:::\   \/____/:::/    /         \/____/ |::| /:::/    /:::/    / \/____/ \/____/ \:::\/:::/    / ~~~~~~|::|~~~|~~~      \:::\    /::\ \::/    / \:::\   \:::\   \/____/ \:::\   \:::\   \/____/ \/____|::|   |          
+//   \:::\   \:::\    \  /:::/    /                  |::|/:::/    /:::/    /                   \::::::/    /        |::|   |          \:::\   \:::\ \/____/   \:::\   \:::\    \      \:::\   \:::\    \           |::|   |          
+//    \:::\   \:::\____\/:::/    /                   |::::::/    /:::/    /                     \::::/    /         |::|   |           \:::\   \:::\____\      \:::\   \:::\____\      \:::\   \:::\____\          |::|   |          
+//     \:::\  /:::/    /\::/    /                    |:::::/    /\::/    /                      /:::/    /          |::|   |            \:::\  /:::/    /       \:::\   \::/    /       \:::\   \::/    /          |::|   |          
+//      \:::\/:::/    /  \/____/                     |::::/    /  \/____/                      /:::/    /           |::|   |             \:::\/:::/    /         \:::\   \/____/         \:::\   \/____/           |::|   |          
+//       \::::::/    /                               /:::/    /                               /:::/    /            |::|   |              \::::::/    /           \:::\    \              \:::\    \               |::|   |          
+//        \::::/    /                               /:::/    /                               /:::/    /             |::|   |               \::::/    /             \:::\____\              \:::\____\              \::|   |          
+//         \::/    /                                \::/    /                                \::/    /              |::|___|                \::/____/               \::/    /               \::/    /               \:|   |          
+//          \/____/                                  \/____/                                  \/____/                ~~                                              \/____/                 \/____/                 \|___|      
+
+//@version=5
+indicator("Market Average Trend", "MarketAT", format=format.percent)
+
+// { consts
+c_market_average_prefix_name_s1 = 'S&P 100'
+c_market_average_prefix_name_s5 = 'S&P 500'
+c_market_average_prefix_name_se = 'S&P ENERGIES'
+c_market_average_prefix_name_sk = 'S&P INFO TECH'
+c_market_average_prefix_name_sb = 'S&P MATERIALS'
+c_market_average_prefix_name_su = 'S&P UTILITIES'
+c_market_average_prefix_name_sf = 'S&P FINANCIALS'
+c_market_average_prefix_name_ss = 'S&P REAL ESTATE'
+c_market_average_prefix_name_sp = 'S&P CON STAPLES'
+c_market_average_prefix_name_sv = 'S&P HEALTH CARE'
+c_market_average_prefix_name_si = 'S&P INDUSTRIALS'
+c_market_average_prefix_name_sl = 'S&P TELECOM SRVS'
+c_market_average_prefix_name_sy = 'S&P CONSUMER DISC'
+c_market_average_prefix_name_sz = 'S&P GROWTH'
+c_market_average_prefix_name_nd = 'NAS 100'
+c_market_average_prefix_name_nc = 'NAS COMP'
+c_market_average_prefix_name_di = 'DOW INDUSTRIAL'
+c_market_average_prefix_name_dc = 'DOW COMP'
+c_market_average_prefix_name_du = 'DOW UTILITIES'
+c_market_average_prefix_name_dt = 'DOW TRANSPORTATION'
+c_market_average_prefix_name_r1 = 'RUSSELL 1000'
+c_market_average_prefix_name_r2 = 'RUSSELL 2000'
+c_market_average_prefix_name_r3 = 'RUSSELL 3000'
+
+c_market_average_prefix_s1 = 'S1'
+c_market_average_prefix_s5 = 'S5'
+c_market_average_prefix_se = 'SE'
+c_market_average_prefix_sk = 'SK'
+c_market_average_prefix_sb = 'SB'
+c_market_average_prefix_su = 'SU'
+c_market_average_prefix_sf = 'SF'
+c_market_average_prefix_ss = 'SS'
+c_market_average_prefix_sp = 'SP'
+c_market_average_prefix_sv = 'SV'
+c_market_average_prefix_si = 'SI'
+c_market_average_prefix_sl = 'SL'
+c_market_average_prefix_sy = 'SY'
+c_market_average_prefix_sz = 'SZ'
+c_market_average_prefix_nd = 'ND'
+c_market_average_prefix_nc = 'NC'
+c_market_average_prefix_di = 'DI'
+c_market_average_prefix_dc = 'DC'
+c_market_average_prefix_du = 'DU'
+c_market_average_prefix_dt = 'DT'
+c_market_average_prefix_r1 = 'R1'
+c_market_average_prefix_r2 = 'R2'
+c_market_average_prefix_r3 = 'R3'
+
+c_market_average_suffix_5day = "FD"
+c_market_average_suffix_20day = "TW"
+c_market_average_suffix_50day = "FI"
+c_market_average_suffix_100day = "OH"
+c_market_average_suffix_150day = "OF"
+c_market_average_suffix_200day = "TH"
+
+c_color_transp = color.new(color.white, 100)
+// } consts
+
+// { inputs
+i_marketPrefixName = input.string(c_market_average_prefix_name_s5, 'Market', options=[c_market_average_prefix_name_s1,c_market_average_prefix_name_s5,c_market_average_prefix_name_se,c_market_average_prefix_name_sk,c_market_average_prefix_name_sb,c_market_average_prefix_name_su,c_market_average_prefix_name_sf,c_market_average_prefix_name_ss,c_market_average_prefix_name_sp,c_market_average_prefix_name_sv,c_market_average_prefix_name_si,c_market_average_prefix_name_sl,c_market_average_prefix_name_sy,c_market_average_prefix_name_sz,c_market_average_prefix_name_nd,c_market_average_prefix_name_nc,c_market_average_prefix_name_di,c_market_average_prefix_name_dc,c_market_average_prefix_name_du,c_market_average_prefix_name_dt,c_market_average_prefix_name_r1,c_market_average_prefix_name_r2,c_market_average_prefix_name_r3])
+i_5Enabled = input.bool(false, 'Above 5 Day Average', group='Visibility', inline='5')
+i_5Thickness = input.int(1, '', group='Visibility', inline='5')
+i_20Enabled = input.bool(false, 'Above 20 Day Average', group='Visibility', inline='20')
+i_20Thickness = input.int(1, '', group='Visibility', inline='20')
+i_50Enabled = input.bool(true, 'Above 50 Day Average', group='Visibility', inline='50')
+i_50Thickness = input.int(2, '', group='Visibility', inline='50')
+i_100Enabled = input.bool(false, 'Above 100 Day Average', group='Visibility', inline='100')
+i_100Thickness = input.int(3, '', group='Visibility', inline='100')
+i_150Enabled = input.bool(false, 'Above 150 Day Average', group='Visibility', inline='150')
+i_150Thickness = input.int(1, '', group='Visibility', inline='150')
+i_200Enabled = input.bool(true, 'Above 200 Day Average', group='Visibility', inline='200')
+i_200Thickness = input.int(4, '', group='Visibility', inline='200')
+
+i_colorHighest = input.color(color.green, '100%', group='Colors')
+i_colorLowest = input.color(color.red, '0%', group='Colors')
+
+i_smoothed = input.bool(false, 'Apply Smoothing?', tooltip='Applies simple moving average to all data requests.')
+// } inputs
+
+// { funcs
+f_prefixNameToPrefix(_name) =>
+    switch (_name)
+        c_market_average_prefix_name_s1 => c_market_average_prefix_s1
+        c_market_average_prefix_name_s5 => c_market_average_prefix_s5
+        c_market_average_prefix_name_nd => c_market_average_prefix_nd
+        c_market_average_prefix_name_nc => c_market_average_prefix_nc
+        c_market_average_prefix_name_se => c_market_average_prefix_se
+        c_market_average_prefix_name_sk => c_market_average_prefix_sk
+        c_market_average_prefix_name_sb => c_market_average_prefix_sb
+        c_market_average_prefix_name_su => c_market_average_prefix_su
+        c_market_average_prefix_name_sf => c_market_average_prefix_sf
+        c_market_average_prefix_name_ss => c_market_average_prefix_ss
+        c_market_average_prefix_name_sp => c_market_average_prefix_sp
+        c_market_average_prefix_name_sv => c_market_average_prefix_sv
+        c_market_average_prefix_name_si => c_market_average_prefix_si
+        c_market_average_prefix_name_sl => c_market_average_prefix_sl
+        c_market_average_prefix_name_sy => c_market_average_prefix_sy
+        c_market_average_prefix_name_sz => c_market_average_prefix_sz
+        c_market_average_prefix_name_di => c_market_average_prefix_di
+        c_market_average_prefix_name_dc => c_market_average_prefix_dc
+        c_market_average_prefix_name_du => c_market_average_prefix_du
+        c_market_average_prefix_name_dt => c_market_average_prefix_dt
+        c_market_average_prefix_name_r1 => c_market_average_prefix_r1
+        c_market_average_prefix_name_r2 => c_market_average_prefix_r2
+        c_market_average_prefix_name_r3 => c_market_average_prefix_r3
+
+f_reqSec(_symbol, _source) => request.security(_symbol, timeframe.period, _source)
+// } funcs
+
+// { vars
+var v_market_prefix = "INDEX:" + f_prefixNameToPrefix(i_marketPrefixName)
+var v_market_5day = v_market_prefix + c_market_average_suffix_5day
+var v_market_20day = v_market_prefix + c_market_average_suffix_20day
+var v_market_50day = v_market_prefix + c_market_average_suffix_50day
+var v_market_100day = v_market_prefix + c_market_average_suffix_100day
+var v_market_150day = v_market_prefix + c_market_average_suffix_150day
+var v_market_200day = v_market_prefix + c_market_average_suffix_200day
+
+v_5dayAvg = i_5Enabled ? f_reqSec(v_market_5day, i_smoothed ? ta.sma(close, 3) : close) : na
+v_20dayAvg = i_20Enabled ? f_reqSec(v_market_20day, i_smoothed ? ta.sma(close, 3) : close) : na
+v_50dayAvg = i_50Enabled ? f_reqSec(v_market_50day, i_smoothed ? ta.sma(close, 3) : close) : na
+v_100dayAvg = i_100Enabled ? f_reqSec(v_market_100day, i_smoothed ? ta.sma(close, 3) : close) : na
+v_150dayAvg = i_150Enabled ? f_reqSec(v_market_150day, i_smoothed ? ta.sma(close, 3) : close) : na
+v_200dayAvg = i_200Enabled ? f_reqSec(v_market_200day, i_smoothed ? ta.sma(close, 3) : close) : na
+// } vars
+
+// { debug
+// var v_dataTable = table.new(position.bottom_right, 2, 7)
+// table.cell(v_dataTable, 0, 0, 'Market Prefix', text_color=color.white)
+// table.cell(v_dataTable, 1, 0, v_market_prefix, text_color=color.white)
+// table.cell(v_dataTable, 0, 1, 'Market 5 Day Symbol', text_color=color.white)
+// table.cell(v_dataTable, 1, 1, v_market_5day, text_color=color.white)
+// table.cell(v_dataTable, 0, 2, 'Market 20 Day Symbol', text_color=color.white)
+// table.cell(v_dataTable, 1, 2, v_market_20day, text_color=color.white)
+// table.cell(v_dataTable, 0, 3, 'Market 50 Day Symbol', text_color=color.white)
+// table.cell(v_dataTable, 1, 3, v_market_50day, text_color=color.white)
+// table.cell(v_dataTable, 0, 4, 'Market 100 Day Symbol', text_color=color.white)
+// table.cell(v_dataTable, 1, 4, v_market_100day, text_color=color.white)
+// table.cell(v_dataTable, 0, 5, 'Market 150 Day Symbol', text_color=color.white)
+// table.cell(v_dataTable, 1, 5, v_market_150day, text_color=color.white)
+// table.cell(v_dataTable, 0, 6, 'Market 200 Day Symbol', text_color=color.white)
+// table.cell(v_dataTable, 1, 6, v_market_200day, text_color=color.white)
+// } debug
+
+// { plots
+h_80 = hline(80, 'High %', color.new(color.white, 50), linestyle=hline.style_dotted)
+h_50 = hline(50, 'Mid %', color.new(color.white, 50), linestyle=hline.style_dotted)
+h_20 = hline(20, 'Low %', color.new(color.white, 50), linestyle=hline.style_dotted)
+fill(h_80, h_20, color=color.new(color.white, 95))
+
+p_5 = plot(v_5dayAvg, '5', linewidth=i_5Thickness, color=color.from_gradient(v_5dayAvg, 0, 100, i_colorLowest, i_colorHighest), display=i_5Enabled ? display.all : display.none)
+p_20 = plot(v_20dayAvg, '20', linewidth=i_20Thickness, color=color.from_gradient(v_20dayAvg, 0, 100, i_colorLowest, i_colorHighest), display=i_20Enabled ? display.all : display.none)
+p_50 = plot(v_50dayAvg, '50', linewidth=i_50Thickness, color=color.from_gradient(v_50dayAvg, 0, 100, i_colorLowest, i_colorHighest), display=i_50Enabled ? display.all : display.none)
+p_100 = plot(v_100dayAvg, '100', linewidth=i_100Thickness, color=color.from_gradient(v_100dayAvg, 0, 100, i_colorLowest, i_colorHighest), display=i_100Enabled ? display.all : display.none)
+p_150 = plot(v_150dayAvg, '150', linewidth=i_150Thickness, color=color.from_gradient(v_150dayAvg, 0, 100, i_colorLowest, i_colorHighest), display=i_150Enabled ? display.all : display.none)
+p_200 = plot(v_200dayAvg, '200', linewidth=i_200Thickness, color=color.from_gradient(v_200dayAvg, 0, 100, i_colorLowest, i_colorHighest), display=i_200Enabled ? display.all : display.none)
+// } plots

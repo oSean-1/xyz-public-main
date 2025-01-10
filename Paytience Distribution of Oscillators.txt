@@ -1,0 +1,182 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © PaytienceIO
+
+
+//@version=5
+indicator("Paytience Distribution", max_boxes_count = 500, max_lines_count = 500)
+
+type points
+    float start
+    float end
+
+sq(source) => math.pow(source, 2)
+
+sinc(source, bandwidth) =>
+    if source == 0
+        1
+    else
+        math.sin(math.pi * source / bandwidth) / (math.pi * source / bandwidth)  
+
+sinc_filter(source, length)=>
+    src_size = array.size(source)
+    estimate_array = array.new<float>(src_size) 
+    float current_price = na
+    for i = 0 to src_size - 1 
+        float sum = 0
+        float sumw = 0
+        for j = 0 to src_size - 1 
+            diff = i - j
+            weight = sinc(diff, length)
+            sum += array.get(source, j) * weight
+            sumw += weight
+        current_price := sum / sumw
+        array.set(estimate_array, i, current_price >= 0 ? current_price : 0)
+    estimate_array
+
+window_size = input.int(0, "Window Size", minval = 0, tooltip = "A window size of 0 means it just uses all of the data", group = "Main")
+scale = input.int(100, "Scale", minval = 20, maxval = 499)
+sample_window = input.int(99, "Resample Resolution", minval = 10)
+round = input.int(1, "Round Source", minval = 0, group = "Main")
+src = math.round(input.source(close, "Source", group = "Main"), round)
+minimum = input.int(0, "Minimum Value", minval = 0, tooltip = "This dictates the minimum value you want to account for in the distribution. From 0 to 100, 0 being the lowest and 100 being the highest.", group = "Main")
+smoothing = input.int(3, "Smoothing", minval = 1, maxval = 20, group = "Main")
+include_0 = input.bool(false, "Include 0", group = "Main")
+stdev_enable = input.bool(true, "Standard Deviation", "This is really only good for a source that is vaguely gaussian.", group = "Main")
+high_color = input.color(#00ff00, "Color", group = "Main", inline = "Colour") 
+low_color = input.color(#FF0000, "", group = "Main", inline = "Colour")
+dev_color = input.color(color.blue, "Standard Deviation Color", group = "Main")
+use_rsi = input.bool(true, "Example Usage RSI", group = "Example")
+length = input.int(14, "RSI Length", minval = 1, group = "Example")
+rsi = math.round(ta.rsi(close, length), 1)
+
+var source_distribution = array.new<int>()
+var source_values = array.new<float>()
+var float source = 0
+
+flag = use_rsi ? not na(rsi) : not na(src)
+
+if flag and barstate.isconfirmed
+    source := use_rsi ? rsi : src
+    if array.includes(source_values, source)
+        index = array.indexof(source_values, source)
+        array.set(source_distribution, index, array.get(source_distribution, index) + 1)
+    else
+        array.push(source_values, source)
+        array.push(source_distribution, 1)
+
+window = (window_size >= 3 ? window_size : 5000)
+
+if array.size(source_values) > window
+    array.shift(source_values)
+    array.shift(source_distribution)
+
+boxes = array.new<box>(sample_window + 1)
+lines = array.new<line>(2)
+
+if flag and barstate.islast
+
+    sorted_source_distribution = array.new<int>()
+    sorted_source_values = array.new<float>()
+
+    for i = 0 to array.size(source_values) - 1
+        index = array.indexof(source_values, array.max(source_values, i)) 
+        array.push(sorted_source_values, array.get(source_values, index))
+        array.push(sorted_source_distribution, array.get(source_distribution, index))
+
+    resampled_source_distribution = array.new<int>(sample_window + 1, 0)
+    resampled_source_values = array.new<points>(sample_window + 1, points.new(0, 0))
+
+    chunk_size = math.ceil((array.size(sorted_source_values) - 1) / (sample_window + 1))
+
+    for i = 0 to sample_window
+        start_idx = i * chunk_size
+        end_idx = math.min((i + 1) * chunk_size - 1, array.size(sorted_source_values) - 1)
+        total_distribution = 0
+
+        for j = start_idx to end_idx
+            total_distribution += array.get(sorted_source_distribution, j)
+
+        if end_idx >= array.size(sorted_source_values) - 1
+            break
+        array.set(resampled_source_distribution, i, total_distribution)
+        array.set(resampled_source_values, i, points.new(array.get(sorted_source_values, start_idx), array.get(sorted_source_values, end_idx)))
+
+    filtered_distribution = smoothing > 1 ? sinc_filter(resampled_source_distribution, smoothing) : resampled_source_distribution
+
+    normalized_source_distribution = array.new<float>(sample_window)
+
+    if not include_0
+        max_index = array.indexof(resampled_source_distribution, array.max(resampled_source_distribution))
+        if array.get(resampled_source_values, max_index).start == 0 or array.get(resampled_source_values, max_index).end == 0
+            array.remove(resampled_source_values, max_index)
+            array.remove(resampled_source_distribution, max_index)
+
+    max = array.max(filtered_distribution)
+    min = array.min(filtered_distribution, minimum)
+
+    for i = 0 to sample_window - 1
+
+        array.set(normalized_source_distribution, i, math.max(0, (array.get(filtered_distribution, i) - min) / (max - min)))
+ 
+    float weighted_sum = 0
+    float total_weight = 0
+
+    for i = 0 to array.size(normalized_source_distribution) - 1
+        mid_point = (array.get(resampled_source_values, i).start + array.get(resampled_source_values, i).end) / 2
+        weight = array.get(normalized_source_distribution, i)
+        min_weight = array.min(normalized_source_distribution, minimum)
+        not_zero_condition = array.get(resampled_source_values, i).start != include_0 ? 4.0e120: 0 and array.get(resampled_source_values, i).end != include_0 ? 4.0e120: 0
+        if weight > min_weight and not_zero_condition
+            weighted_sum += (mid_point * weight)
+            total_weight += weight
+        else
+            continue
+
+    float weighted_mean = weighted_sum / total_weight        
+    float squared_weighted_diff_sum = 0.0
+
+    for i = 0 to array.size(normalized_source_distribution) - 1
+        mid_val = math.avg(array.get(resampled_source_values, i).start, array.get(resampled_source_values, i).end)
+        weight = array.get(normalized_source_distribution, i)
+        min_weight = array.min(normalized_source_distribution, minimum)
+        not_zero_condition = array.get(resampled_source_values, i).start != include_0 ? 4.0e120 : 0 or array.get(resampled_source_values, i).end != include_0 ? 4.0e120: 0
+        if weight > min_weight and not_zero_condition
+            squared_weighted_diff_sum += (weight * sq(mid_val - weighted_mean))
+        else
+            continue
+
+    float weighted_standard_deviation = math.sqrt(squared_weighted_diff_sum / total_weight)
+
+    for i = 0 to array.size(normalized_source_distribution) - 1
+        value = array.get(resampled_source_values, i)
+        weight = scale - int(array.get(normalized_source_distribution, i) * scale)
+        colour = color.from_gradient(weight, 0, scale, high_color, low_color)
+        not_zero_condition = value.start != include_0 ? 4.0e120 : 0 or value.end != include_0 ? 4.0e120: 0
+        if weight < scale and not_zero_condition
+            array.set(boxes, i,
+             box.new(bar_index + weight, value.end, bar_index + scale, value.start, colour, bgcolor = colour)
+             )
+
+    peek = array.get(resampled_source_values, array.indexof(normalized_source_distribution, array.max(normalized_source_distribution)))
+    mid_point_peek = math.avg(peek.start, peek.end)
+    if stdev_enable
+        stdev_top = line.new(bar_index, weighted_mean + weighted_standard_deviation, bar_index + scale, weighted_mean + weighted_standard_deviation, color = dev_color, width = 1)
+        stdev_bot = line.new(bar_index, weighted_mean - weighted_standard_deviation, bar_index + scale, weighted_mean - weighted_standard_deviation, color = dev_color, width = 1)
+        array.push(lines, stdev_top)
+        array.push(lines, stdev_bot)
+
+        linefill.new(stdev_top, stdev_bot, color.new(dev_color, 95))
+
+if barstate.isconfirmed and flag
+    for i = array.size(boxes) - 1 to 0 
+        box.delete(array.get(boxes, i))
+        array.remove(boxes, i)
+    for i = array.size(lines) - 1 to 0
+        line.delete(array.get(lines, i))
+        array.remove(lines, i) 
+
+plot(use_rsi ? rsi : na, "Example RSI", #7E57C2)
+rsi_top = plot(use_rsi ? 70 : na, "Example Hline Top", color.gray)
+rsi_bot = plot(use_rsi ? 30 : na, "Example Hline Bottom", color.gray)
+fill(rsi_top, rsi_bot, color.new(#7E57C2, 90))
+

@@ -1,0 +1,65 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Imacopitrader
+
+//@version=4
+study("bob")
+
+normalize(_src, _min, _max) =>
+// Normalizes series with unknown min/max using historical min/max.
+// _src      : series to rescale.
+// _min, _min: min/max values of rescaled series.
+    var _historicMin =  +10e10
+    var _historicMax = -10e10
+    _historicMin := min(nz(_src, _historicMin), _historicMin)
+    _historicMax := max(nz(_src, _historicMax), _historicMax)
+    _min + (_max - _min) * (_src - _historicMin) / max(_historicMax - _historicMin, 10e-10)
+
+//inputs
+src=sma(close,input(1))
+
+// function
+bob(_length, _src) => 
+    if change(_src,_length)>0
+        (pow(abs(change(_src,_length)),_length/10))
+    else
+        (pow(abs(change(_src,_length)),_length/10)) * -1
+        
+//main
+main(btc) =>
+    a=bob(1,src)
+    b=bob(2,src)
+    c=bob(3,src)
+    d=bob(4,src)
+    e=bob(5,src)
+    f=bob(6,src)
+    g=bob(8,src)
+    h=bob(10,src)
+    i=bob(13,src)
+    j=bob(16,src)
+    k=bob(19,src)
+    l=bob(23,src)
+    m=bob(27,src)
+    n=bob(30,src)
+    o=bob(35,src)
+    p=bob(40,src)
+    q=bob(50,src)
+    r=bob(100,src)
+    s=bob(252,src)
+    bobta = a+b+c+d+e+f+g+h+i+j+k+l+m+n
+    
+//Basic filters    
+bobt = main(1)
+bg =rsi(bobt,14)
+[bbMiddle, bbUpper, bbLower] = bb(normalize(bg, -100,100), input(252), 2)
+
+//plots
+// ————— Normalized volume in the same region as the rescaled RSI.
+plot(normalize(bg, -100, 100), "Normalized", color.red)
+
+//plot(bg)
+//plot(bobt)
+//plot(bbMiddle, color=color.red)
+plot(bbUpper, color=color.gray)
+plot(bbLower, color=color.gray)
+
+barcolor(normalize(bg, -100,100) < bbLower ? color.green : (normalize(bg, -100,100) > bbUpper ? color.red : na))

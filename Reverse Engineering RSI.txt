@@ -1,0 +1,38 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © HPotter
+
+
+////////////////////////////////////////////////////////////
+//  Copyright by HPotter v1.0 02/09/2014
+// The related article is copyrighted material from
+// Stocks & Commodities.
+////////////////////////////////////////////////////////////
+study(title="Reverse Engineering RSI, by Giorgos Siligardos", overlay = true)
+
+Value1 = input(20, minval=1)
+Value2 = input(50, minval=1)
+Value3 = input(80, minval=1)
+
+WildPer = input(14,minval=1)
+ExpPer = 2 * WildPer - 1
+K = 2 / (ExpPer + 1)
+AUC = iff(close > close[1], K * (close - close[1]) + (1 - K) * nz(AUC[1], 1), (1-K) * nz(AUC[1], 1))
+ADC = iff(close > close[1], (1-K) * nz(ADC[1], 1), K * (close[1] - close) + (1 - K) * nz(ADC[1], 1))
+
+nVal1 = (WildPer - 1) * (ADC * Value1 / (100 - Value1) - AUC)
+nRes1 = iff(nVal1 >= 0, close + nVal1, close + nVal1 * (100 - Value1) / Value1)
+
+nVal2 = (WildPer - 1) * (ADC * Value2 / (100 - Value2) - AUC)
+nRes2 = iff(nVal2 >= 0, close + nVal2, close + nVal2 * (100 - Value2) / Value2)
+
+nVal3 = (WildPer - 1) * (ADC * Value3 / (100 - Value3) - AUC)
+nRes3 = iff(nVal3 >= 0, close + nVal3, close + nVal3 * (100 - Value3) / Value3)
+
+plot(nRes1, color=blue, title="Reverse Engineering RSI")
+plot(nRes2, color=blue, title="Reverse Engineering RSI")
+plot(nRes3, color=blue, title="Reverse Engineering RSI")
+
+x= nRes1>close
+y= close < close[1]
+z= x and y == true
+//plotshape(x, style=shape.triangledown, location=location.abovebar, size=size.tiny,color=red)

@@ -1,0 +1,345 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Julien_Eche
+
+//@version=5
+indicator("Optimal MA Finder", overlay=true)
+
+ma_type = input.string(defval="SMA", title="MA Type", options=["SMA", "EMA"])
+strategy_type = input.string(defval="Long Only", title="Strategy Type", options=["Buy & Sell", "Long Only"])
+
+ma_len_10 = 10
+ma_len_20 = 20
+ma_len_30 = 30
+ma_len_40 = 40
+ma_len_50 = 50
+ma_len_60 = 60
+ma_len_70 = 70
+ma_len_80 = 80
+ma_len_90 = 90
+ma_len_100 = 100
+ma_len_110 = 110
+ma_len_120 = 120
+ma_len_130 = 130
+ma_len_140 = 140
+ma_len_150 = 150
+ma_len_160 = 160
+ma_len_170 = 170
+ma_len_180 = 180
+ma_len_190 = 190
+ma_len_200 = 200
+ma_len_210 = 210
+ma_len_220 = 220
+ma_len_230 = 230
+ma_len_240 = 240
+ma_len_250 = 250
+ma_len_260 = 260
+ma_len_270 = 270
+ma_len_280 = 280
+ma_len_290 = 290
+ma_len_300 = 300
+ma_len_310 = 310
+ma_len_320 = 320
+ma_len_330 = 330
+ma_len_340 = 340
+ma_len_350 = 350
+ma_len_360 = 360
+ma_len_370 = 370
+ma_len_380 = 380
+ma_len_390 = 390
+ma_len_400 = 400
+ma_len_410 = 410
+ma_len_420 = 420
+ma_len_430 = 430
+ma_len_440 = 440
+ma_len_450 = 450
+ma_len_460 = 460
+ma_len_470 = 470
+ma_len_480 = 480
+ma_len_490 = 490
+ma_len_500 = 500
+
+f_ma(source, length) =>
+    switch ma_type
+        "SMA" => ta.sma(source, length)
+        "EMA" => ta.ema(source, length)
+
+backtest(ma_len) =>
+    xMA = f_ma(close, ma_len)
+    var float entry_price_long = na
+    var float entry_price_short = na
+    var int total_trades = 0
+    var float total_profit = 0.0
+    var float total_loss = 0.0
+    
+    long_condition = ta.crossover(close, xMA)
+    short_condition = ta.crossunder(close, xMA)
+    
+    if strategy_type == "Buy & Sell"
+        if long_condition and na(entry_price_long) and na(entry_price_short)
+            entry_price_long := close
+            total_trades += 1
+        
+        if short_condition and not na(entry_price_long)
+            trade_profit = close - entry_price_long
+            if trade_profit > 0
+                total_profit += trade_profit
+            else
+                total_loss -= trade_profit
+            entry_price_long := na
+
+        if short_condition and na(entry_price_short) and na(entry_price_long)
+            entry_price_short := close
+            total_trades += 1
+
+        if long_condition and not na(entry_price_short)
+            trade_profit = entry_price_short - close
+            if trade_profit > 0
+                total_profit += trade_profit
+            else
+                total_loss -= trade_profit
+            entry_price_short := na
+    
+    else
+        if long_condition and na(entry_price_long)
+            entry_price_long := close
+            total_trades += 1
+        
+        if short_condition and not na(entry_price_long)
+            trade_profit = close - entry_price_long
+            if trade_profit > 0
+                total_profit += trade_profit
+            else
+                total_loss -= trade_profit
+            entry_price_long := na
+    
+    profit_factor = total_loss > 0 ? total_profit / total_loss : 0
+    [total_trades, profit_factor, xMA]
+
+
+[total_trades10, profit_factor10, xMA10] = backtest(ma_len_10)
+[total_trades20, profit_factor20, xMA20] = backtest(ma_len_20)
+[total_trades30, profit_factor30, xMA30] = backtest(ma_len_30)
+[total_trades40, profit_factor40, xMA40] = backtest(ma_len_40)
+[total_trades50, profit_factor50, xMA50] = backtest(ma_len_50)
+[total_trades60, profit_factor60, xMA60] = backtest(ma_len_60)
+[total_trades70, profit_factor70, xMA70] = backtest(ma_len_70)
+[total_trades80, profit_factor80, xMA80] = backtest(ma_len_80)
+[total_trades90, profit_factor90, xMA90] = backtest(ma_len_90)
+[total_trades100, profit_factor100, xMA100] = backtest(ma_len_100)
+[total_trades110, profit_factor110, xMA110] = backtest(ma_len_110)
+[total_trades120, profit_factor120, xMA120] = backtest(ma_len_120)
+[total_trades130, profit_factor130, xMA130] = backtest(ma_len_130)
+[total_trades140, profit_factor140, xMA140] = backtest(ma_len_140)
+[total_trades150, profit_factor150, xMA150] = backtest(ma_len_150)
+[total_trades160, profit_factor160, xMA160] = backtest(ma_len_160)
+[total_trades170, profit_factor170, xMA170] = backtest(ma_len_170)
+[total_trades180, profit_factor180, xMA180] = backtest(ma_len_180)
+[total_trades190, profit_factor190, xMA190] = backtest(ma_len_190)
+[total_trades200, profit_factor200, xMA200] = backtest(ma_len_200)
+[total_trades210, profit_factor210, xMA210] = backtest(ma_len_210)
+[total_trades220, profit_factor220, xMA220] = backtest(ma_len_220)
+[total_trades230, profit_factor230, xMA230] = backtest(ma_len_230)
+[total_trades240, profit_factor240, xMA240] = backtest(ma_len_240)
+[total_trades250, profit_factor250, xMA250] = backtest(ma_len_250)
+[total_trades260, profit_factor260, xMA260] = backtest(ma_len_260)
+[total_trades270, profit_factor270, xMA270] = backtest(ma_len_270)
+[total_trades280, profit_factor280, xMA280] = backtest(ma_len_280)
+[total_trades290, profit_factor290, xMA290] = backtest(ma_len_290)
+[total_trades300, profit_factor300, xMA300] = backtest(ma_len_300)
+[total_trades310, profit_factor310, xMA310] = backtest(ma_len_310)
+[total_trades320, profit_factor320, xMA320] = backtest(ma_len_320)
+[total_trades330, profit_factor330, xMA330] = backtest(ma_len_330)
+[total_trades340, profit_factor340, xMA340] = backtest(ma_len_340)
+[total_trades350, profit_factor350, xMA350] = backtest(ma_len_350)
+[total_trades360, profit_factor360, xMA360] = backtest(ma_len_360)
+[total_trades370, profit_factor370, xMA370] = backtest(ma_len_370)
+[total_trades380, profit_factor380, xMA380] = backtest(ma_len_380)
+[total_trades390, profit_factor390, xMA390] = backtest(ma_len_390)
+[total_trades400, profit_factor400, xMA400] = backtest(ma_len_400)
+[total_trades410, profit_factor410, xMA410] = backtest(ma_len_410)
+[total_trades420, profit_factor420, xMA420] = backtest(ma_len_420)
+[total_trades430, profit_factor430, xMA430] = backtest(ma_len_430)
+[total_trades440, profit_factor440, xMA440] = backtest(ma_len_440)
+[total_trades450, profit_factor450, xMA450] = backtest(ma_len_450)
+[total_trades460, profit_factor460, xMA460] = backtest(ma_len_460)
+[total_trades470, profit_factor470, xMA470] = backtest(ma_len_470)
+[total_trades480, profit_factor480, xMA480] = backtest(ma_len_480)
+[total_trades490, profit_factor490, xMA490] = backtest(ma_len_490)
+[total_trades500, profit_factor500, xMA500] = backtest(ma_len_500)
+
+best_pf = math.max(    profit_factor10, profit_factor20, profit_factor30, profit_factor40, profit_factor50,     profit_factor60, profit_factor70, profit_factor80, profit_factor90, profit_factor100,    profit_factor110, profit_factor120, profit_factor130, profit_factor140, profit_factor150,    profit_factor160, profit_factor170, profit_factor180, profit_factor190, profit_factor200,    profit_factor210, profit_factor220, profit_factor230, profit_factor240, profit_factor250,    profit_factor260, profit_factor270, profit_factor280, profit_factor290, profit_factor300,    profit_factor310, profit_factor320, profit_factor330, profit_factor340, profit_factor350,    profit_factor360, profit_factor370, profit_factor380, profit_factor390, profit_factor400,    profit_factor410, profit_factor420, profit_factor430, profit_factor440, profit_factor450,    profit_factor460, profit_factor470, profit_factor480, profit_factor490, profit_factor500)
+
+best_ma_len = switch best_pf
+    profit_factor10 => ma_len_10
+    profit_factor20 => ma_len_20
+    profit_factor30 => ma_len_30
+    profit_factor40 => ma_len_40
+    profit_factor50 => ma_len_50
+    profit_factor60 => ma_len_60
+    profit_factor70 => ma_len_70
+    profit_factor80 => ma_len_80
+    profit_factor90 => ma_len_90
+    profit_factor100 => ma_len_100
+    profit_factor110 => ma_len_110
+    profit_factor120 => ma_len_120
+    profit_factor130 => ma_len_130
+    profit_factor140 => ma_len_140
+    profit_factor150 => ma_len_150
+    profit_factor160 => ma_len_160
+    profit_factor170 => ma_len_170
+    profit_factor180 => ma_len_180
+    profit_factor190 => ma_len_190
+    profit_factor200 => ma_len_200
+    profit_factor210 => ma_len_210
+    profit_factor220 => ma_len_220
+    profit_factor230 => ma_len_230
+    profit_factor240 => ma_len_240
+    profit_factor250 => ma_len_250
+    profit_factor260 => ma_len_260
+    profit_factor270 => ma_len_270
+    profit_factor280 => ma_len_280
+    profit_factor290 => ma_len_290
+    profit_factor300 => ma_len_300
+    profit_factor310 => ma_len_310
+    profit_factor320 => ma_len_320
+    profit_factor330 => ma_len_330
+    profit_factor340 => ma_len_340
+    profit_factor350 => ma_len_350
+    profit_factor360 => ma_len_360
+    profit_factor370 => ma_len_370
+    profit_factor380 => ma_len_380
+    profit_factor390 => ma_len_390
+    profit_factor400 => ma_len_400
+    profit_factor410 => ma_len_410
+    profit_factor420 => ma_len_420
+    profit_factor430 => ma_len_430
+    profit_factor440 => ma_len_440
+    profit_factor450 => ma_len_450
+    profit_factor460 => ma_len_460
+    profit_factor470 => ma_len_470
+    profit_factor480 => ma_len_480
+    profit_factor490 => ma_len_490
+    => ma_len_500
+
+best_total_trades = switch best_ma_len
+    ma_len_10 => total_trades10
+    ma_len_20 => total_trades20
+    ma_len_30 => total_trades30
+    ma_len_40 => total_trades40
+    ma_len_50 => total_trades50
+    ma_len_60 => total_trades60
+    ma_len_70 => total_trades70
+    ma_len_80 => total_trades80
+    ma_len_90 => total_trades90
+    ma_len_100 => total_trades100
+    ma_len_110 => total_trades110
+    ma_len_120 => total_trades120
+    ma_len_130 => total_trades130
+    ma_len_140 => total_trades140
+    ma_len_150 => total_trades150
+    ma_len_160 => total_trades160
+    ma_len_170 => total_trades170
+    ma_len_180 => total_trades180
+    ma_len_190 => total_trades190
+    ma_len_200 => total_trades200
+    ma_len_210 => total_trades210
+    ma_len_220 => total_trades220
+    ma_len_230 => total_trades230
+    ma_len_240 => total_trades240
+    ma_len_250 => total_trades250
+    ma_len_260 => total_trades260
+    ma_len_270 => total_trades270
+    ma_len_280 => total_trades280
+    ma_len_290 => total_trades290
+    ma_len_300 => total_trades300
+    ma_len_310 => total_trades310
+    ma_len_320 => total_trades320
+    ma_len_330 => total_trades330
+    ma_len_340 => total_trades340
+    ma_len_350 => total_trades350
+    ma_len_360 => total_trades360
+    ma_len_370 => total_trades370
+    ma_len_380 => total_trades380
+    ma_len_390 => total_trades390
+    ma_len_400 => total_trades400
+    ma_len_410 => total_trades410
+    ma_len_420 => total_trades420
+    ma_len_430 => total_trades430
+    ma_len_440 => total_trades440
+    ma_len_450 => total_trades450
+    ma_len_460 => total_trades460
+    ma_len_470 => total_trades470
+    ma_len_480 => total_trades480
+    ma_len_490 => total_trades490
+    => total_trades500
+
+best_xMA = switch best_ma_len
+    ma_len_10 => xMA10
+    ma_len_20 => xMA20
+    ma_len_30 => xMA30
+    ma_len_40 => xMA40
+    ma_len_50 => xMA50
+    ma_len_60 => xMA60
+    ma_len_70 => xMA70
+    ma_len_80 => xMA80
+    ma_len_90 => xMA90
+    ma_len_100 => xMA100
+    ma_len_110 => xMA110
+    ma_len_120 => xMA120
+    ma_len_130 => xMA130
+    ma_len_140 => xMA140
+    ma_len_150 => xMA150
+    ma_len_160 => xMA160
+    ma_len_170 => xMA170
+    ma_len_180 => xMA180
+    ma_len_190 => xMA190
+    ma_len_200 => xMA200
+    ma_len_210 => xMA210
+    ma_len_220 => xMA220
+    ma_len_230 => xMA230
+    ma_len_240 => xMA240
+    ma_len_250 => xMA250
+    ma_len_260 => xMA260
+    ma_len_270 => xMA270
+    ma_len_280 => xMA280
+    ma_len_290 => xMA290
+    ma_len_300 => xMA300
+    ma_len_310 => xMA310
+    ma_len_320 => xMA320
+    ma_len_330 => xMA330
+    ma_len_340 => xMA340
+    ma_len_350 => xMA350
+    ma_len_360 => xMA360
+    ma_len_370 => xMA370
+    ma_len_380 => xMA380
+    ma_len_390 => xMA390
+    ma_len_400 => xMA400
+    ma_len_410 => xMA410
+    ma_len_420 => xMA420
+    ma_len_430 => xMA430
+    ma_len_440 => xMA440
+    ma_len_450 => xMA450
+    ma_len_460 => xMA460
+    ma_len_470 => xMA470
+    ma_len_480 => xMA480
+    ma_len_490 => xMA490
+    => xMA500
+
+var table stats_table = table.new(position=position.top_right, columns=2, rows=3, bgcolor=color.new(color.black, 90))
+
+if barstate.islast
+    table.cell(stats_table, 0, 0, "Best MA Length", text_color=color.white)
+    table.cell(stats_table, 1, 0, str.tostring(best_ma_len), text_color=color.white)
+    table.cell(stats_table, 0, 1, "Total Trades", text_color=color.white)
+    table.cell(stats_table, 1, 1, str.tostring(best_total_trades), text_color=color.white)
+    table.cell(stats_table, 0, 2, "Profit Factor", text_color=color.white)
+    table.cell(stats_table, 1, 2, str.tostring(best_pf, "#.##"), text_color=color.white)
+
+plot(best_xMA, color=color.blue, title="Best MA")
+
+bg_color_long = color.new(color.teal, 85)
+bg_color_short = color.new(color.red, 85)
+
+long_condition = ta.crossover(close, best_xMA)
+is_long_period = close > best_xMA
+bgcolor(is_long_period ? bg_color_long : na, title="Long Period")

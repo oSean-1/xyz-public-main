@@ -1,0 +1,358 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © QuantNomad
+
+
+//What is MAE/MFE Tool
+
+    //MAE stands for Maximum Adverse Excursion - Worst P&L during the trade
+    //MFE stands for Maximum Favorable Excursion - Best P&L during the trade 
+//@version=5
+indicator("MFE & MAE on Cross EMAs", overlay = false, max_labels_count = 500)
+// |++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++|
+// |                                   INPUT                                    |
+// |++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++|
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[1] Plots
+timzon = input.string("UTC-5", "Timezone    ‏", inline = "1", group = "Plots Setting")
+
+// Table Position 
+tablePos = input.string("Middle Right", "Table Location ‏ ‏ ‏", 
+             ["Top Right" , "Middle Right"  , "Bottom Right" , 
+              "Top Center", "Middle Center" , "Bottom Center", 
+              "Top Left"  , "Middle Left"   , "Bottom Left" ], inline = "2", group = "Plots Setting")
+    
+// Table Size
+tableSiz = input.string("Small", "Table Size   ", 
+             ["Auto",  "Huge",  "Large", "Normal", "Small", "Tiny"], inline = "3", group = "Plots Setting")
+
+// Table Color
+tBgCol = input.color(#696969, " Title",           inline = "1", group = "Plots Setting")
+cBgCol = input.color(#A9A9A9, "  Cell ‏",  inline = "2", group = "Plots Setting")
+txtCol = input.color(#ffffff, " Text ‏",   inline = "3", group = "Plots Setting")
+
+// Plot Background Color
+boxCol = input.color(color.gray, "Plot Background Color", group = "Plots Setting")
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[2] Strategy
+// Strategy Settings
+goLong  = input.bool(true, "Long Trade ‏", group = "Strategy Setting", inline = "1")
+lnCol1  = input.color(#0096FF,  "   ",          group = "Strategy Setting", inline = "1")
+lnCol2  = input.color(#EE4B2B,     "",          group = "Strategy Setting", inline = "1")
+
+goShort = input.bool(true, "Short Trade",         group = "Strategy Setting", inline = "2")
+shCol1  = input.color(#02DB72,  "   ",          group = "Strategy Setting", inline = "2")
+shCol2  = input.color(#D88200,     "",          group = "Strategy Setting", inline = "2")
+
+strMode = input.string("Period", "Trade Exit Mode", ["Period", "TP & SL Exits", "Both"], 
+          tooltip =  "Period: The Trade Will Close After Number of Bars From Entry.\n" + 
+                     "TP & SL Exit: The Trade Will Immediate Exit Once it Reaches TP or SL Levels")
+strLen  = input.int(50, "Period to Close", 1,    tooltip = "Exit Trade is Valid for {Trade Exit Mode = Period}")
+strSl   = input.float(1, "Stop-Loss (%)", 0 ,    tooltip = "Exit Trade is Valid for {Trade Exit Mode = TP & SL Exit}")
+strTp   = input.float(2, "Take-Profit (R:R)", 0, tooltip = "Exit Trade is Valid for {Trade Exit Mode = TP & SL Exit}")
+
+tpSlChk = input.bool(true, "Enable SL & TP Levels?", inline = "7", 
+          tooltip = "It Will Show\n1. TP & SL Leves on a Chart\n2. Statistical Table Information about Trades Who Reached TP or SL Levels.")
+tpCol   = input.color(color.green, "",           inline = "7")
+slCol   = input.color(color.red, "",             inline = "7")
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[3] EMAs
+fstEma = ta.ema(close, input.int(50,  "Fast EMA", 1, group = "EMA Indicator"))
+slwEma = ta.ema(close, input.int(200, "Slow EMA", 1, group = "EMA Indicator"))
+
+// |++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++|
+// |                                CALCULATION                                 |
+// |++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++|
+//  Main Metrics Matrix
+// [Trade No., Side, Time, Entry, Exit, MFE, MAE, Period, Stop Loss, Take Profit]
+var colms  = strMode == "Period" ? 8 : 10
+var clsTrd = matrix.new<float>(0, colms, na)
+var opnTrd = matrix.new<float>(0, colms, na)
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[2] Update Values
+if matrix.rows(opnTrd) > 0
+    for i = 0 to matrix.rows(opnTrd) - 1
+        mfe = matrix.get(opnTrd, i, 1) == 1 ? 
+              ((high/matrix.get(opnTrd, i, 3)) - 1) * 100 :
+             -((low /matrix.get(opnTrd, i, 3)) - 1) * 100
+
+        mae = matrix.get(opnTrd, i, 1) == 1 ? 
+              ((low /matrix.get(opnTrd, i, 3)) - 1) * 100 :
+             -((high/matrix.get(opnTrd, i, 3)) - 1) * 100
+        
+        if mfe > matrix.get(opnTrd, i, 5)
+            matrix.set(opnTrd, i, 5, mfe)  // MFE
+        
+        if mae < matrix.get(opnTrd, i, 6)
+            matrix.set(opnTrd, i, 6, mae) // MAE
+        
+        matrix.set(opnTrd, i, 4,                        close) // Current Price
+        matrix.set(opnTrd, i, 7, matrix.get(opnTrd, i, 7) + 1)  // Update Period
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[3] Exit Singal
+if matrix.rows(opnTrd) > 0
+    i = 0
+    while i <= matrix.rows(opnTrd) - 1
+        extLvl = false
+        extPrd = false
+
+        // if "TP & SL Exits" or "Both"
+        if not(strMode == "Period")
+            extTP =  matrix.get(opnTrd, i, 1) == 1 ? 
+                     high >= matrix.get(opnTrd, i, 9) :
+                     low  <= matrix.get(opnTrd, i, 9)
+            
+            extSL =  matrix.get(opnTrd, i, 1) == 1 ? 
+                     low  <= matrix.get(opnTrd, i, 8) :
+                     high >= matrix.get(opnTrd, i, 8)
+
+            extLvl := extTP or extSL
+
+            if extTP
+                matrix.set(opnTrd, i, 4, matrix.get(opnTrd, i, 9))
+
+                if matrix.get(opnTrd, i, 1) == 1
+                    matrix.set(opnTrd, i, 5,  
+                      (matrix.get(opnTrd, i, 4)/matrix.get(opnTrd, i, 3) - 1) * 100)
+                else
+                    matrix.set(opnTrd, i, 5, 
+                     -(matrix.get(opnTrd, i, 4)/matrix.get(opnTrd, i, 3) - 1) * 100)
+            
+            else if extSL
+                matrix.set(opnTrd, i, 4, matrix.get(opnTrd, i, 8))
+
+                if matrix.get(opnTrd, i, 1) == 1
+                    matrix.set(opnTrd, i, 6,  
+                      (matrix.get(opnTrd, i, 4)/matrix.get(opnTrd, i, 3) - 1) * 100)
+                else
+                    matrix.set(opnTrd, i, 6, 
+                     -(matrix.get(opnTrd, i, 4)/matrix.get(opnTrd, i, 3) - 1) * 100)
+            
+        // if "Period" or "Both"
+        if not(strMode == "TP & SL Exits")
+            extPrd := matrix.get(opnTrd, i, 7) >= strLen
+        
+        if extLvl or extPrd
+            matrix.add_row(clsTrd, matrix.rows(clsTrd), matrix.row(opnTrd, i))
+            matrix.remove_row(opnTrd, i)
+    
+        else    
+            i += 1
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[1] Entry Signals
+long  = goLong  and ta.crossover (fstEma, slwEma) 
+short = goShort and ta.crossunder(fstEma, slwEma)
+
+var trdID  = 0 // Count Trades
+if long or short
+    trdID += 1
+    matrix.add_row(opnTrd)
+    matrix.set(opnTrd, matrix.rows(opnTrd)-1, 0,         trdID) // Trade No.
+    matrix.set(opnTrd, matrix.rows(opnTrd)-1, 1, long ? 1 : -1) // Side
+    matrix.set(opnTrd, matrix.rows(opnTrd)-1, 2,          time) // Entry Time
+    matrix.set(opnTrd, matrix.rows(opnTrd)-1, 3,         close) // Entry Price
+    
+    matrix.set(opnTrd, matrix.rows(opnTrd)-1, 4,         close) // Exit/Current Price
+    matrix.set(opnTrd, matrix.rows(opnTrd)-1, 5,             0) // MFE
+    matrix.set(opnTrd, matrix.rows(opnTrd)-1, 6,             0) // MAE
+
+    matrix.set(opnTrd, matrix.rows(opnTrd)-1, 7,             1) // Start Period 
+
+    if not(strMode == "Period")
+        entSL = long ? close - (close * strSl/100)         : close + (close * strSl/100)
+        entTP = long ? close + (close * strSl/100) * strTp : close - (close * strSl/100) * strTp
+        matrix.set(opnTrd, matrix.rows(opnTrd)-1, 8,    entSL) // Stop Loss
+        matrix.set(opnTrd, matrix.rows(opnTrd)-1, 9,    entTP) // Take Profit
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~[4] Delete Old Recorded Trade
+if matrix.rows(clsTrd) > 245
+    matrix.remove_row(clsTrd, 0)
+
+// |++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++|
+// |                                  DRAWING                                   |
+// |++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++|
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Plot Functions
+// Get Time Format 
+timForm(x)=>
+    int(x) == 0 ? "" : str.format_time(int(x), "yyyy-MM-dd HH:mm", timzon)
+
+scatter(x, y, max, s, num, d, pnl) =>
+    col = s ==  1 ? (y >= 0 ? lnCol1 : lnCol2) : 
+          s == -1 ? (y >= 0 ? shCol1 : shCol2) : na
+    tip = "      Trade#" + str.tostring(num) + "\n" + 
+         (s == 1 ? "         LONG\n" : "        SHORT\n") + timForm(d) + "\n\n" +
+         (y >= 0 ? "     MFE = "   : "     MAE = ") + str.tostring(y, format.percent) +
+         ("\n     PnL = " + str.tostring(pnl, format.percent))
+
+    label.new(x, 1/max * y, "", xloc.bar_index, yloc.price, col, 
+     label.style_circle, col, size.auto, tooltip = tip )
+
+
+// Line Levels
+linLab(x, x1, y, max, colr, styl, left) =>
+    line.new( x - 21 - x1, y, x - 20,  y, color = colr, style = styl)
+    label.new(left ? x - 20 - x1 : x - 21, y, 
+         (not(left) and y >= 0 ? " " : "") + str.tostring(max/1 * y, format.percent),
+         textalign = text.align_right, textcolor = colr, color = color.new(boxCol, 100), 
+         style = left ? label.style_label_right : label.style_label_left)
+
+levels(x, x1, l, max) =>
+    for i = 0 to array.size(l) - 1
+        y = array.get(l, i)
+        linLab(x, x1, y, max, y == 0 ? boxCol : color.new(boxCol, 25), 
+          y == 0 ? line.style_solid : line.style_dashed, false)
+        
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Table Functions
+// Get Tbale Location & Size
+locNsze(x) => 
+    y   = str.split(str.lower(x), " ")
+    out = ""
+    for i = 0 to array.size(y) - 1
+        out := out + array.get(y, i)
+        if i != array.size(y) - 1
+            out := out + "_"
+    out
+
+// Create Table
+var tbl = table.new(locNsze(tablePos), 7, 9,
+          frame_width  = 1, frame_color  = color.new(tBgCol, 100), 
+          border_width = 1, border_color = color.new(tBgCol, 100))
+
+// Cell Function
+cell(col, row, txt, color) => 
+    table.cell(tbl, col, row, text = txt, text_color = txtCol, bgcolor = color, 
+     text_size = locNsze(tableSiz))
+
+// Fill MFE & MAE 
+cellFill(side, col, trades, fVals, fCol, aVals, tpNum, shNum, aCol) =>
+    fVal = array.from(array.min(fVals),    array.avg(fVals), 
+                      array.median(fVals), array.max(fVals))
+    aVal = array.from(array.min(aVals),    array.avg(aVals), 
+                      array.median(aVals), array.max(aVals))
+    
+    cell(col, 0, side, tBgCol)
+    table.merge_cells(tbl, col, 0, col + 1, 0)
+
+    table.cell(tbl, col, 1,  "MFE", text_color = txtCol, bgcolor = fCol, 
+     text_size = locNsze(tableSiz), tooltip = "Maximum Favorable Excursion")
+    table.cell(tbl, col + 1, 1,  "MAE", text_color = txtCol, bgcolor = aCol, 
+     text_size = locNsze(tableSiz), tooltip = "Maximum Adverse Excursion")
+
+    for i = 0 to array.size(fVal) - 1
+        cell(col, i+2, str.tostring(array.get(fVal, i), format.percent), fCol)
+    
+    for i = 0 to array.size(fVal) - 1
+        cell(col+1, i+2, str.tostring(array.get(aVal, i), format.percent), aCol)
+
+    cell(col, 6, str.tostring(trades), cBgCol)
+    table.merge_cells(tbl, col, 6, col + 1, 6)
+
+    if tpSlChk
+        cell(col, 7, str.tostring(tpNum), tpCol)
+        table.merge_cells(tbl, col, 7, col + 1, 7)
+
+        cell(col, 8, str.tostring(shNum), slCol)
+        table.merge_cells(tbl, col, 8, col + 1, 8)
+
+if barstate.islast
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[1] Delete Previous Drawings
+    labs = label.all
+    if array.size(labs) > 0
+        for i = 0 to array.size(labs) - 1
+            label.delete(array.get(labs, i))
+
+    lins = line.all
+    if array.size(lins) > 0
+        for i = 0 to array.size(lins) - 1
+            line.delete(array.get(lins, i))
+
+    boxs = box.all
+    if array.size(boxs) > 0
+        for i = 0 to array.size(boxs) - 1
+            box.delete(array.get(boxs, i))
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[2] PLot
+    // start x-axis 
+    intX1 = bar_index
+
+    // Draw Scatter
+    lMfe = array.new<float>(na),   lMae = array.new<float>(na)  
+    sMfe = array.new<float>(na),   sMae = array.new<float>(na)
+
+    
+    tpLgTrds = 0,   slLgTrds = 0
+    tpShTrds = 0,   slShTrds = 0
+    if matrix.rows(clsTrd) > 0 
+        maxVal = math.max(math.abs(array.max(matrix.col(clsTrd, 5))), 
+                          math.abs(array.min(matrix.col(clsTrd, 6))))
+        
+        // Draw Box 
+        box.new( intX1 - 21 - matrix.rows(clsTrd), 1.2, intX1 - 20, -1.2,
+               boxCol, 2, bgcolor = color.new(boxCol, 70))
+
+        for i = 0 to matrix.rows(clsTrd) - 1
+            num = matrix.get(clsTrd, i, 0)
+            dte = matrix.get(clsTrd, i, 2)
+
+            if matrix.get(clsTrd, i, 1) == 1
+                pnl = (matrix.get(clsTrd, i, 4)/matrix.get(clsTrd, i, 3) - 1) * 100
+                tpLgTrds := matrix.get(clsTrd, i, 5) >= (strSl * strTp) ? tpLgTrds + 1 : tpLgTrds
+                slLgTrds := matrix.get(clsTrd, i, 6) <= -strSl          ? slLgTrds + 1 : slLgTrds
+
+                scatter(intX1 - 20 - matrix.rows(clsTrd) + i, matrix.get(clsTrd, i, 5), 
+                 maxVal,  1, num, dte, pnl)
+                scatter(intX1 - 20 - matrix.rows(clsTrd) + i, matrix.get(clsTrd, i, 6), 
+                 maxVal,  1, num, dte, pnl)
+
+                array.push(lMfe, matrix.get(clsTrd, i, 5))
+                array.push(lMae, matrix.get(clsTrd, i, 6))
+
+            else if matrix.get(clsTrd, i, 1) == -1
+                pnl     = -(matrix.get(clsTrd, i, 4)/matrix.get(clsTrd, i, 3) - 1) * 100
+                tpShTrds := matrix.get(clsTrd, i, 5) >= (strSl * strTp) ? tpShTrds + 1 : tpShTrds
+                slShTrds := matrix.get(clsTrd, i, 6) <= -strSl          ? slShTrds + 1 : slShTrds
+
+                scatter(intX1 - 20 - matrix.rows(clsTrd) + i, matrix.get(clsTrd, i, 5), 
+                 maxVal, -1, num, dte, pnl)
+                scatter(intX1 - 20 - matrix.rows(clsTrd) + i, matrix.get(clsTrd, i, 6), 
+                 maxVal, -1, num, dte, pnl)
+
+                array.push(sMfe, matrix.get(clsTrd, i, 5))
+                array.push(sMae, matrix.get(clsTrd, i, 6))
+
+        // Draw Levels
+        lvls = array.from(0, 0.4, 0.8, 1.18, -1.18, -0.8, -0.4)
+        levels(intX1, matrix.rows(clsTrd), lvls, maxVal)
+
+        if tpSlChk
+            if maxVal >= strSl
+                linLab(intX1, matrix.rows(clsTrd), 1/maxVal * -strSl         , 
+                       maxVal, slCol, line.style_solid, true)
+            if maxVal >= (strSl * strTp)
+                linLab(intX1, matrix.rows(clsTrd), 1/maxVal * (strSl * strTp), 
+                       maxVal, tpCol, line.style_solid, true)
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[3] Draw Table
+    table.clear(tbl, 0, 0, 6, 8)
+    if matrix.rows(clsTrd) > 0
+        cell(0, 0, "Desc.",  tBgCol)
+        table.merge_cells(tbl, 0, 0, 0, 1)
+
+        cell(0, 2, "Min",      tBgCol)
+        cell(0, 3, "Mean",     tBgCol)
+        cell(0, 4, "Median",   tBgCol)
+        cell(0, 5, "Max",      tBgCol)
+        cell(0, 6, "Trades",   tBgCol)
+        if tpSlChk
+            cell(0, 7, ">= " + str.tostring((strSl * strTp), format.percent), tpCol)
+            cell(0, 8, "<= " + str.tostring(-strSl,          format.percent), slCol)
+
+        if goLong 
+            cellFill("L O N G",   1, array.size(lMfe), lMfe, lnCol1, lMae, tpLgTrds, slLgTrds, lnCol2)
+        
+        if goShort
+            cellFill("S H O R T", 3, array.size(sMfe), sMfe, shCol1, sMae, tpShTrds, slShTrds, shCol2)
+        
+        if goLong and goShort
+            cellFill("O V E R A L L",   5, matrix.rows(clsTrd), 
+                     matrix.col(clsTrd, 5), cBgCol, matrix.col(clsTrd, 6), 
+                     tpLgTrds + tpShTrds, slLgTrds + slShTrds, cBgCol)
+

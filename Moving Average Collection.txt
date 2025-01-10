@@ -1,0 +1,2225 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © HALDRO
+// Also Credits, Likes, Awards, Loves and Thanks to :
+    // @alexgrover
+    // @allanster
+    // @andre_007
+    // @auroagwei
+    // @blackcat1402
+    // @bsharpe
+    // @cheatcountry
+    // @CrackingCryptocurrency
+    // @Duyck
+    // @ErwinBeckers
+    // @everget
+    // @glaz
+    // @gotbeatz26107
+    // @HPotter
+    // @io72signals
+    // @JacobAmos
+    // @JoshuaMcGowan
+    // @KivancOzbilgic
+    // @LazyBear
+    // @loxx
+    // @LuxAlgo
+    // @MightyZinger
+    // @nemozny
+    // @NGBaltic
+    // @peacefulLizard50262
+    // @RicardoSantos
+    // @StalexBot
+    // @ThiagoSchmitz
+    // @TradingView
+    // — 𝐀𝐧𝐝 𝐎𝐭𝐡𝐞𝐫𝐬 !              
+
+// @version=5
+indicator('[AIO] Moving Average Collection', 'AIO MA', overlay=true)
+
+sep = ' | '
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// ———————————————————————————————————   Full List Of Moving Average Names   ———————————————————————————————————————— \\
+//—————————————————————————————————————————————————————————————————————————————————————————————————————————————————————|
+// Var   | Short Name | Spacer |                         Full Name                             |  №  |     Credits     |
+//—————————————————————————————————————————————————————————————————————————————————————————————————————————————————————|
+AARMA   = ' AARMA   ' +  sep  + ' Adaptive Autonomous Recursive Moving Average                 '//001| @alexgrover     |                
+ADMA    = ' ADMA    ' +  sep  + ' Adjusted Moving Average                                      '//002| —               |                
+ADXMA   = ' ADXMA   ' +  sep  + ' Average Directional Moving Average                           '//003| —               |                
+ADXVMA  = ' ADXVMA  ' +  sep  + ' Average Directional Volatility Moving Average                '//004| —               |                
+AHMA    = ' AHMA    ' +  sep  + ' Ahrens Moving Average                                        '//005| @everget        |                
+ALF     = ' ALF     ' +  sep  + ' Ehler Adaptive Laguerre Filter                               '//006| @everget        |                
+ALMA    = ' ALMA    ' +  sep  + ' Arnaud Legoux Moving Average                                 '//007| @TradingView    |                
+ALSMA   = ' ALSMA   ' +  sep  + ' Adaptive Least Squares                                       '//008| @alexgrover     |                
+ALXMA   = ' ALXMA   ' +  sep  + ' Alexander Moving Average                                     '//009| —               |                
+AMA     = ' AMA     ' +  sep  + ' Adaptive Moving Average                                      '//010| @everget        |                
+ARI     = ' ARI     ' +  sep  + ' Unknown                                                      '//011| —               |                
+ARSI    = ' ARSI    ' +  sep  + ' Adaptive RSI Moving Average                                  '//012| @everget        |                
+AUF     = ' AUF     ' +  sep  + ' Auto Filter                                                  '//013| @alexgrover     |                
+AUTL    = ' AUTL    ' +  sep  + ' Auto-Line                                                    '//014| —               |                
+BAMA    = ' BAMA    ' +  sep  + ' Bryant Adaptive Moving Average                               '//015| @everget        |                
+BFMA    = ' BFMA    ' +  sep  + ' Blackman Filter Moving Average                               '//016| @alexgrover     |                
+CMA     = ' CMA     ' +  sep  + ' Corrected Moving Average                                     '//017| @everget        |                
+CORMA   = ' CORMA   ' +  sep  + ' Correlation Moving Average                                   '//018| —               |                
+COVEMA  = ' COVEMA  ' +  sep  + ' Coefficient of Variation Weighted Exponential Moving Average '//019| —               |                
+COVNA   = ' COVNA   ' +  sep  + ' Coefficient of Variation Weighted Moving Average             '//020| —               |                
+CTI     = ' CTI     ' +  sep  + ' Coral Trend Indicator                                        '//021| @LazyBear       |                
+DEC     = ' DEC     ' +  sep  + ' Ehlers Simple Decycler                                       '//022| @everget        |                
+DEMA    = ' DEMA    ' +  sep  + ' Double EMA Moving Average                                    '//023| @TradingView    |                
+DEVS    = ' DEVS    ' +  sep  + ' Ehlers - Deviation Scaled Moving Average                     '//024| —               |                
+DONEMA  = ' DONEMA  ' +  sep  + ' Donchian Extremum Moving Average                             '//025| —               |                
+DONMA   = ' DONMA   ' +  sep  + ' Donchian Moving Average                                      '//026| —               |                
+DSEMA   = ' DSEMA   ' +  sep  + ' Double Smoothed Exponential Moving Average                   '//027| —               |                
+DSWF    = ' DSWF    ' +  sep  + ' Damped Sine Wave Weighted Filter                             '//028| @alexgrover     |                
+DWMA    = ' DWMA    ' +  sep  + ' Double Weighted Moving Average                               '//029| @everget        |                
+E2PBF   = ' E2PBF   ' +  sep  + ' Ehlers 2-Pole Butterworth Filter                             '//030| @everget        |                
+E2SSF   = ' E2SSF   ' +  sep  + ' Ehlers 2-Pole Super Smoother Filter                          '//031| @everget        |                
+E3PBF   = ' E3PBF   ' +  sep  + ' Ehlers 3-Pole Butterworth Filter                             '//032| @everget        |                
+E3SSF   = ' E3SSF   ' +  sep  + ' Ehlers 3-Pole Super Smoother Filter                          '//033| @everget        |                
+EDMA    = ' EDMA    ' +  sep  + ' Exponentially Deviating Moving Average (MZ EDMA)             '//034| @MightyZinger   |                
+EDSMA   = ' EDSMA   ' +  sep  + ' Ehlers Dynamic Smoothed Moving Average                       '//035| —               |                
+EEO     = ' EEO     ' +  sep  + ' Ehlers Modified Elliptic Filter Optimum                      '//036| @everget        |                
+EFRAMA  = ' EFRAMA  ' +  sep  + ' Ehlers Modified Fractal Adaptive Moving Average              '//037| @nemozny        |                
+EHMA    = ' EHMA    ' +  sep  + ' Exponential Hull Moving Average                              '//038| @auroagwei      |                
+EIT     = ' EIT     ' +  sep  + ' Ehlers Instantaneous Trendline                               '//039| @everget        |                
+ELF     = ' ELF     ' +  sep  + ' Ehler Laguerre filter                                        '//040| @KivancOzbilgic |                
+EMA     = ' EMA     ' +  sep  + ' Exponential Moving Average                                   '//041| @TradingView    |                
+EMARSI  = ' EMARSI  ' +  sep  + ' EMARSI                                                       '//042| @glaz           |                
+EPF     = ' EPF     ' +  sep  + ' Edge Preserving Filter                                       '//043| @alexgrover     |                
+EPMA    = ' EPMA    ' +  sep  + ' End Point Moving Average                                     '//044| @cheatcountry   |                
+EREA    = ' EREA    ' +  sep  + ' Ehlers Reverse Exponential Moving Average                    '//045| @everget        |                
+ESSF    = ' ESSF    ' +  sep  + ' Ehlers Super Smoother Filter 2-pole                          '//046| @cheatcountry   |                
+ETMA    = ' ETMA    ' +  sep  + ' Exponential Triangular Moving Average                        '//047| —               |                
+EVMA    = ' EVMA    ' +  sep  + ' Elastic Volume Weighted Moving Average                       '//048| @LazyBear       |                
+FAMA    = ' FAMA    ' +  sep  + ' Following Adaptive Moving Average                            '//049| @everget        |                
+FEMA    = ' FEMA    ' +  sep  + ' Fast Exponential Moving Average                              '//050| —               |                
+FIBWMA  = ' FIBWMA  ' +  sep  + ' Fibonacci Weighted Moving Average                            '//051| @everget        |                
+FLSMA   = ' FLSMA   ' +  sep  + ' Fisher Least Squares Moving Average                          '//052| @alexgrover     |                
+FRAMA   = ' FRAMA   ' +  sep  + ' Ehlers - Fractal Adaptive Moving Average                     '//053| @everget        |                
+FX      = ' FX      ' +  sep  + ' Fibonacci X Level [Linear]                                   '//054| —               |                
+GAUS    = ' GAUS    ' +  sep  + ' Ehlers - Gaussian Filter                                     '//055| @NGBaltic       |                
+GHL     = ' GHL     ' +  sep  + ' Gann High Low                                                '//056| @KivancOzbilgic |                
+GMA     = ' GMA     ' +  sep  + ' Gaussian Moving Average                                      '//057| @peacefulLizard50262           
+GMMA    = ' GMMA    ' +  sep  + ' Geometric Mean Moving Average                                '//058| @ThiagoSchmitz  |                
+HCF     = ' HCF     ' +  sep  + ' Hybrid Convolution Filter                                    '//059| @alexgrover     |                
+HEMA    = ' HEMA    ' +  sep  + ' Holt Exponential Moving Average                              '//060| @everget        |                
+HKAMA   = ' HKAMA   ' +  sep  + ' Hilbert based Kaufman Adaptive Moving Average                '//061| @everget        |                
+HMA     = ' HMA     ' +  sep  + ' Harmonic Moving Average                                      '//062| —               |                
+HSMA    = ' HSMA    ' +  sep  + ' Hirashima Sugita Moving Average                              '//063| @alexgrover     |                
+HULL    = ' HULL    ' +  sep  + ' Hull Moving Average                                          '//064| @TradingView    |                
+HULLT   = ' HULLT   ' +  sep  + ' Hull Triple Moving Average                                   '//065| —               |                
+HWMA    = ' HWMA    ' +  sep  + ' Henderson Weighted Moving Average                            '//066| @everget        |                
+IE2     = ' IE2     ' +  sep  + ' Early T3 by Tim Tilson                                       '//067| —               |                
+IIRF    = ' IIRF    ' +  sep  + ' Infinite Impulse Response Filter                             '//068| @everget        |                
+ILRS    = ' ILRS    ' +  sep  + ' Integral of Linear Regression Slope                          '//069| —               |                
+JMA     = ' JMA     ' +  sep  + ' Jurik Moving Average                                         '//070| @everget        |                
+KA      = ' KA      ' +  sep  + ' Unknown                                                      '//071| —               |                
+KAMA    = ' KAMA    ' +  sep  + ' Kaufman Adaptive Moving Average & [AAMA]Apirine Adaptive MA  '//072| @HPotter        |                
+KIJUN   = ' KIJUN   ' +  sep  + ' KIJUN                                                        '//073| @ErwinBeckers   |                
+KIJUN2  = ' KIJUN2  ' +  sep  + ' Kijun v2                                                     '//074| —               |                
+LAG     = ' LAG     ' +  sep  + ' Ehlers - Laguerre Filter                                     '//075| @KivancOzbilgic |                
+LCLSMA  = ' LCLSMA  ' +  sep  + ' 1LC-LSMA (1 line code lsma with 3 functions)                 '//076| @alexgrover     |                
+LEMA    = ' LEMA    ' +  sep  + ' Leader Exponential Moving Average                            '//077| —               |                
+LLMA    = ' LLMA    ' +  sep  + ' Low-Lag Moving Average                                       '//078| @alexgrover     |                
+LMA     = ' LMA     ' +  sep  + ' Leo Moving Average                                           '//079| @everget        |                
+LP      = ' LP      ' +  sep  + ' Unknown                                                      '//080| —               |                
+LRL     = ' LRL     ' +  sep  + ' Linear Regression Line                                       '//081| —               |                
+LSMA    = ' LSMA    ' +  sep  + ' Least Squares Moving Average / Linear Regression Curve       '//082| @TradingView    |                
+LTB     = ' LTB     ' +  sep  + ' Unknown                                                      '//083| —               |                
+LWMA    = ' LWMA    ' +  sep  + ' Linear Weighted Moving Average                               '//084| @io72signals    |                
+MAMA    = ' MAMA    ' +  sep  + ' MAMA - MESA Adaptive Moving Average                          '//085| @everget        |                
+MAVW    = ' MAVW    ' +  sep  + ' Mavilim Weighted Moving Average                              '//086| —               |                
+MCGD    = ' MCGD    ' +  sep  + ' McGinley Dynamic Moving Average                              '//087| @bsharpe        |                
+MF      = ' MF      ' +  sep  + ' Modular Filter                                               '//088| @alexgrover     |                
+MID     = ' MID     ' +  sep  + ' Median Moving Average / Percentile Nearest Rank              '//089| @TradingView    |                
+MNMA    = ' MNMA    ' +  sep  + ' McNicholl Moving Average                                     '//090| @everget        |                
+MTMA    = ' MTMA    ' +  sep  + ' Unknown                                                      '//091| —               |                
+MVSMA   = ' MVSMA   ' +  sep  + ' Minimum Variance SMA                                         '//092| @alexgrover     |                
+NLMA    = ' NLMA    ' +  sep  + ' Non-lag Moving Average                                       '//093| @loxx           |                
+NWMA    = ' NWMA    ' +  sep  + ' Dürschner 3rd Generation Moving Average (New WMA)            '//094| @JoshuaMcGowan  |                
+PKF     = ' PKF     ' +  sep  + ' Parametric Kalman Filter                                     '//095| @alexgrover     |                
+PWMA    = ' PWMA    ' +  sep  + ' Parabolic Weighted Moving Average                            '//096| @everget        |                
+QEMA    = ' QEMA    ' +  sep  + ' Quadruple Exponential Moving Average                         '//097| @everget        |                
+QMA     = ' QMA     ' +  sep  + ' Quick Moving Average                                         '//098| @everget        |                
+REMA    = ' REMA    ' +  sep  + ' Regularized Exponential Moving Average                       '//099| @everget        |                
+REPMA   = ' REPMA   ' +  sep  + ' Repulsion Moving Average                                     '//100| @alexgrover     |                
+RGEMA   = ' RGEMA   ' +  sep  + ' Range Exponential Moving Average                             '//101| —               |                
+RMA     = ' RMA     ' +  sep  + ' Welles Wilders Smoothing Moving Average [RMA = SMMA = WWMA]  '//102| @TradingView    |                
+RMF     = ' RMF     ' +  sep  + ' Recursive Median Filter                                      '//103| @everget        |                
+RMTA    = ' RMTA    ' +  sep  + ' Recursive Moving Trend Average                               '//104| @everget        |                
+RSMA    = ' RSMA    ' +  sep  + ' Relative Strength Moving Average - based on RSI              '//105| —               |                
+RSRMA   = ' RSRMA   ' +  sep  + ' Right Sided Ricker MA                                        '//106| @alexgrover     |                
+RWMA    = ' RWMA    ' +  sep  + ' Regressively Weighted Moving Average                         '//107| @RicardoSantos  |                
+SAMA    = ' SAMA    ' +  sep  + ' Slope Adaptive Moving Average                                '//108| @MightyZinger   |                
+SFMA    = ' SFMA    ' +  sep  + ' Smoother Filter Moving Average                               '//109| —               |                
+SMA     = ' SMA     ' +  sep  + ' Simple Moving Average                                        '//110| @TradingView    |                
+SSB     = ' SSB     ' +  sep  + ' Senkou Span B                                                '//111| —               |                
+SSF     = ' SSF     ' +  sep  + ' Ehlers - Super Smoother Filter P2                            '//112| @everget        |                
+SSMA    = ' SSMA    ' +  sep  + ' Super Smooth Moving Average                                  '//113| —               |                
+STMA    = ' STMA    ' +  sep  + ' Unknown                                                      '//114| —               |                
+SWMA    = ' SWMA    ' +  sep  + ' Self-Weighted Moving Average                                 '//115| @everget        |                
+SW_MA   = ' SW_MA   ' +  sep  + ' Sine-Weighted Moving Average                                 '//116| @everget        |                
+TEMA    = ' TEMA    ' +  sep  + ' Triple Exponential Moving Average                            '//117| @TradingView    |                
+THMA    = ' THMA    ' +  sep  + ' Triple Exponential Hull Moving Average                       '//118| —               |                
+TL      = ' TL      ' +  sep  + ' Unknown                                                      '//119| —               |                
+TMA     = ' TMA     ' +  sep  + ' Triangular Moving Average                                    '//120| @JacobAmos      |                
+TPBF    = ' TPBF    ' +  sep  + ' Three-pole Ehlers Butterworth                                '//121| @blackcat1402   |                
+TRAMA   = ' TRAMA   ' +  sep  + ' Trend Regularity Adaptive Moving Average                     '//122| @LuxAlgo        |                
+TSF     = ' TSF     ' +  sep  + ' True Strength Force                                          '//123| —               |                
+TT3     = ' TT3     ' +  sep  + ' Tilson (3rd Degree) Moving Average                           '//124| @StalexBot      |                
+VAMA    = ' VAMA    ' +  sep  + ' Volatility Adjusted Moving Average                           '//125| @Duyck          |                
+VAMAF   = ' VAMAF   ' +  sep  + ' Volume Adjusted Moving Average Function                      '//126| @allanster      |                
+VAR     = ' VAR     ' +  sep  + ' Vector Autoregression Moving Average                         '//127| —               |                
+VBMA    = ' VBMA    ' +  sep  + ' Variable Moving Average                                      '//128| @LazyBear       |                
+VHMA    = ' VHMA    ' +  sep  + ' Vertical Horizontal Moving Average                           '//129| @alexgrover     |                
+VIDYA   = ' VIDYA   ' +  sep  + ' Variable Index Dynamic Average                               '//130| @everget        |                
+VMA     = ' VMA     ' +  sep  + ' Volume Moving Average                                        '//131| —               |                
+VSO     = ' VSO     ' +  sep  + ' Unknown                                                      '//132| —               |                
+VWMA    = ' VWMA    ' +  sep  + ' Volume Weighted Moving Average                               '//133| @TradingView    |                
+WCD     = ' WCD     ' +  sep  + ' Unknown                                                      '//134| —               |                
+WMA     = ' WMA     ' +  sep  + ' Weighted Moving Average                                      '//135| @TradingView    |                
+XEMA    = ' XEMA    ' +  sep  + ' Optimized Exponential Moving Average                         '//136| —               |                
+ZEMA    = ' ZEMA    ' +  sep  + ' Zero Lag Moving Average                                      '//137| —               |                
+ZLDEMA  = ' ZLDEMA  ' +  sep  + ' Zero-Lag Double Exponential Moving Average                   '//138| —               |                
+ZLEMA   = ' ZLEMA   ' +  sep  + ' Ehlers - Zero Lag Exponential Moving Average                 '//139| @HPotter        |                
+ZLTEMA  = ' ZLTEMA  ' +  sep  + ' Zero-Lag Triple Exponential Moving Average                   '//140| —               |                
+ZSMA    = ' ZSMA    ' +  sep  + ' Zero-Lag Simple Moving Average                               '//141| —               |                
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— //
+
+
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// Creating Tips
+maintooltip1 = 'Each Moving Average has its own ID number. \n'
+             + 'You can switch IDs using the LBM, mouse wheel or keyboard digits and arrows. \n'
+             + '01 = AARMA '     +    '  \t  '    +    '26 = DONMA '    +    '  \t  '    +    '51 = FIBWMA'     +    '\n' 
+             + '02 = ADMA  '     +    '  \t  '    +    '27 = DSEMA '    +    '  \t  '    +    '52 = FLSMA '     +    '\n' 
+             + '03 = ADXMA '     +    '  \t  '    +    '28 = DSWF  '    +    '  \t  '    +    '53 = FRAMA '     +    '\n' 
+             + '04 = ADXVMA'     +    '  \t  '    +    '29 = DWMA  '    +    '  \t  '    +    '54 = FX    '     +    '\n' 
+             + '05 = AHMA  '     +    '  \t  '    +    '30 = E2PBF '    +    '  \t  '    +    '55 = GAUS  '     +    '\n' 
+             + '06 = ALF   '     +    '  \t  '    +    '31 = E2SSF '    +    '  \t  '    +    '56 = GHL   '     +    '\n' 
+             + '07 = ALMA  '     +    '  \t  '    +    '32 = E3PBF '    +    '  \t  '    +    '57 = GMA   '     +    '\n' 
+             + '08 = ALSMA '     +    '  \t  '    +    '33 = E3SSF '    +    '  \t  '    +    '58 = GMMA  '     +    '\n' 
+             + '09 = ALXMA '     +    '  \t  '    +    '34 = EDMA  '    +    '  \t  '    +    '59 = HCF   '     +    '\n' 
+             + '10 = AMA   '     +    '  \t  '    +    '35 = EDSMA '    +    '  \t  '    +    '60 = HEMA  '     +    '\n' 
+             + '11 = ARI   '     +    '  \t  '    +    '36 = EEO   '    +    '  \t  '    +    '61 = HKAMA '     +    '\n' 
+             + '12 = ARSI  '     +    '  \t  '    +    '37 = EFRAMA'    +    '  \t  '    +    '62 = HMA   '     +    '\n' 
+             + '13 = AUF   '     +    '  \t  '    +    '38 = EHMA  '    +    '  \t  '    +    '63 = HSMA  '     +    '\n' 
+             + '14 = AUTL  '     +    '  \t  '    +    '39 = EIT   '    +    '  \t  '    +    '64 = HULL  '     +    '\n' 
+             + '15 = BAMA  '     +    '  \t  '    +    '40 = ELF   '    +    '  \t  '    +    '65 = HULLT '     +    '\n' 
+             + '16 = BFMA  '     +    '  \t  '    +    '41 = EMA   '    +    '  \t  '    +    '66 = HWMA  '     +    '\n' 
+             + '17 = CMA   '     +    '  \t  '    +    '42 = EMARSI'    +    '  \t  '    +    '67 = IE2   '     +    '\n' 
+             + '18 = CORMA '     +    '  \t  '    +    '43 = EPF   '    +    '  \t  '    +    '68 = IIRF  '     +    '\n' 
+             + '19 = COVEMA'     +    '  \t  '    +    '44 = EPMA  '    +    '  \t  '    +    '69 = ILRS  '     +    '\n' 
+             + '20 = COVNA '     +    '  \t  '    +    '45 = EREA  '    +    '  \t  '    +    '70 = JMA   '     +    '\n' 
+             + '21 = CTI   '     +    '  \t  '    +    '46 = ESSF  '    +    '  \t  '    +    '71 = KA    '     +    '\n' 
+             + '22 = DEC   '     +    '  \t  '    +    '47 = ETMA  '    +    '  \t  '    +    '72 = KAMA  '     +    '\n' 
+             + '23 = DEMA  '     +    '  \t  '    +    '48 = EVMA  '    +    '  \t  '    +    '73 = KIJUN '     +    '\n' 
+             + '24 = DEVS  '     +    '  \t  '    +    '49 = FAMA  '    +    '  \t  '    +    '74 = KIJUN2'     +    '\n' 
+             + '25 = DONEMA'     +    '  \t  '    +    '50 = FEMA  '    +    '  \t  '    +    '75 = LAG   '     +    '\n' 
+
+maintooltip2 = ' \n'
+             + '076 = LCLSMA'    +    '  \t  '    +    '101 = RGEMA'    +    '  \t  '    +    '126 = VAMAF '    +    '\n' 
+             + '077 = LEMA  '    +    '  \t  '    +    '102 = RMA  '    +    '  \t  '    +    '127 = VAR   '    +    '\n' 
+             + '078 = LLMA  '    +    '  \t  '    +    '103 = RMF  '    +    '  \t  '    +    '128 = VBMA  '    +    '\n' 
+             + '079 = LMA   '    +    '  \t  '    +    '104 = RMTA '    +    '  \t  '    +    '129 = VHMA  '    +    '\n' 
+             + '080 = LP    '    +    '  \t  '    +    '105 = RSMA '    +    '  \t  '    +    '130 = VIDYA '    +    '\n' 
+             + '081 = LRL   '    +    '  \t  '    +    '106 = RSRMA'    +    '  \t  '    +    '131 = VMA   '    +    '\n' 
+             + '082 = LSMA  '    +    '  \t  '    +    '107 = RWMA '    +    '  \t  '    +    '132 = VSO   '    +    '\n' 
+             + '083 = LTB   '    +    '  \t  '    +    '108 = SAMA '    +    '  \t  '    +    '133 = VWMA  '    +    '\n' 
+             + '084 = LWMA  '    +    '  \t  '    +    '109 = SFMA '    +    '  \t  '    +    '134 = WCD   '    +    '\n' 
+             + '085 = MAMA  '    +    '  \t  '    +    '110 = SMA  '    +    '  \t  '    +    '135 = WMA   '    +    '\n' 
+             + '086 = MAVW  '    +    '  \t  '    +    '111 = SSB  '    +    '  \t  '    +    '136 = XEMA  '    +    '\n' 
+             + '087 = MCGD  '    +    '  \t  '    +    '112 = SSF  '    +    '  \t  '    +    '137 = ZEMA  '    +    '\n' 
+             + '088 = MF    '    +    '  \t  '    +    '113 = SSMA '    +    '  \t  '    +    '138 = ZLDEMA'    +    '\n' 
+             + '089 = MID   '    +    '  \t  '    +    '114 = STMA '    +    '  \t  '    +    '139 = ZLEMA '    +    '\n' 
+             + '090 = MNMA  '    +    '  \t  '    +    '115 = SWMA '    +    '  \t  '    +    '140 = ZLTEMA'    +    '\n' 
+             + '091 = MTMA  '    +    '  \t  '    +    '116 = SW_MA'    +    '  \t  '    +    '141 = ZSMA  '    +    '\n' 
+             + '092 = MVSMA '    +    '  \t  '    +    '117 = TEMA '    +    '  \t  '    +    '142 = ------'    +    '\n' 
+             + '093 = NLMA  '    +    '  \t  '    +    '118 = THMA '    +    '  \t  '    +    '143 = ------'    +    '\n' 
+             + '094 = NWMA  '    +    '  \t  '    +    '119 = TL   '    +    '  \t  '    +    '144 = ------'    +    '\n' 
+             + '095 = PKF   '    +    '  \t  '    +    '120 = TMA  '    +    '  \t  '    +    '145 = ------'    +    '\n' 
+             + '096 = PWMA  '    +    '  \t  '    +    '121 = TPBF '    +    '  \t  '    +    '146 = ------'    +    '\n' 
+             + '097 = QEMA  '    +    '  \t  '    +    '122 = TRAMA'    +    '  \t  '    +    '147 = ------'    +    '\n' 
+             + '098 = QMA   '    +    '  \t  '    +    '123 = TSF  '    +    '  \t  '    +    '148 = ------'    +    '\n' 
+             + '099 = REMA  '    +    '  \t  '    +    '124 = TT3  '    +    '  \t  '    +    '149 = ------'    +    '\n' 
+             + '100 = REPMA '    +    '  \t  '    +    '125 = VAMA '    +    '  \t  '    +    '150 = ------'    +    '\n' 
+
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// ——————————————————————————————————————————   Start of Function List   ———————————————————————————————————————————— \\
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    MAMA & FAMA & HKAMA Pre-requisits 
+COMPUTEALPHA(src, fastlimit, slowlimit) => // Credit @@everget
+    PI = 2 * math.asin(1)
+    mesaPeriod = 0.0
+    mesaPeriodMult = 0.075 * nz(mesaPeriod[1]) + 0.54
+    smooth = 0.0
+    smooth := (4 * src + 3 * nz(src[1]) + 2 * nz(src[2]) + nz(src[3])) / 10
+    detrender = 0.0
+    detrender := (0.0962 * smooth + 0.5769 * nz(smooth[2]) - 0.5769 * nz(smooth[4]) - 0.0962 * nz(smooth[6])) * mesaPeriodMult
+    // Compute InPhase and Quadrature components
+    I1 = nz(detrender[3])
+    Q1 = (0.0962 * detrender + 0.5769 * nz(detrender[2]) - 0.5769 * nz(detrender[4]) - 0.0962 * nz(detrender[6])) * mesaPeriodMult
+    // Advance the phase of I1 and Q1 by 90 degrees
+    jI = (0.0962 * I1 + 0.5769 * nz(I1[2]) - 0.5769 * nz(I1[4]) - 0.0962 * nz(I1[6])) * mesaPeriodMult
+    jQ = (0.0962 * Q1 + 0.5769 * nz(Q1[2]) - 0.5769 * nz(Q1[4]) - 0.0962 * nz(Q1[6])) * mesaPeriodMult
+    I2 = 0.0
+    Q2 = 0.0
+    // Phasor addition for 3 bar averaging
+    I2 := I1 - jQ
+    Q2 := Q1 + jI
+    // Smooth the I and Q components before applying the discriminator
+    I2 := 0.2 * I2 + 0.8 * nz(I2[1])
+    Q2 := 0.2 * Q2 + 0.8 * nz(Q2[1])
+    // Homodyne Discriminator
+    Re = I2 * nz(I2[1]) + Q2 * nz(Q2[1])
+    Im = I2 * nz(Q2[1]) - Q2 * nz(I2[1])
+    Re := 0.2 * Re + 0.8 * nz(Re[1])
+    Im := 0.2 * Im + 0.8 * nz(Im[1])
+    mesaPeriod := Re != 0 and Im != 0 ? 2 * PI / math.atan(Im / Re) : mesaPeriod
+    mesaPeriod := mesaPeriod > 1.5 * nz(mesaPeriod[1]) ? 1.5 * nz(mesaPeriod[1]) : mesaPeriod
+    mesaPeriod := mesaPeriod < 0.67 * nz(mesaPeriod[1]) ? 0.67 * nz(mesaPeriod[1]) : mesaPeriod
+    mesaPeriod := mesaPeriod < 6 ? 6 : mesaPeriod
+    mesaPeriod := mesaPeriod > 50 ? 50 : mesaPeriod
+    mesaPeriod := 0.2 * mesaPeriod + 0.8 * nz(mesaPeriod[1])
+    phase = 0.0
+    phase := I1 != 0 ? 180 / PI * math.atan(Q1 / I1) : phase
+    deltaPhase = nz(phase[1]) - phase
+    deltaPhase := deltaPhase < 1 ? 1 : deltaPhase 
+    alpha = fastlimit / deltaPhase
+    alpha := alpha < slowlimit ? slowlimit : alpha
+    alpha
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Adaptive Autonomous Recursive Moving Average
+ama(src, len) => // Credit @alexgrover
+    a = 0.
+    a := len * src + (1-len) * nz(a[1], src)
+AARMA(src, len) => // Credit @alexgrover
+    gamma = 3
+    a = 0.
+    er = math.abs(ta.change(src, len)) / math.sum(math.abs(ta.change(src)), len)
+    var float ma = 0
+    d = ta.cum(math.abs(src - nz(ma[1], src))) / bar_index * gamma
+    x = src > nz(ma[1],src) + d ? src + d : src < nz(ma[1],src) - d ? src - d : nz(ma[1],src)
+    out = len * x + (1-len) * nz(a[1], x)
+    ma := ama( ama(x, er), er )
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Adjusted Moving Average
+ADMA(src, len) => // Credit —
+    ama_f_length = 14.
+    ama_s_length = 100.
+    var float result = 0.0
+    fastAlpha = 2 / (ama_f_length + 1)
+    slowAlpha = 2 / (ama_s_length + 1)
+    hh = ta.highest(high, len + 1)
+    ll = ta.lowest(low, len + 1)
+    mltp = hh - ll != 0 ? math.abs(2 * src - ll - hh) / (hh - ll) : 0
+    ssc_ = mltp * (fastAlpha - slowAlpha) + slowAlpha
+    result := nz(result[1]) + math.pow(ssc_, 2) * (src - nz(result[1]))
+    result
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Average Directional Moving Average
+ADXMA(src, len) => // Credit —
+    len_adx = 14
+    [_diplus, _diminus, _adx] = ta.dmi(17, len_adx)
+    _vol_sum = 0.0
+    _adx_sum = 0.0
+    for i = 0 to len by 1
+        _vol_sum := src[i] * _adx[i] + _vol_sum
+        _adx_sum := _adx[i] + _adx_sum
+        _adx_sum
+    _volwma = _vol_sum / _adx_sum
+    _volwma
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Average Directional Volatility Moving Average
+ADXVMA(src, len) => // Credit —
+    tpdm = 0., tmdm = 0.
+    pdm = 0., mdm = 0., pdi = 0., mdi = 0., out = 0., val = 0.
+    tpdi = 0., tmdi = 0., thi = 0., tlo = 0., tout = 0., vi = 0.
+
+    diff = src - nz(src[1])
+    tpdm := diff > 0 ? diff : tpdm
+    tmdm := diff > 0 ? tmdm : -diff
+    pdm := ((len- 1.0) * nz(pdm[1]) + tpdm) / len
+    mdm := ((len- 1.0) * nz(mdm[1]) + tmdm) / len
+    trueRange = pdm + mdm
+    tpdi := nz(pdm / trueRange)
+    tmdi := nz(mdm / trueRange)
+    pdi := ((len- 1.0) * nz(pdi[1]) + tpdi) / len
+    mdi := ((len- 1.0) * nz(mdi[1]) + tmdi) / len
+    tout := (pdi + mdi) > 0 ?  math.abs(pdi - mdi) / (pdi + mdi) : tout
+    out := ((len- 1.0) * nz(out[1]) + tout) / len
+    thi := math.max(out, nz(out[1]))
+    tlo := math.min(out, nz(out[1]))
+    for j = 2 to len 
+        thi := math.max(nz(out[j]), thi)
+        tlo := math.min(nz(out[j]), tlo)
+    vi := (thi - tlo) > 0 ? (out - tlo) / (thi - tlo) : vi
+    val := ((len- vi) * nz(val[1]) + vi * src) / len
+    val
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Ahrens Moving Average
+AHMA(src, len) => // Credit @everget
+    ahma = 0.0
+    ahma := nz(ahma[1]) + (src - (nz(ahma[1]) + nz(ahma[len])) / 2) / len
+    ahma
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Adaptive Laguerre Filter
+ALF(src, len) => // Credit @everget
+    medianLength = 5
+    alf = 0.0
+    diff = math.abs(src - nz(alf[1], src))
+    HH = 0.0
+    HH := diff
+    LL = 0.0
+    LL := diff
+    for i = 0 to len - 1 by 1
+        if nz(diff[i]) > HH
+            HH := nz(diff[i])
+            HH
+
+        if nz(diff[i]) < LL
+            LL := nz(diff[i])
+            LL
+    alpha = 0.0
+    _median__1 = ta.percentile_nearest_rank((diff - LL) / (HH - LL), medianLength, 50)
+    alpha := HH - LL != 0.0 ? _median__1 : nz(alpha[1], 2 / (len + 1))
+    alpha2 = 1 - alpha
+    L0 = 0.0
+    L0 := alpha * src + alpha2 * nz(L0[1], src)
+    L1 = 0.0
+    L1 := nz(L0[1], src) + alpha2 * (nz(L1[1], src) - L0)
+    L2 = 0.0
+    L2 := nz(L1[1], src) + alpha2 * (nz(L2[1], src) - L1)
+    L3 = 0.0
+    L3 := nz(L2[1], src) + alpha2 * (nz(L3[1], src) - L2)
+    alf := (L0 + 2 * L1 + 2 * L2 + L3) / 6
+    alf
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Arnaud Legoux Moving Average
+ALMA(src, len) => // Credit @TradingView
+    a = ta.alma(src, len, .85, 6)
+    a
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Adaptive Least Squares
+m(alpha, a) => // Credit @alexgrover
+    float p = na
+    p := alpha * a + (1-alpha) * nz(p[1],a)
+ALSMA(src, len) => // Credit @alexgrover
+    smooth=1.5
+    alpha = math.pow(ta.tr/ta.highest(ta.tr, len), smooth)
+    x = bar_index
+    y = src
+    x_ = m(alpha, x)
+    y_ = m(alpha, y)
+    //
+    dx = math.abs(x-x_)
+    dy = math.abs(y-y_)
+    mx = m(alpha, dx)
+    my = m(alpha, dy)
+    //
+    a1 = math.pow(2/alpha+1,2)*m(alpha, x*y) - ((2/alpha+1)*m(alpha, x))*((2/alpha+1)*m(alpha, y))
+    b1 = math.sqrt((math.pow(2/alpha+1,2)*m(alpha, x*x) - math.pow((2/alpha+1)*m(alpha, x),2)) * (math.pow(2/alpha+1,2)*m(alpha, y*y) - math.pow((2/alpha+1)*m(alpha, y),2)))
+    r = a1/b1
+    //
+    a = r * (my/mx)
+    b = y_ - a*x_
+    reg = x*a + b
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Alexander Moving Average
+ALXMA(src, len) => // Credit —
+    sumw = len - 2
+    sum  = sumw * src
+    for k = 1 to len 
+        weight = len - k - 2 
+        sumw += weight
+        sum += weight * nz(src[k])
+    out = len < 4 ? src : sum/sumw 
+    out
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Adaptive Moving Average
+AMA(src, len) => // Credit @everget
+    fastlen = 2.
+    slowlen = 30.
+    fastAlpha = 2 / (fastlen + 1)
+    slowAlpha = 2 / (slowlen + 1)
+    hh = ta.highest(len + 1)
+    ll = ta.lowest(len + 1)
+    mltp = hh - ll != 0 ? math.abs(2 * src - ll - hh) / (hh - ll) : 0
+    ssc = mltp * (fastAlpha - slowAlpha) + slowAlpha
+    ama = 0.0
+    ama := nz(ama[1]) + math.pow(ssc, 2) * (src - nz(ama[1]))
+    ama
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Unknown
+ARI(src, len) => // Credit —
+    RSvoltl = math.abs(ta.rsi(src, 14) - 50) + 1.0
+    multi = (5.0 + 100.0 / 14) / (0.06 + 0.92 * RSvoltl + 0.02 * math.pow(RSvoltl, 2))
+    pdsx = multi * len
+    alpha = 2.0 / (1.0 + pdsx)
+    Ari = float(na)
+    Ari := nz(Ari[1]) + alpha * (ta.sma(src, len) - nz(Ari[1]))
+    Ari
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Adaptive RSI Moving Average
+ARSI(src, len) => // Credit @everget
+    alpha = 2 * math.abs(ta.rsi(src, len) / 100 - 0.5)
+    arsi = 0.0
+    arsi := alpha * src + (1 - alpha) * nz(arsi[1])
+    arsi
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Auto Filter
+AUF(src, len) => // Credit @alexgrover
+    r = ta.sma(src, 14)
+    dev = ta.stdev(src, len)
+    x = float(na)
+    x := src > nz(x[1], r) + dev ? src : src < nz(x[1], r) - dev ? src : x[1]
+    x_ = ta.sma(x, len)
+    y_ = ta.sma(src, len)
+    mx = ta.stdev(x, len)
+    my = ta.stdev(src, len)
+    c = ta.correlation(x, src, len)
+    slope = c * (my / mx)
+    inter = y_ - slope * x_
+    reg = x * slope + inter
+    reg
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Auto-Line
+AUTL(src, len) => // Credit —
+    len2 = 14
+    _ma1 = ta.sma(src, len2)
+    _dev = ta.stdev(src, len)
+    _out = float(na)
+    _out := src > nz(_out[1], _ma1) + _dev ? low : src < nz(_out[1], _ma1) - _dev ? high : _out[1]
+    _out
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Bryant Adaptive Moving Average
+BAMA(src, len) => // Credit @everget
+    mom = math.abs(ta.change(src, len))
+    volatility = math.sum(math.abs(ta.change(src)), len)
+    er = volatility != 0 ? mom / volatility : 0
+    ver = math.pow(er - (2 * er - 1) / 2 * (1 - -1) + 0.5, 2)
+    vlength = (len - ver + 1) / ver
+    vlength := vlength > 100 ? 100 : vlength
+    valpha = 2 / (vlength + 1)
+    bama = src
+    bama := valpha * src + (1 - valpha) * nz(bama[1], bama)
+    bama
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Blackman Filter Moving Average
+BFMA(src, len) => // Credit @alexgrover
+    pi = math.pi
+    sum = 0.
+    sumw = 0.
+    for i = 0 to len - 1 by 1
+        k = i / len
+        w = 0.42 - 0.5 * math.cos(2 * pi * k) + 0.08 * math.cos(4 * pi * k)
+        sumw += w
+        sum += w * src[i]
+        sum
+    sum / sumw
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Corrected Moving Average
+CMA(src, len) => // Credit @everget
+    var float result = 0.0    
+    sma_ = ta.sma(src, len)
+    _cma = sma_
+    v1 = ta.variance(src, len)
+    v2 = math.pow(nz(_cma[1], _cma) - sma_, 2)
+    v3 = v1 == 0 or v2 == 0 ? 1 : v2 / (v1 + v2)
+    var tolerance = math.pow(10, -5)
+    float err = 1
+    // Gain Factor
+    float kPrev = 1
+    float k = 1
+    for i = 0 to 5000 by 1
+        if err > tolerance
+            k := v3 * kPrev * (2 - kPrev)
+            err := kPrev - k
+            kPrev := k
+            kPrev
+    _cma := nz(_cma[1], src) + k * (sma_ - nz(_cma[1], src))
+    result := _cma
+    result
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Correlation Moving Average
+CORMA(src, len) => // Credit —
+    factor=1.7
+    ma = ta.sma(src, len) + ta.correlation(src, bar_index, len) * ta.stdev(src, len) * factor    
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Coefficient of Variation Weighted Exponential Moving Average
+COVEMA(src, len) => // Credit —
+    var float result = 0.0
+    _dev = ta.stdev(src, len)
+    _ema = ta.ema(src, len)
+    _cov = _dev / _ema
+    _cWg = src * _cov
+    result := math.sum(_cWg, len) / math.sum(_cov, len)
+    result
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Coefficient of Variation Weighted Moving Average
+COVNA(src,  len) => // Credit —
+    var result = 0.0
+    _dev = ta.stdev(src, len)
+    _sma = ta.sma(src, len)
+    _cov = _dev / _sma
+    _cWg = src * _cov
+    result := math.sum(_cWg, len) / math.sum(_cov, len)
+    result
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Coral Trend Indicator
+CTI(src, len) => // Credit @LazyBear
+    cd = 0.0
+    di = (len - 1.0) / 2.0 + 1.0
+    c1 = 2 / (di + 1.0)
+    c2 = 1 - c1
+    c3 = 3.0 * (cd * cd + cd * cd * cd)
+    c4 = -3.0 * (2.0 * cd * cd + cd + cd * cd * cd)
+    c5 = 3.0 * cd + 1.0 + cd * cd * cd + 3.0 * cd * cd
+    i1 = 0.0
+    i2 = 0.0
+    i3 = 0.0
+    i4 = 0.0
+    i5 = 0.0
+    i6 = 0.0
+    i1 := c1 * src + c2 * nz(i1[1])
+    i2 := c1 * i1 + c2 * nz(i2[1])
+    i3 := c1 * i2 + c2 * nz(i3[1])
+    i4 := c1 * i3 + c2 * nz(i4[1])
+    i5 := c1 * i4 + c2 * nz(i5[1])
+    i6 := c1 * i5 + c2 * nz(i6[1])
+    bfr = -cd * cd * cd * i6 + c3 * i5 + c4 * i4 + c5 * i3
+    bfr
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// DEC [Ehlers Simple Decycler]
+DEC(src, len) => // Credit @everget
+    a = 2 * math.pi / (len * math.sqrt(2))
+    b = 0.0
+    b := math.cos(a) != 0 ? (math.cos(a) + math.sin(a) - 1) / math.cos(a) : nz(b[1])
+    c = 0.0
+    c := math.pow(1 - (b / 2), 2) * (src - 2 * nz(src[1]) + nz(src[2])) + 2 * (1 - b) * nz(c[1]) - math.pow(1 - b, 2) * nz(c[2])
+    dec = src - c
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Double EMA Moving Average
+DEMA(src, len) => // Credit @TradingView
+    v2 = ta.ema(src, len)
+    v6 = 2 * v2 - ta.ema(v2, len)
+    v6
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Ehlers - Deviation Scaled Moving Average
+DEVS(src, len) => // Credit —
+    a = src - nz(src[2])
+    b = (a + a[1]) / 2
+    c = ta.stdev(b, len)
+    d = c != 0 ? b / c : 0
+    e = 5 * math.abs(d) / len
+    res = 0.0
+    res := e * (src - nz(res[1])) + nz(res[1])
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Donchian Extremum Moving Average
+DONEMA(src=low, len) => // Credit —
+    bands=2
+    (ta.lowest(src, len) + ta.highest(high, len) ) / bands
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Donchian Moving Average.
+DONMA(src=close, len) => // Credit —
+    math.avg(ta.lowest(src, len), ta.highest(src, len))
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Double Smoothed Exponential Moving Average
+DSEMA(src, len) => // Credit —
+    alpha = 2.0 / (1.0 + math.sqrt(len))
+    ema1 = 0., ema2 = 0.
+    ema1 := nz(ema1[1]) + alpha * (src - nz(ema1[1]))
+    ema2 := nz(ema2[1]) + alpha * (ema1 - nz(ema2[1]))
+    ema2
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Damped Sine Wave Weighted Filter
+DSWF(src, len) => // Credit @alexgrover
+	ma 			= src
+    dswf_sum    = 0.0
+    dswf_sumw   = 0.0
+    for i = 1 to len
+        w = math.sin(2.0*math.pi * i / len) / i
+        dswf_sumw := dswf_sumw + w
+        dswf_sum := dswf_sum + w*src[i-1]
+    ma := dswf_sum/dswf_sumw
+	ma
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Double Weighted Moving Average
+DWMA(src, len) => // Credit @everget
+    dwma = ta.wma(ta.wma(src, len), len)
+    dwma
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Ehlers 2-Pole Butterworth Filter
+E2PBF(src, len) => // Credit @everget
+    PI = 2 * math.asin(1)
+    a = math.exp(-math.sqrt(2) * PI / len)
+    b = 2 * a * math.cos(math.sqrt(2) * PI / len)
+    bf = 0.0
+    bf := b * nz(bf[1]) - math.pow(a, 2) * nz(bf[2]) + ((1 - b + math.pow(a, 2)) / 4) * (src + 2 * nz(src[1]) + nz(src[2]))
+    bf
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Ehlers 2-Pole Super Smoother Filter
+E2SSF(src, len) => // Credit @everget
+    PI = 2 * math.asin(1)
+    arg = math.sqrt(2) * PI / len
+    a1 = math.exp(-arg)
+    b1 = 2 * a1 * math.cos(arg)
+    coef3 = -math.pow(a1, 2)
+    coef2 = b1
+    coef1 = 1 - coef2 - coef3
+    src1 = nz(src[1], src)
+    src2 = nz(src[2], src1)
+    ssf = 0.0
+    ssf := coef1 * src + coef2 * nz(ssf[1], src1) + coef3 * nz(ssf[2], src2)
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Ehlers 3-Pole Butterworth Filter
+E3PBF(src, len) => // Credit @everget
+    PI = 2 * math.asin(1)
+    a = math.exp(-PI / len)
+    b = 2 * a * math.cos(1.738 * PI / len)
+    c = math.pow(a, 2)
+    bf = 0.0
+    bf := (b + c) * nz(bf[1]) - (c + b * c) * nz(bf[2]) + math.pow(c, 2) * nz(bf[3]) + ((1 - b + c) * (1 - c) / 8) * (src + 3 * nz(src[1]) + 3 * nz(src[2]) + nz(src[3]))
+    bf
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Ehlers 3-Pole Super Smoother Filter
+E3SSF(src, len) => // Credit @everget
+    PI = 2 * math.asin(1)
+    arg = PI / len
+    a1 = math.exp(-arg)
+    b1 = 2 * a1 * math.cos(1.738 * arg)
+    c1 = math.pow(a1, 2)
+    coef4 = math.pow(c1, 2)
+    coef3 = -(c1 + b1 * c1)
+    coef2 = b1 + c1
+    coef1 = 1 - coef2 - coef3 - coef4
+    src1 = nz(src[1], src)
+    src2 = nz(src[2], src1)
+    src3 = nz(src[3], src2)
+    ssf = 0.0
+    ssf := coef1 * src + coef2 * nz(ssf[1], src1) + coef3 * nz(ssf[2], src2) + coef4 * nz(ssf[3], src3)
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Exponentially Deviating Moving Average (MZ EDMA)
+EDMA(src, len) => // Credit @MightyZinger
+    var hexp = float(na)
+    var lexp = float(na)
+    var _hma = float(na)
+    var _edma = float(na)
+    float smoothness = 1.0  // Increasing smoothness will result in MA same as EMA
+    h_len = int(len/1.5)    // Length to be used in final calculation of Hull Moving Average
+    // Defining Exponentially Expanding Moving Line
+    hexp := na(hexp[1]) ? src : src >= hexp[1] ? src : hexp[1] + (src - hexp[1]) * (smoothness / (len + 1))
+    // Defining Exponentially Contracting Moving Line
+    lexp := na(lexp[1]) ? hexp : src <= lexp[1] ? hexp : lexp[1] + (src - lexp[1]) * (smoothness / (len + 1))
+    // Calculating Hull Moving Average of resulted Exponential Moving Line with 3/2 of total length
+    _hma := ta.wma(2 * ta.wma(lexp, h_len / 2) - ta.wma(lexp, h_len), math.round(math.sqrt(h_len)))
+    _edma := _hma   // EDMA will be equal to resulted smoothened Hull Moving Average
+    _edma
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Ehlers Dynamic Smoothed Moving Average
+EDSMA(src, len) => // Credit —
+    ssfLength = 20 
+    ssfPoles = 2   
+    float result = 0.0
+    zeros = src - nz(src[2])
+    avgZeros = (zeros + zeros[1]) / 2
+    ssf = ssfPoles == 2 ? E2PBF(avgZeros, ssfLength) : E3PBF(avgZeros, ssfLength)
+    // Rescale filter in terms of Standard Deviations
+    stdev = ta.stdev(ssf, len)
+    scaledFilter = stdev != 0
+         ? ssf / stdev
+         : 0
+    alpha = 5 * math.abs(scaledFilter) / len
+    edsma = 0.0
+    edsma := alpha * src + (1 - alpha) * nz(edsma[1])
+    result := edsma
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Ehlers Modified Elliptic Filter Optimum 
+EEO(src, len) => // Credit @everget
+    src1 = nz(src[1], src)
+    src2 = nz(src[2], src1)
+    src3 = nz(src[3], src2)
+    moef = src
+    moef := ta.rma(0.13785 * (2 * src - src1) + 0.0007 * (2 * src1 - src2) + 0.13785 * (2 * src2 - src3) + 1.2103 * nz(moef[1], moef) - 0.4867 * nz(moef[2], moef), len)
+    moef
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Ehlers Modified Fractal Adaptive Moving Average
+EFRAMA(src, len) => // Credit @nemozny
+    FC = 1   //Lower Shift Limit
+    SC = 200 //Upper Shift Limit
+    var float result = 0.0
+    len1 = len / 2
+    e = 2.7182818284590452353602874713527
+    w = math.log(2 / (SC + 1)) / math.log(e)  // Natural logarithm (ln(2/(SC+1))) workaround
+    H1 = ta.highest(high, len1)
+    L1 = ta.lowest(low, len1)
+    N1 = (H1 - L1) / len1
+    H2 = ta.highest(high, len1)[len1]
+    L2 = ta.lowest(low, len1)[len1]
+    N2 = (H2 - L2) / len1
+    H3 = ta.highest(high, len)
+    L3 = ta.lowest(low, len)
+    N3 = (H3 - L3) / len
+    dimen1 = (math.log(N1 + N2) - math.log(N3)) / math.log(2)
+    dimen = N1 > 0 and N2 > 0 and N3 > 0 ? dimen1 : nz(dimen1[1])
+    alpha1 = math.exp(w * (dimen - 1))
+    oldalpha = alpha1 > 1 ? 1 : alpha1 < 0.01 ? 0.01 : alpha1
+    oldN = (2 - oldalpha) / oldalpha
+    N = (SC - FC) * (oldN - 1) / (SC - 1) + FC
+    alpha_ = 2 / (N + 1)
+    alpha = alpha_ < 2 / (SC + 1) ? 2 / (SC + 1) : alpha_ > 1 ? 1 : alpha_
+    result := (1 - alpha) * nz(result[1]) + alpha * src
+    result
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Exponential Hull Moving Average
+EHMA(src, len) => // Credit @auroagwei
+    ehma = ta.ema((2 * ta.ema(src, len / 2)) - ta.ema(src, len), math.round(math.sqrt(len)))
+    ehma
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Ehlers Instantaneous Trendline
+EIT(src, len) => // Credit @everget
+    // This function cannot have a length by default. Therefore, I added EMA to make it possible to change the length.
+    PI = 2 * math.asin(1)
+    mesaPeriod = 0.0
+    mesaPeriodMult = 0.075 * nz(mesaPeriod[1]) + 0.54
+    detrender = 0.0
+    fir = (4 * src + 3 * nz(src[1]) + 2 * nz(src[2]) + nz(src[3])) / 10
+    detrender := (0.0962 * fir + 0.5769 * nz(fir[2]) - 0.5769 * nz(fir[4]) - 0.0962 * nz(fir[6])) * mesaPeriodMult
+    I1 = nz(detrender[3])
+    Q1 = (0.0962 * detrender + 0.5769 * nz(detrender[2]) - 0.5769 * nz(detrender[4]) - 0.0962 * nz(detrender[6])) * mesaPeriodMult
+    jI = (0.0962 * I1 + 0.5769 * nz(I1[2]) - 0.5769 * nz(I1[4]) - 0.0962 * nz(I1[6])) * mesaPeriodMult
+    jQ = (0.0962 * Q1 + 0.5769 * nz(Q1[2]) - 0.5769 * nz(Q1[4]) - 0.0962 * nz(Q1[6])) * mesaPeriodMult
+    I2 = (0.2 * (I1 - jQ) + 0.8 * nz((I1 - jQ)[1]))
+    Q2 = (0.2 * (Q1 + jI) + 0.8 * nz((Q1 + jI)[1]))
+    Re = 0.2 * (I2 * nz(I2[1]) + Q2 * nz(Q2[1])) + 0.8 * nz((I2 * nz(I2[1]) + Q2 * nz(Q2[1]))[1])
+    Im = 0.2 * (I2 * nz(Q2[1]) - Q2 * nz(I2[1])) + 0.8 * nz((I2 * nz(Q2[1]) - Q2 * nz(I2[1]))[1])
+    mesaPeriod := Re != 0 and Im != 0 ? 2 * PI / math.atan(Im / Re) : mesaPeriod
+    mesaPeriod := mesaPeriod > 1.5 * nz(mesaPeriod[1]) ? 1.5 * nz(mesaPeriod[1]) : mesaPeriod
+    mesaPeriod := mesaPeriod < 0.67 * nz(mesaPeriod[1]) ? 0.67 * nz(mesaPeriod[1]) : mesaPeriod
+    mesaPeriod := mesaPeriod < 6 ? 6 : mesaPeriod
+    mesaPeriod := mesaPeriod > 50 ? 50 : mesaPeriod
+    mesaPeriod := 0.2 * mesaPeriod + 0.8 * nz(mesaPeriod[1])
+    smoothPeriod = 0.0
+    smoothPeriod := 0.33 * mesaPeriod + 0.67 * nz(smoothPeriod[1])
+    dcPeriod = math.floor(smoothPeriod + 0.5)
+    dcPeriod := dcPeriod < 1? 1 : dcPeriod
+    itrend = 0.0
+    for i = 0 to dcPeriod - 1 by 1
+        itrend += src[i]
+        itrend
+    itrend := dcPeriod > 0 ? itrend / dcPeriod : itrend
+    eit = (4 * itrend + 3 * nz(itrend[1]) + 2 * nz(itrend[2]) + nz(itrend[3])) / 10
+    ta.ema(eit, len)
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Ehler's Laguerre filter
+ELF(float src, int len) => // Credit @KivancOzbilgic
+    var float result = 0.0     
+    y = float(na)
+    alpha = math.exp((1 - len) / 20)  // map length to alpha
+    L0 = 0.0
+    L0 := alpha * src + (1 - alpha) * nz(L0[1])
+    L1 = 0.0
+    L1 := -(1 - alpha) * L0 + nz(L0[1]) + (1 - alpha) * nz(L1[1])
+    L2 = 0.0
+    L2 := -(1 - alpha) * L1 + nz(L1[1]) + (1 - alpha) * nz(L2[1])
+    L3 = 0.0
+    L3 := -(1 - alpha) * L2 + nz(L2[1]) + (1 - alpha) * nz(L3[1])
+    y := (L0 + 2 * L1 + 2 * L2 + L3) / 6
+    result := y
+    result
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    - Exponential Moving Average
+EMA(src, len) => // Credit @TradingView
+    ta.ema(src, len)
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    EMA RSI Adaptive
+EMARSI(src, len) => // Credit @glaz
+    RsiPeriod = 14
+    RSvoltl = math.abs(ta.rsi(src, RsiPeriod) - 50) + 1.0
+    multi = (5.0 + 100.0 / RsiPeriod) / (0.06 + 0.92 * RSvoltl + 0.02 * math.pow(RSvoltl, 2))
+    pdsx = multi * len
+    alpha = 2.0 / (1.0 + pdsx)
+    ema = float(na)
+    ema := nz(ema[1]) + alpha * (ta.sma(src, len) - nz(ema[1]))
+    ema
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Edge Preserving Filter
+EPF(src, len) => // Credit @alexgrover
+    len2 = 200
+    os = src - ta.sma(src, len2)
+    p = ta.linreg(math.abs(os), len, 0)
+    h = p / ta.highest(p, len2)
+    cnd = h == 1 and h[1] != 1
+    sign = cnd and os < 0 ? 1 : cnd and os > 0 ? -1 : 0
+    condition = sign != 0
+    a = 0.
+    b = 0.
+    a := condition ? 1 : nz(a[1], 1) + 1
+    b := a == 1 ? src : nz(b[1], src) + src
+    c = b / a
+    c
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    End Point Moving Average
+EPMA(src, len) => // Credit @cheatcountry
+    offset=4
+    float sum = 0.0
+    float weightSum = 0.0
+    for i = 0 to len - 1
+        weight = len - i - offset
+        sum := sum + (src[i] * weight)
+        weightSum := weightSum + weight
+    epma = 1 / weightSum * sum
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Ehlers Reverse Exponential Moving Average
+EREA(src, len) => // Credit @everget
+    alpha = len * .01
+    delta = 1 - alpha
+    ema = 0.0
+    ema := alpha * src + delta * nz(ema[1])
+    re1 = delta * ema + nz(ema[1])
+    re2 = math.pow(delta, 2) * re1 + nz(re1[1])
+    re3 = math.pow(delta, 4) * re2 + nz(re2[1])
+    re4 = math.pow(delta, 8) * re3 + nz(re3[1])
+    re5 = math.pow(delta, 16) * re4 + nz(re4[1])
+    re6 = math.pow(delta, 32) * re5 + nz(re5[1])
+    re7 = math.pow(delta, 64) * re6 + nz(re6[1])
+    re8 = math.pow(delta, 128) * re7 + nz(re7[1])
+    erema = ema - alpha * re8
+    rv = src - erema
+    rc = ta.wma(rv, len)
+    rc
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Ehlers Super Smoother Filter 2-pole   
+ESSF(src, len) => // Credit @cheatcountry
+    arg = math.sqrt(2) * (2 * math.asin(1)) / len
+    a1 = math.exp(-arg)
+    b1 = 2 * a1 * math.cos(arg)
+    coef3 = -math.pow(a1, 2)
+    coef2 = b1
+    coef1 = 1 - coef2 - coef3
+    src1 = nz(src[1], src)
+    src2 = nz(src[2], src1)
+    ssf = 0.0
+    ssf := coef1 * src + coef2 * nz(ssf[1], src1) + coef3 * nz(ssf[2], src2)
+    ssf
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Exponential Triangular Moving Average
+ETMA(src, len) => // Credit —
+    var float result = 0.0
+    result := ta.ema(ta.ema(src, len), len)
+    result
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    - Elastic Volume Weighted Moving Average
+EVMA(src, len) => // Credit @LazyBear
+    res = 0.0
+    res := nz(res[1]) * (math.sum(volume, len) - volume) / math.sum(volume, len) + volume * src / math.sum(volume, len)
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Following Adaptive Moving Average
+FAMA(src, len) => // Credit @everget
+    var float result = 0.0
+    var float mama = 0.0
+    var float fama = 0.0
+    er = math.abs(ta.change(src, len)) / math.sum(math.abs(ta.change(src)), len)
+    a = COMPUTEALPHA(src, er, er * 0.1)
+    b = a / 2
+    mama := a * src + (1 - a) * nz(mama[1])
+    fama := b * mama + (1 - b) * nz(fama[1])
+    result := fama
+    result
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Fast Exponential Moving Average
+FEMA(src, len) => // Credit —
+    alpha = (2.0 / (2.0 + (len - 1.0) / 2.0))
+    out = 0.
+    out := nz(out[1]) + alpha * (src - nz(out[1])) 
+    out
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Fibonacci Weighted Moving Average
+fiboWeight(phi, i) => // Credit @everget
+    pow = math.pow(phi, i)
+    (pow - math.pow(-1, i) / pow) / math.sqrt(5)
+FIBWMA(src, len) => // Credit @everget
+    phi = (1 + math.sqrt(5)) / 2
+    sum = 0.0
+    weightSum = 0.0
+    for i = 0 to len - 1
+        weight = fiboWeight(phi, len - i)
+        sum := sum + nz(src[i]) * weight
+        weightSum := weightSum + weight
+    sum / weightSum
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Fisher Least Squares Moving Average
+FLSMA(src, len) => // Credit @alexgrover
+    n = bar_index
+    b = 0.0
+    e = ta.sma(math.abs(src - nz(b[1])), len)
+    z = ta.sma(src - nz(b[1], src), len) / e 
+    r = (math.exp(2*z) - 1) / (math.exp(2*z) + 1) 
+    a = (n - ta.sma(n, len)) / ta.stdev(n, len) * r
+    b := ta.sma(src, len) + a*ta.stdev(src, len)
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Ehlers - Fractal Adaptive Moving Average
+FRAMA(src, len) => // Credit @everget
+    n3 = (ta.highest(high, len) - ta.lowest(low, len)) / len
+    hd2 = ta.highest(high, len / 2)
+    ld2 = ta.lowest(low, len / 2)
+    n2 = (hd2 - ld2) / (len / 2)
+    n1 = (hd2[len / 2] - ld2[len / 2]) / (len / 2)
+    dim = n1 > 0 and n2 > 0 and n3 > 0 ? (math.log(n1 + n2) - math.log(n3)) / math.log(2) : 0
+    alpha = math.exp(-4.6 * (dim - 1))
+    sc = alpha < 0.01 ? 0.01 : alpha > 1 ? 1 : alpha
+    frama = src
+    frama := ta.cum(1) <= 2 * len ? src : src * sc + nz(frama[1]) * (1 - sc)
+    frama
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Fibonacci X Level Linear
+FX(src, len) => // Credit —
+    multiplier = 0.618
+    a = ta.highest(src, len)
+    b = ta.lowest(src, len)
+    c = math.abs(ta.highestbars(src, len))
+    d = math.abs(ta.lowestbars(src, len))
+    e = c > d
+    i = a - b
+    fx = e ? b + i * multiplier : a - i * multiplier
+    fx
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Ehlers - Gaussian Filter
+fact(num) => // Credit @NGBaltic
+    a = 1
+    nn = num <= 1 ? 1 : num
+    for i = 1 to nn by 1
+        a := a * i
+        a
+    a
+getPoles(f, len, pole) => // Credit @NGBaltic
+    filt = f
+    sign = 1
+    results = 0. + bar_index  //tv series spoofing
+    beta = (1 - math.cos(2 * math.pi / len)) / (math.pow(math.sqrt(2), 2.0 / pole) - 1)
+    alfa = -beta + math.sqrt(beta * beta + 2 * beta)
+    for r = 1 to math.max(math.min(pole, bar_index), 1) by 1
+        mult = fact(pole) / (fact(pole - r) * fact(r))
+        matPo = math.pow(1 - alfa, r)
+        prev = nz(filt[r - 1], 0)
+        sum = sign * mult * matPo * prev
+        results := results + sum
+        sign := sign * -1
+        sign
+    results := results - bar_index
+    results
+GAUS(src, len) => // Credit @NGBaltic
+    pole = 4 // Can Use Any Pole
+    beta = (1 - math.cos(2 * math.pi / len)) / (math.pow(math.sqrt(2), 2.0 / pole) - 1)
+    alfa = -beta + math.sqrt(beta * beta + 2 * beta)
+    pre = nz(src, 0) * math.pow(alfa, pole)
+    filter = pre
+    getPoles__1 = getPoles(filter[1], len, pole)
+    result = bar_index > 0 ? getPoles__1 : 0
+    filter := pre + result
+
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Gann High Low
+GHL(src, len) => // Credit @KivancOzbilgic
+    LPeriod = 21
+    HPeriod = len-7 // you can set any lenght
+    iff_1 = src < nz(ta.sma(low, LPeriod))[1] ? -1 : 0
+    HLd = src > nz(ta.sma(high, HPeriod))[1] ? 1 : iff_1
+    HLv = ta.valuewhen(HLd != 0, HLd, 0)
+    sma_1 = ta.sma(high, HPeriod)
+    sma_2 = ta.sma(low, LPeriod)
+    HiLo = HLv == -1 ? sma_1 : sma_2
+    HiLo
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Gaussian Moving Average
+GMA(src, len) => // Credit @peacefulLizard50262
+    weights_array = array.new_float(len)
+    for i = 0 to len - 1
+        weight = math.exp(-0.5 * math.pow(i / (len / 2.0), 2))
+        array.set(weights_array, i, weight)
+    src_array = array.new_float(len)
+    for i = 0 to len - 1
+        array.set(src_array, i, src[len - 1 - i])
+    sum = 0.0
+    sumw = 0.0
+    for i = 0 to len - 1
+        sum += array.get(src_array, i) * array.get(weights_array, i)
+        sumw += array.get(weights_array, i)
+    sum / sumw
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Geometric Mean Moving Average
+GMMA(src, len) => // Credit @ThiagoSchmitz
+    exponent = 1.0 / len
+    sma = ta.sma(src, 1)
+    multiple = 2.0
+    for i = 0 to len - 1 by 1
+        multiple := multiple * sma[i]
+    gmma = math.pow(multiple, exponent)
+    gmma
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Hybrid Convolution Filter
+HCF(src, length) => // Credit @alexgrover
+	ma = src
+    sum = 0.
+    for i = 1 to length
+        sgn = .5*(1 - math.cos((i/length)*math.pi))
+        sum := sum + (sgn*(nz(ma[1],src)) + (1 - sgn)*src[i-1]) * ( (.5*(1 - math.cos((i/length)*math.pi))) - (.5*(1 - math.cos(((i-1)/length)*math.pi))))
+    ma := sum
+	ma
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Holt Exponential Moving Average
+HEMA(src, len) => // Credit @everget
+    gammaLength = 20
+    alpha = 2 / (len + 1)
+    gamma = 2 / (gammaLength + 1)
+    b = 0.0
+    hema = 0.0
+    hema := (1 - alpha) * (nz(hema[1]) + nz(b[1], src)) + alpha * src
+    hema
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Hilbert based Kaufman's Adaptive Moving Average
+HKAMA(src, len) => // Credit @everget
+    var float result = 0.0    
+    er = math.abs(ta.change(src, len)) / math.sum(math.abs(ta.change(src)), len)
+    a = COMPUTEALPHA(src, er, er * 0.1)
+    b = a / 2
+    alpha = math.pow(er * (b - a) + a, 2)
+    result := alpha * src + (1 - alpha) * nz(result[1])
+    result
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Harmonic Moving Average
+HMA(src, len) => // Credit —
+    a = math.exp(ta.sma(math.log(src), len))
+    b = ta.sma(src, len)
+    c = math.pow(a, 2)
+    hma = c / b
+    hma
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Hirashima Sugita Moving Average
+HSMA(src, len) => // Credit @alexgrover
+    a = ta.ema(src, len)
+    b = src - a
+    c = ta.linreg(b, len, 0)
+    d = a + c
+    e = src - d
+    f = ta.linreg(e, len, 0)
+    hsma = a + c + ta.change(f)
+    hsma
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Hull Moving Average
+HULL(src, len) => // Credit @TradingView
+    hull = ta.wma(2 * ta.wma(src, len / 2) - ta.wma(src, len), math.round(math.sqrt(len)))
+    hull
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Hull Triple Moving Average
+HULLT(src, len) => // Credit —
+    a = len < 3 ? 1 : len / 2
+    b = len < 3 ? 1 : len / 3
+    hullt_out = ta.wma(ta.wma(src, b) * 3 - ta.wma(src, a) - ta.wma(src, len), len)
+    hullt_out
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Henderson Weighted Moving Average
+HWMA(src, len) => // Credit @everget
+    sum = 0.0
+    weightSum = 0.0
+    m = math.floor((len - 1) / 2)
+    for i = 0 to len - 1 by 1
+        j = i - m
+        numerator = 315 * (math.pow(m + 1, 2) - math.pow(j, 2)) * (math.pow(m + 2, 2) - math.pow(j, 2)) * (math.pow(m + 3, 2) - math.pow(j, 2)) * (3 * math.pow(m + 2, 2) - 11 * math.pow(j, 2) - 16)
+        denominator = 8 * (m + 2) * (math.pow(m + 2, 2) - 1) * (4 * math.pow(m + 2, 2) - 1) * (4 * math.pow(m + 2, 2) - 9) * (4 * math.pow(m + 2, 2) - 25)
+        weight = denominator != 0 ? numerator / denominator : 0
+        sum += nz(src[i]) * weight
+        weightSum += weight
+        weightSum
+    sum / weightSum
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Early T3 by Tim Tilson
+IE2(src, len) => // Credit —
+    sumx=0., sumxx=0., sumxy=0., sumy=0.
+    for k = 0 to len - 1   
+        price = nz(src[k]) 
+        sumx  += k
+        sumxx += k * k
+        sumxy += k * price
+        sumy  += price
+    slope = (len * sumxy - sumx * sumy) / (sumx * sumx - len * sumxx)
+    average = sumy/len
+    out = (((average + slope) + (sumy + slope * sumx) / len) / 2.0)
+    out
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Infinite Impulse Response Filter
+IIRF(src, len) => // Credit @everget
+    iirfAlpha = 2 / (len + 1)
+    iirfLag = math.round(1 / iirfAlpha - 1)
+    iirf = 0.0
+    iirf := iirfAlpha * (src + ta.change(src, iirfLag)) + (1 - iirfAlpha) * nz(iirf[1])
+    iirf
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Integral of Linear Regression Slope
+ILRS(src, len) => // Credit —
+    sum = len * (len -1) * 0.5
+    sum2 = (len - 1) * len * (2 * len - 1) / 6.0
+    sum1 = 0., sumy = 0., slope = 0.
+    for i = 0 to len - 1 
+        sum1 += i * nz(src[i])
+        sumy += nz(src[i])
+    num1 = len * sum1 - sum * sumy
+    num2 = sum * sum - len * sum2
+    slope := num2 != 0. ? num1/num2 : 0.
+    ilrs = slope + ta.sma(src, len)
+    ilrs
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Jurik Moving Average
+JMA(src, len) => // Credit @everget
+    phase = 50
+    power = 2
+    phaseRatio = phase < -100 ? 0.5 : phase > 100 ? 2.5 : phase / 100. + 1.5
+    beta = 0.45 * (len - 1) / (0.45 * (len - 1) + 2)
+    alpha = math.pow(beta, power)
+    jma = 0.0
+    e0 = 0.0
+    e0 := (1 - alpha) * src + alpha * nz(e0[1])
+    e1 = 0.0
+    e1 := (src - e0) * (1 - beta) + beta * nz(e1[1])
+    e2 = 0.0
+    e2 := (e0 + phaseRatio * e1 - nz(jma[1])) * math.pow(1 - alpha, 2) + math.pow(alpha, 2) * nz(e2[1])
+    jma := e2 + nz(jma[1])
+    jma
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Unknown 
+KA(src, len) => // Credit —
+    aa = ta.vwma(ta.rma(src, len), len)
+    aa
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Kaufman Adaptive Moving Average
+KAMA(src, len) => // Credit @HPotter
+    xPrice = src
+    xvnoise = math.abs(xPrice - xPrice[1])
+    nAMA = 0.0
+    nfastend = 0.666
+    nslowend = 0.0645
+    nsignal = math.abs(xPrice - xPrice[len])
+    nnoise = math.sum(xvnoise, len)
+    nefratio = nnoise != 0 ? nsignal / nnoise : 0
+    nsmooth = math.pow(nefratio * (nfastend - nslowend) + nslowend, 2)
+    nAMA := nz(nAMA[1]) + nsmooth * (xPrice - nz(nAMA[1]))
+    nAMA
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Kijun-sen
+KIJUN(src, len) => // Credit @ErwinBeckers
+	ma = src
+    ma := math.avg(ta.lowest(len), ta.highest(len))
+    ma	
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Kijun v2
+KIJUN2(src, len) => // Credit —
+    kidiv = 1
+    kijun = math.avg(ta.lowest(src, len), ta.highest(low, len))
+    conversionLine = math.avg(ta.lowest(low, len / kidiv), ta.highest(src, len / kidiv))
+    delta = (kijun + conversionLine) / 2
+    delta
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Ehlers - Laguerre Filter
+LAG(src, len) => // Credit @KivancOzbilgic
+    alpha = len / 100
+    a = 1 - alpha
+    b = 0.0
+    b := (1 - a) * src + a * nz(b[1])
+    c = 0.0
+    c := -a * b + nz(b[1]) + a * nz(c[1])
+    d = 0.0
+    d := -a * c + nz(c[1]) + a * nz(d[1])
+    e = 0.0
+    e := -a * d + nz(d[1]) + a * nz(e[1])
+    res = (b + 2 * c + 2 * d + e) / 6
+    res
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    1LC-LSMA (1 line code lsma with 3 functions)
+LCLSMA(src, len) => // Credit @alexgrover
+    factor = 1.7
+    ta.sma(src, len) + ta.correlation(src, bar_index, len) * ta.stdev(src, len) * factor
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Leader Exponential Moving Average
+LEMA(src, len) => // Credit —
+    alpha = 2.0/(len + 1.0)
+    ldr = 0.,ldr2 = 0.
+    ldr := nz(ldr[1]) + alpha * (src - nz(ldr[1]))
+    ldr2 := nz(ldr2[1]) + alpha * (src - ldr - nz(ldr2[1]))
+    out = ldr + ldr2
+    out
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Low-Lag Moving Average 
+LLMA(src, len) => // Credit @alexgrover
+    _lag = 1.4
+    a = 0.
+    b = 0.
+    a := nz(_lag * src + (1 - _lag) * b[len / 2] + a[1], src)
+    b := ta.change(a, len) / len
+    b
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Leo Moving Average
+LMA(src, len) => // Credit @everget
+    lma = 2 * ta.wma(src, len) - ta.sma(src, len)
+    lma
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Unknown
+LP(src, len) => // Credit —
+    omega = 4 * math.asin(1) / len
+    alpha = (1 - math.sin(omega)) / math.cos(omega)
+    lp = 0.0
+    lp := na(lp[1]) ? src : 0.5 * (1 - alpha) * (src + src[1]) + alpha * nz(lp[1])
+    lp
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Linear Regression Line
+LRL(src, len) => // Credit —
+    x = bar_index
+    x_ = ta.sma(x, len)
+    y_ = ta.sma(src, len)
+    mx = ta.stdev(x, len)
+    my = ta.stdev(src, len)
+    c = ta.correlation(x, src, len)
+    slope = c * (my / mx)
+    inter = y_ - slope * x_
+    reg = x * slope + inter
+    reg
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Least Squares Moving Average / Linear Regression Curve
+LSMA(src, len) => // Credit @TradingView
+    v2 = ta.linreg(src, len, 0) // 0 offset
+    v2
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Unknown
+LTB(src, len) => // Credit —
+    len2 = len < 5 ? 2 : len > 5 and len < 9 ? 3 : 4
+    float ph = ta.pivothigh(src, len, len2)
+    float pl = ta.pivotlow(src, len, len2)
+    var float _ltb = na
+    float _pre = ph ? ph : pl ? pl : na
+    if _pre
+        if na(_ltb)
+            _ltb := _pre
+            _ltb
+        else
+            _ltb := (_ltb * 2 + _pre) / 3
+            _ltb
+    _ltb
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Linear Weighted Moving Average
+LWMA(src, len) => // Credit @io72signals
+    weight = len
+    price = src
+    sub = (weight/len)-1
+    float p = na
+    float d = na
+    float sum = 0
+    float divider = 0
+    for i = 0 to len-1
+        p := price[i] * ((weight-i)-sub)
+        d := (weight-i)-sub
+        sum := sum + p
+        divider := divider + d
+    sum / divider
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    MAMA - MESA Adaptive Moving Average
+MAMA(src, len) => // Credit @everget
+    var float result = 0.0
+    er = math.abs(ta.change(src, len)) / math.sum(math.abs(ta.change(src)), len)
+    a = COMPUTEALPHA(src, er, er * 0.1)
+    result := a * src + (1 - a) * nz(result[1])
+    result
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Mavilim Weighted Moving Average
+MAVW(src, len) => // Credit —
+    len2 = 1
+    a = len + len2
+    b = len2 + a
+    c = a + b
+    d = b + c
+    e = ta.wma(src, len)
+    f = ta.wma(e, len2)
+    g = ta.wma(f, a)
+    h = ta.wma(g, b)
+    i = ta.wma(h, c)
+    res = ta.wma(i, d)
+    res
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    McGinley Dynamic Moving Average
+MCGD(src, len) => // Credit @bsharpe
+    a = ta.ema(src, len)
+    res = 0.0
+    res := na(res[1]) ? a : res[1] + (src - res[1]) / (len * math.pow(src / res[1], 4))
+    res
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    MF - Modular Filter
+MF(src, len) => // Credit @alexgrover
+    beta = 0.8
+    z = 0.5
+    feedback = false
+    var float result = 0.0      
+    ts = 0.
+    b = 0.
+    c = 0.
+    os = 0.
+    //----
+    alpha = 2 / (len + 1)
+    a = feedback ? z * src + (1 - z) * nz(ts[1], src) : src
+    //----
+    b := a > alpha * a + (1 - alpha) * nz(b[1], a) ? a : alpha * a + (1 - alpha) * nz(b[1], a)
+    c := a < alpha * a + (1 - alpha) * nz(c[1], a) ? a : alpha * a + (1 - alpha) * nz(c[1], a)
+    os := a == b ? 1 : a == c ? 0 : os[1]
+    //----
+    upper = beta * b + (1 - beta) * c
+    lower = beta * c + (1 - beta) * b
+    ts := os * upper + (1 - os) * lower
+    result := ts
+    result
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Median Moving Average / Percentile Nearest Rank
+MID(src, len) => // Credit @TradingView
+    median = ta.percentile_nearest_rank(src, len, 50)
+    median
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    McNicholl Moving Average
+MNMA(src, len) => // Credit @everget
+    alpha = 2 / (len + 1)
+    ema1 = ta.ema(src, len)
+    ema2 = ta.ema(ema1, len)
+    mnma = ((2 - alpha) * ema1 - ema2) / (1 - alpha)
+    mnma
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Unknown
+MTMA(src, len) => // Credit —
+    _ccip = 20
+    _ATRmult = 1
+    ATR = ta.sma(ta.tr, len)
+    upT = low - ATR * _ATRmult
+    downT = high + ATR * _ATRmult
+    _mtma = 0.0
+    _mtma := ta.cci(src, _ccip) >= 0 ? upT < nz(_mtma[1]) ? nz(_mtma[1]) : upT : downT > nz(_mtma[1]) ? nz(_mtma[1]) : downT
+    _mtma
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Minimum Variance SMA
+MVSMA(src, len) => // Credit @alexgrover
+    max = 50
+    penalty = .5
+    os = 0.
+    m = 0.
+    bsma = 0.
+    a1 = ta.cum(src)
+    a2 = ta.cum(src * src)
+    for i = len to max by 1
+        ma = (a1 - a1[i]) / i
+        p = math.pow(i, penalty)
+        dev = ((a2 - a2[i]) / i - math.pow(ma, 2)) / p
+        m := i == len ? dev : math.min(dev, m)
+        bsma := m == dev ? ma : bsma
+        bsma
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Non-lag Moving Average
+NLMA(src, len) => // Credit @loxx
+    cycle = 4.0
+    coeff = 3.0 * math.pi
+    phase = len - 1.0
+    xlen = int(len * cycle + phase)
+    weight = 0., alfa = 0., out = 0.
+    alphas = array.new_float(xlen, 0)
+    for k = 0 to xlen - 1
+        t = 0.
+        t := k <= phase - 1 ?  1.0 * k / (phase - 1) : 1.0 + (k - phase + 1) * (2.0 * cycle - 1.0) / (cycle * len -1.0)
+        beta = math.cos(math.pi * t)
+        g = 1.0/(coeff * t + 1)
+        g := t <= 0.5  ? 1 : g
+        array.set(alphas, k, g * beta)
+        weight += array.get(alphas, k)
+    if (weight > 0)  
+        sum = 0.
+        for k = 0 to xlen - 1
+            sum += array.get(alphas, k) * nz(src[k])
+        out := (sum / weight)
+    out
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Dürschner 3rd Generation Moving Average (New WMA)
+NWMA(src, _period) => // Credit @JoshuaMcGowan
+    fast = _period/2
+    lambda = _period/fast
+    alpha = lambda * (_period - 1)/(_period - lambda)
+    average1 = ta.wma(src, _period)
+    average2 = ta.wma(average1, fast)
+    nma = (1+alpha) * average1 - alpha*average2
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Parametric Kalman Filter
+PKF(src, len) => // Credit @alexgrover
+    a = 0.0
+    b = 0.0
+    c = 0.0
+    res = 0.0
+    aprv = math.abs(ta.change(src))
+    a := (1 - c) * aprv
+    b := math.abs(nz(res[len], src[1]) - src)
+    c := nz(a[1], aprv) / (nz(a[1], aprv) + b)
+    res := c * (src - nz(res[1], src[1])) + nz(res[1], src[1])
+    res
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Parabolic Weighted Moving Average
+PWMA(src, len) => // Credit @everget
+    pwr = 2
+    sum = 0.0, weightSum = 0.0
+    for i = 0 to len - 1 by 1
+        weight = math.pow(len - i, pwr)
+        sum += nz(src[i]) * weight
+        weightSum += weight
+        weightSum
+    out = sum / weightSum
+    out
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Quadruple Exponential Moving Average
+QEMA(src, len) => // Credit @everget
+    ema1 = ta.ema(src, len)
+    ema2 = ta.ema(ema1, len)
+    ema3 = ta.ema(ema2, len)
+    ema4 = ta.ema(ema3, len)
+    ema5 = ta.ema(ema4, len)
+    qema = 5 * ema1 - 10 * ema2 + 10 * ema3 - 5 * ema4 + ema5
+    qema
+
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Quick Moving Average
+QMA(src, len) => // Credit @everget
+	ma = src
+    peak = len / 3
+    num = 0.0
+    denom = 0.0
+    for i = 1 to len + 1
+        mult = 0.0
+        if i <= peak
+            mult := i / peak
+        else
+            mult := (len + 1 - i) / (len + 1 - peak)
+        num := num + src[i - 1] * mult
+        denom := denom + mult
+    ma := (denom != 0.0) ? (num / denom) : src
+	ma
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Regularized Exponential Moving Average
+REMA(src, len) => // Credit @everget
+    lambda = .5
+    alpha = 2 / (len + 1)
+    rema = 0.0
+    rema := (nz(rema[1]) + alpha * (src - nz(rema[1])) + lambda * (2 * nz(rema[1]) - nz(rema[2]))) / (lambda + 1)
+    rema
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Repulsion Moving Average
+REPMA(src, len) => // Credit @alexgrover
+    ta.sma(src, len*3) + ta.sma(src, len*2) - ta.sma(src, len)
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Range Exponential Moving Average
+RGEMA(src, len) => // Credit —
+    var float result = 0.0  
+    alpha = 2 / (1 + len)
+    weight = high - low
+    weight := weight == 0 ? syminfo.pointvalue : weight
+    num = 0.0
+    den = 0.0
+    num := na(num[1]) ? weight * src : num[1] + alpha * (weight * src - num[1])
+    den := na(den[1]) ? weight : den[1] + alpha * (weight - den[1])
+    result := num / den
+    result
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Welles Wilder's Smoothing Moving Average
+RMA(src, len) => // Credit @TradingView
+    ma = ta.sma(src, len)
+    alpha = 1/len
+    sum = 0.0
+    sum := na(sum[1]) ? ma : alpha * src + (1 - alpha) * nz(sum[1])
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Recursive Median Filter
+RMF(src, len) => // Credit @everget
+    Midlen = 5
+    PI = 2 * math.asin(1)
+    alphaArg = 2 * PI / len
+    alpha = 0.0
+    alpha := math.cos(alphaArg) != 0 ? (math.cos(alphaArg) + math.sin(alphaArg) - 1) / math.cos(alphaArg) : nz(alpha[1])
+    rmf = 0.0
+    rmf := alpha * ta.median(src, Midlen) + (1 - alpha) * nz(rmf[1])
+    rmf
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Recursive Moving Trend Average
+RMTA(src, len) => // Credit @everget
+    alpha = 2 / (len + 1)
+    b = 0.0
+    b := (1 - alpha) * nz(b[1], src) + src
+    rmta = 0.0
+    rmta := (1 - alpha) * nz(rmta[1], src) + alpha * (src + b - nz(b[1]))
+    rmta
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Relative Strength Moving Average - based on RSI
+RSMA(src, len) => // Credit —
+    a = 70
+    b = 30
+    c = 2 * len - 1
+    d = ta.ema(math.max(src - src[1], 0), c)
+    e = ta.ema(math.max(src[1] - src, 0), c)
+    f = (len - 1) * (e * a / (100 - a) - d)
+    g = f >= 0 ? src + f : src + f * (100 - a) / a
+    h = (len - 1) * (e * b / (100 - b) - d)
+    i = h >= 0 ? src + h : src + h * (100 - b) / b
+    res = math.avg(g, i)
+    res
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Right Sided Ricker MA
+RSRMA(src, len) => // Credit @alexgrover
+	ma = src
+    rsrma_sum = 0.0
+    rsrma_sumw = 0.0
+    rsrma_pw = 60.0
+    rsrma_width = rsrma_pw / 100 * len
+    for i = 0 to len - 1
+        w = (1 - math.pow(i/rsrma_width,2))*math.exp(-(i*i/(2*math.pow(rsrma_width,2))))
+        rsrma_sumw := rsrma_sumw + w
+        rsrma_sum := rsrma_sum + src[i] * w
+    ma := rsrma_sum/rsrma_sumw
+	ma
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Regressively Weighted Moving Average
+RWMA(src, len) => // Credit @RicardoSantos
+    var float _p = src
+    _p := nz(_p[1], src)
+    if _p[1] >= _p[2] and src > _p
+        _p := (_p * len + src) / (1 + len)
+        _p
+    if _p[1] <= _p[2] and src < _p
+        _p := (_p * len + src) / (1 + len)
+        _p
+    _p
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Slope Adaptive Moving Average
+SAMA(src, len) => // Credit @MightyZinger
+    minlen = 14.
+    majlen = 6.
+    minAlpha = 2 / (minlen + 1)
+    majAlpha = 2 / (majlen + 1)
+    hh = ta.highest(len + 1)
+    ll = ta.lowest(len + 1)
+    mult = hh - ll != 0 ? math.abs(2 * src - ll - hh) / (hh - ll) : 0
+    final = mult * (minAlpha - majAlpha) + majAlpha
+    final_alpha = math.pow(final, 2)
+    var sama = float(na)
+    sama := (src - nz(sama[1])) * final_alpha + nz(sama[1]) 
+    sama
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Smoother Filter Moving Average
+SFMA(src, len) => // Credit —
+    wrk = src, wrk2 = src, wrk4 = src
+    wrk0 = 0., wrk1 = 0., wrk3 = 0.
+    alpha = 0.45 * (len - 1.0) / (0.45 * (len - 1.0) + 2.0)
+    wrk0 := src + alpha * (nz(wrk[1]) - src)
+    wrk1 := (src - wrk) * (1 - alpha) + alpha * nz(wrk1[1])
+    wrk2 := wrk0 + wrk1
+    wrk3 := (wrk2 - nz(wrk4[1])) * math.pow(1.0 - alpha, 2) + math.pow(alpha, 2) * nz(wrk3[1])
+    wrk4 := wrk3 + nz(wrk4[1])
+    wrk4
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Simple Moving Average
+SMA(src, len) => // Credit @TradingView
+    sum = 0.0
+    for i = 0 to len - 1
+        sum := sum + src[i] / len
+    sum
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Senkou Span B
+SSB(src, len) => // Credit —
+    res = math.avg(ta.lowest(src, len), ta.highest(src, len))[len / 2]
+    res
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Ehlers - Super Smoother Filter P2
+SSF(src, len) => // Credit @everget
+    a = 2 * math.cos(45 * math.pi / 180) * math.pi / len
+    b = math.exp(-a)
+    c = -math.pow(b, 2)
+    d = 2 * b * math.cos(a)
+    e = 1 - d - c
+    res = 0.0
+    res := +e * src + d * nz(res[1]) + c * nz(res[2])
+    res
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Super Smooth Moving Average
+SSMA(src, len) => // Credit —
+    a1 = math.exp(-1.414 * math.pi / len)
+    b1 = 2 * a1 * math.cos(1.414 * math.pi / len)
+    c2 = b1
+    c3 = -a1 * a1
+    c1 = 1 - c2 - c3
+    v9 = 0.0
+    v9 := c1 * (src + nz(src[1])) / 2 + c2 * nz(v9[1]) + c3 * nz(v9[2])
+    v9
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Unknown
+STMA(src, len) => // Credit —
+    _Mult = 3
+    _atr = ta.atr(len)
+    _up = src - _Mult * _atr
+    up1 = nz(_up[1], _up)
+    _up := src[1] > up1 ? math.max(_up, up1) : _up
+    _dn = src + _Mult * _atr
+    dn1 = nz(_dn[1], _dn)
+    _dn := src[1] < dn1 ? math.min(_dn, dn1) : _dn
+    _dir = 1
+    _dir := nz(_dir[1], _dir)
+    _dir := _dir == -1 and src > dn1 ? 1 : _dir == 1 and src < up1 ? -1 : _dir
+    outsig = _dir == 1 ? _up : _dir == 1 ? na : _dn
+    outsig
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Self-Weighted Moving Average
+SWMA(src, len) => // Credit @everget
+    sum = 0.0
+    weightSum = 0.0
+    for i = 0 to len - 1 by 1
+        weight = src[len + i]
+        weightSum += weight
+        sum += weight * src[i]
+        sum
+    swma = sum / weightSum
+    swma
+// @function    Sine-Weighted Moving Average
+SW_MA(src, len) => // Credit @everget
+    var float result = 0.0
+    PI_ = 2 * math.asin(1)
+    sum = 0.0
+    weightSum = 0.0
+    for i = 0 to len - 1 by 1
+        weight = math.sin((i + 1) * PI_ / (len + 1))
+        sum += nz(src[i]) * weight
+        weightSum += weight
+        weightSum
+    result := sum / weightSum
+    result
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Triple Exponential Moving Average
+TEMA(src, len) => // Credit @TradingView
+    ema1 = ta.ema(src, len)
+    ema2 = ta.ema(ema1, len)
+    ema3 = ta.ema(ema2, len)
+    out = 3 * (ema1 - ema2) + ema3
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Triple Exponential Hull Moving Average
+THMA(src, len) => // Credit —
+    thma = ta.wma(ta.wma(src, len / 3) * 3 - ta.wma(src, len / 2) - ta.wma(src, len), len)
+    thma
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Unknown
+TL(src, len) => // Credit —
+    wper = len * 2 - 1
+    rng = math.abs(src - src[1])
+    avrng = ta.ema(rng, wper)
+    smrng = ta.rma(avrng, wper) * 1.618
+    tl = src
+    tl := na(tl[1]) ? src : src > nz(tl[1]) ? src - smrng < nz(tl[1]) ? nz(tl[1]) : src - smrng : src + smrng > nz(tl[1]) ? nz(tl[1]) : src + smrng
+    tl
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Triangular Moving Average
+TMA(src, len) => // Credit @JacobAmos
+    tma = ta.sma(ta.sma(src, math.ceil(len / 2)), math.floor(len / 2) + 1)
+    tma
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Three-pole Ehlers Butterworth
+TPBF(src, len) => // Credit @blackcat1402
+    a1 = 0., b1 = 0., c1 = 0.
+    coef1 = 0., coef2 = 0., coef3 = 0., coef4 = 0.
+    bttr = 0., trig = 0.
+    a1 := math.exp(-math.pi / len)
+    b1 := 2 * a1 * math.cos(1.738 * math.pi / len)
+    c1 := a1 * a1
+    coef2 := b1 + c1
+    coef3 := -(c1 + b1 * c1)
+    coef4 := c1 * c1
+    coef1 := (1 - b1 + c1) * (1 - c1) / 8
+    bttr := coef1 * (src + 3 * nz(src[1]) + 3 * nz(src[2]) + nz(src[3])) + coef2 * nz(bttr[1]) + coef3 * nz(bttr[2]) + coef4 * nz(bttr[3])
+    bttr := bar_index < 4 ? src : bttr
+    trig := nz(bttr[1])
+    bttr
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Trend Regularity Adaptive Moving Average
+TRAMA(src, len) => // Credit @LuxAlgo
+    ama = 0.
+    hh = math.max(math.sign(ta.change(ta.highest(len))), 0)
+    ll = math.max(math.sign(ta.change(ta.lowest(len)) * -1), 0)
+    tc = math.pow(ta.sma(hh or ll ? 1 : 0, len), 2)
+    ama := nz(ama[1] + tc * (src - ama[1]), src)
+    ama
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    True Strength Force
+TSF(src, len) => // Credit —
+    lrc = ta.linreg(src, len, 0)
+    lrc1 = ta.linreg(src, len, 1)
+    lrs = lrc - lrc1
+    res = ta.linreg(src, len, 0) + lrs
+    res
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Tilson (3rd Degree) Moving Average
+TT3(src, len) => // Credit @StalexBot
+    factor = 0.7 
+    a = factor + 1
+    b = ta.ema(src, len)
+    c = ta.ema(b, len)
+    d = ta.ema(c, len)
+    e = ta.ema(d, len)
+    f = ta.ema(e, len)
+    g = ta.ema(f, len)
+    h = -1 * 1 * math.pow(factor, 3) * math.pow(a, 0)
+    i = +1 * 3 * math.pow(factor, 2) * math.pow(a, 1)
+    j = -1 * 3 * math.pow(factor, 1) * math.pow(a, 2)
+    k = +1 * 1 * math.pow(factor, 0) * math.pow(a, 3)
+    res = h * g + i * f + j * e + k * d
+    res
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Volatility Adjusted Moving Average
+VAMA(src, len) => // Credit @Duyck
+    _vollen = len * 3
+    mid = ta.ema(src, len)
+    dev = src - mid
+    vol_up = ta.highest(dev, _vollen)
+    vol_down = ta.lowest(dev, _vollen)
+    vama = mid + math.avg(vol_up, vol_down)
+    vama
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Volume Adjusted Moving Average Function
+VAMAF(src, len) => // Credit @allanster
+    fct = 0.67
+    rul = true
+    nvb = 0
+    tvb = 0, tvb := nvb == 0 ? nz(tvb[1]) + 1 : nvb
+    tvs = nvb == 0 ? ta.cum(volume) : math.sum(volume, nvb)
+    v2i = volume / ((tvs / tvb) * fct)
+    wtd = src*v2i
+    nmb = 1
+    wtdSumB = 0.0
+    v2iSumB = 0.0
+    for i = 1 to len * 10
+        strict = rul ? false : i == len
+        wtdSumB := wtdSumB + nz(wtd[i-1])
+        v2iSumB := v2iSumB + nz(v2i[i-1])
+        if v2iSumB >= len or strict
+            break
+        nmb := nmb + 1
+    vama = (wtdSumB - (v2iSumB - len) * src[nmb]) / len
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function   Vector Autoregression Moving Average
+VAR(src, len) => // Credit —
+    valpha = 2 / (len + 1)
+    vud1 = src > src[1] ? src - src[1] : 0
+    vdd1 = src < src[1] ? src[1] - src : 0
+    vUD = math.sum(vud1, 9)
+    vDD = math.sum(vdd1, 9)
+    vCMO = nz((vUD - vDD) / (vUD + vDD))
+    res = 0.0
+    res := nz(valpha * math.abs(vCMO) * src) + (1 - valpha * math.abs(vCMO)) * nz(res[1])
+    res
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function   Variable Moving Average
+VBMA(src, length) => // Credit @LazyBear
+	ma = src
+    k = 1.0 / length
+    pdm = math.max((src - src[1]), 0)
+    mdm = math.max((src[1] - src), 0)
+    pdmS = float(0.0)
+    mdmS = float(0.0)
+    pdmS := ((1 - k)*nz(pdmS[1]) + k*pdm)
+    mdmS := ((1 - k)*nz(mdmS[1]) + k*mdm)
+    s = pdmS + mdmS
+    pdi = pdmS/s
+    mdi = mdmS/s
+    pdiS = float(0.0)
+    mdiS = float(0.0)
+    pdiS := ((1 - k)*nz(pdiS[1]) + k*pdi)
+    mdiS := ((1 - k)*nz(mdiS[1]) + k*mdi)
+    d = math.abs(pdiS - mdiS)
+    s1 = pdiS + mdiS
+    iS = float(0.0)
+    iS := ((1 - k)*nz(iS[1]) + k*d/s1)
+    hhv = ta.highest(iS, length) 
+    llv = ta.lowest(iS, length) 
+    d1 = hhv - llv
+    vI = (iS - llv)/d1
+    ma := (1 - k * vI) *nz(ma[1]) + k * vI * src
+	ma
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Vertical Horizontal Moving Average
+VHMA(src, len) => // Credit @alexgrover
+    vhma = 0.
+    R = ta.highest(src, len) - ta.lowest(src, len)
+    vhf = R / math.sum(math.abs(ta.change(src)), len)
+    vhma := nz(vhma[1] + math.pow(vhf, 2) * (src - vhma[1]), src)
+    vhma
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Variable Index Dynamic Average
+VIDYA(src, len) => // Credit @everget
+    mom = ta.change(src)
+    upSum = math.sum(math.max(mom, 0), len)
+    downSum = math.sum(-math.min(mom, 0), len)
+    out = (upSum - downSum) / (upSum + downSum)
+    cmo = math.abs(out)
+    alpha = 2 / (len + 1)
+    vidya = 0.0
+    vidya := src * alpha * cmo + nz(vidya[1]) * (1 - alpha * cmo)
+    vidya
+    // in a slightly different way
+    // _cmo = ta.cmo(src, len) / 100  //Chande Momentum Oscillator
+    // var _factor = 2 / (len + 1)
+    // result = src * _factor * math.abs(_cmo) + nz(result[1]) * (1 - _factor * math.abs(_cmo))
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Volume Moving Average
+VMA(src, len) => // Credit —
+	ma 			= src
+    valpha 		= 2 / (len + 1)
+    vud1 		= src > src[1] ? src - src[1] : 0
+    vdd1 		= src < src[1] ? src[1] - src : 0
+    vUD 		= math.sum(vud1, 9)
+    vDD 		= math.sum(vdd1, 9)
+    vCMO 		= nz((vUD - vDD) / (vUD + vDD))
+    ma 			:= nz(valpha * math.abs(vCMO) * src) + (1 - valpha * math.abs(vCMO)) * nz(ma[1])
+	ma
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Unknown // VSOMTHIN ?
+VSO(src, len) => // Credit —
+    _mult = 4
+    _rng = high - low
+    _wt1 = ta.wma(_rng, len)
+    _wt2 = ta.wma(volume, len)
+    _Gn1 = open > close[1]
+    _Rd1 = open < close[1]
+    _siG = _rng > _wt1 * _mult and volume > _wt2 * _mult or _rng > _wt1 * _mult and (_Gn1 or _Rd1) or volume > _wt2 * _mult and (_Gn1 or _Rd1)
+    _fin = ta.valuewhen(_siG, src, 0)
+    _fin == _fin[1] ? _fin : na
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Volume Weighted Moving Average
+VWMA(src, len) => // Credit @TradingView
+    //_vol_sum = 0.0
+    //tr_sum = 0.0
+    //for i = 0 to len by 1
+    //    _vol_sum := src[i] * volume[i] * math.abs(ta.tr(true)[i]) * (len + 1 - i) + _vol_sum
+    //    tr_sum := volume[i] * math.abs(ta.tr(true)[i]) * (len + 1 - i) + tr_sum
+    //    tr_sum
+    //VVwma = _vol_sum / tr_sum
+    //VVwma   // --- in a slightly different way
+    out = ta.sma(src * volume, len) / ta.sma(volume, len)
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Unknown
+WCD(src, len) => // Credit —
+    _x1 = 0.0
+    _x2 = 0.0
+    _wx = 0.0
+    for i_i = 0 to len - 1 by 1
+        _x1 += math.abs(nz(src[1]) - nz(src[i_i]))
+        _x1
+    weight = 1 / _x1
+    for i = 0 to len - 1 by 1
+        _x2 += nz(src[i]) * weight
+        _wx += weight
+        _wx
+    SX = _x2 / _wx
+    SX
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Weighted Moving Average
+WMA(src, len) => // Credit @TradingView
+    norm = 0.0
+    sum = 0.0
+    for i = 0 to len - 1
+        weight = (len - i) * len
+        norm := norm + weight
+        sum := sum + src[i] * weight
+    sum / norm
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Optimized Exponential Moving Average
+XEMA(src, len) => // Credit —
+    mult = 2.0 / (len + 1.0)
+    res = float(na)
+    res := mult * src + (1.0 - mult) * nz(res[1], src)
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Zero Lag Moving Average
+ZEMA(src, len) => // Credit —
+    alpha = 2.0/(1.0 + len)
+    per = math.ceil((len - 1.0) / 2.0 )
+    zlagma = 0.
+    zlagma := nz(zlagma[1]) + alpha * (2.0 * src - nz(zlagma[per]) - nz(zlagma[1]))
+    zlagma
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Zero-Lag Double Exponential Moving Average
+ZLDEMA(src, len) => // Credit —
+    zdema1 = ta.ema(src, len) 
+    zdema2 = ta.ema(zdema1, len)
+    dema1 = 2 * zdema1 - zdema2
+    zdema12 = ta.ema(dema1, len)
+    zdema22 = ta.ema(zdema12, len)
+    demaout = 2 * zdema12 - zdema22
+    demaout
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Ehlers - Zero Lag Exponential Moving Average
+ZLEMA(src, len) => // Credit @HPotter
+    lag = (len - 1) / 2
+    emaSrc = src + src - src[lag]
+    v10 = ta.ema(emaSrc, len)
+    v10
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Zero-Lag Moving Average
+ZLMA(src, len) => // Credit —
+    floor = (len - 1) / 2 
+    x = 2 * src - src[floor]
+    res = ta.ema(x, len)
+    res
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Zero-Lag Triple Exponential Moving Average
+ZLTEMA(src, len) => // Credit —
+    ema1 = ta.ema(src, len)
+    ema2 = ta.ema(ema1, len)
+    ema3 = ta.ema(ema2, len)
+    out = 3 * (ema1 - ema2) + ema3
+    ema1a = ta.ema(out, len)
+    ema2a = ta.ema(ema1a, len)
+    ema3a = ta.ema(ema2a, len)
+    outf = 3 * (ema1a - ema2a) + ema3a
+    outf
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// @function    Zero-Lag Simple Moving Average
+ZSMA(src, len) => // Credit —
+    float result = 0.0  
+    var _l = (len + 1) / 2
+    _srcL = src + nz(ta.mom(src, _l))
+    result := ta.sma(_srcL, len)
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// ——————————————————————————————————————————   END of Function List   ———————————————————————————————————————————— \\
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+
+
+
+
+
+
+
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// —————————————————————————————————————    Control Panel For All Functions    —————————————————————————————————————— \\
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// Calling Moving Averages from arrays
+t(id, txt)=>
+    res   = (id)
+    check = txt == 1 ? str.tostring(id) : res
+
+MA(src, len, id, str) =>
+    name = string(na)
+    ID = float(na)
+    ID := id==001 or str==AARMA  ? AARMA  (src, len) : ID,    name := id==001 or str==AARMA  ? AARMA  : name
+    ID := id==002 or str==ADMA   ? ADMA   (src, len) : ID,    name := id==002 or str==ADMA   ? ADMA   : name
+    ID := id==003 or str==ADXMA  ? ADXMA  (src, len) : ID,    name := id==003 or str==ADXMA  ? ADXMA  : name
+    ID := id==004 or str==ADXVMA ? ADXVMA (src, len) : ID,    name := id==004 or str==ADXVMA ? ADXVMA : name
+    ID := id==005 or str==AHMA   ? AHMA   (src, len) : ID,    name := id==005 or str==AHMA   ? AHMA   : name
+    ID := id==006 or str==ALF    ? ALF    (src, len) : ID,    name := id==006 or str==ALF    ? ALF    : name
+    ID := id==007 or str==ALMA   ? ALMA   (src, len) : ID,    name := id==007 or str==ALMA   ? ALMA   : name
+    ID := id==008 or str==ALSMA  ? ALSMA  (src, len) : ID,    name := id==008 or str==ALSMA  ? ALSMA  : name
+    ID := id==009 or str==ALXMA  ? ALXMA  (src, len) : ID,    name := id==009 or str==ALXMA  ? ALXMA  : name
+    ID := id==010 or str==AMA    ? AMA    (src, len) : ID,    name := id==010 or str==AMA    ? AMA    : name
+    ID := id==011 or str==ARI    ? ARI    (src, len) : ID,    name := id==011 or str==ARI    ? ARI    : name
+    ID := id==012 or str==ARSI   ? ARSI   (src, len) : ID,    name := id==012 or str==ARSI   ? ARSI   : name
+    ID := id==013 or str==AUF    ? AUF    (src, len) : ID,    name := id==013 or str==AUF    ? AUF    : name
+    ID := id==014 or str==AUTL   ? AUTL   (src, len) : ID,    name := id==014 or str==AUTL   ? AUTL   : name
+    ID := id==015 or str==BAMA   ? BAMA   (src, len) : ID,    name := id==015 or str==BAMA   ? BAMA   : name
+    ID := id==016 or str==BFMA   ? BFMA   (src, len) : ID,    name := id==016 or str==BFMA   ? BFMA   : name
+    ID := id==017 or str==CMA    ? CMA    (src, len) : ID,    name := id==017 or str==CMA    ? CMA    : name
+    ID := id==018 or str==CORMA  ? CORMA  (src, len) : ID,    name := id==018 or str==CORMA  ? CORMA  : name
+    ID := id==019 or str==COVEMA ? COVEMA (src, len) : ID,    name := id==019 or str==COVEMA ? COVEMA : name
+    ID := id==020 or str==COVNA  ? COVNA  (src, len) : ID,    name := id==020 or str==COVNA  ? COVNA  : name
+    ID := id==021 or str==CTI    ? CTI    (src, len) : ID,    name := id==021 or str==CTI    ? CTI    : name
+    ID := id==022 or str==DEC    ? DEC    (src, len) : ID,    name := id==022 or str==DEC    ? DEC    : name
+    ID := id==023 or str==DEMA   ? DEMA   (src, len) : ID,    name := id==023 or str==DEMA   ? DEMA   : name
+    ID := id==024 or str==DEVS   ? DEVS   (src, len) : ID,    name := id==024 or str==DEVS   ? DEVS   : name
+    ID := id==025 or str==DONEMA ? DONEMA (src, len) : ID,    name := id==025 or str==DONEMA ? DONEMA : name
+    ID := id==026 or str==DONMA  ? DONMA  (src, len) : ID,    name := id==026 or str==DONMA  ? DONMA  : name
+    ID := id==027 or str==DSEMA  ? DSEMA  (src, len) : ID,    name := id==027 or str==DSEMA  ? DSEMA  : name
+    ID := id==028 or str==DSWF   ? DSWF   (src, len) : ID,    name := id==028 or str==DSWF   ? DSWF   : name
+    ID := id==029 or str==DWMA   ? DWMA   (src, len) : ID,    name := id==029 or str==DWMA   ? DWMA   : name
+    ID := id==030 or str==E2PBF  ? E2PBF  (src, len) : ID,    name := id==030 or str==E2PBF  ? E2PBF  : name
+    ID := id==031 or str==E2SSF  ? E2SSF  (src, len) : ID,    name := id==031 or str==E2SSF  ? E2SSF  : name
+    ID := id==032 or str==E3PBF  ? E3PBF  (src, len) : ID,    name := id==032 or str==E3PBF  ? E3PBF  : name
+    ID := id==033 or str==E3SSF  ? E3SSF  (src, len) : ID,    name := id==033 or str==E3SSF  ? E3SSF  : name
+    ID := id==034 or str==EDMA   ? EDMA   (src, len) : ID,    name := id==034 or str==EDMA   ? EDMA   : name
+    ID := id==035 or str==EDSMA  ? EDSMA  (src, len) : ID,    name := id==035 or str==EDSMA  ? EDSMA  : name
+    ID := id==036 or str==EEO    ? EEO    (src, len) : ID,    name := id==036 or str==EEO    ? EEO    : name
+    ID := id==037 or str==EFRAMA ? EFRAMA (src, len) : ID,    name := id==037 or str==EFRAMA ? EFRAMA : name
+    ID := id==038 or str==EHMA   ? EHMA   (src, len) : ID,    name := id==038 or str==EHMA   ? EHMA   : name
+    ID := id==039 or str==EIT    ? EIT    (src, len) : ID,    name := id==039 or str==EIT    ? EIT    : name
+    ID := id==040 or str==ELF    ? ELF    (src, len) : ID,    name := id==040 or str==ELF    ? ELF    : name
+    ID := id==041 or str==EMA    ? EMA    (src, len) : ID,    name := id==041 or str==EMA    ? EMA    : name
+    ID := id==042 or str==EMARSI ? EMARSI (src, len) : ID,    name := id==042 or str==EMARSI ? EMARSI : name
+    ID := id==043 or str==EPF    ? EPF    (src, len) : ID,    name := id==043 or str==EPF    ? EPF    : name
+    ID := id==044 or str==EPMA   ? EPMA   (src, len) : ID,    name := id==044 or str==EPMA   ? EPMA   : name
+    ID := id==045 or str==EREA   ? EREA   (src, len) : ID,    name := id==045 or str==EREA   ? EREA   : name
+    ID := id==046 or str==ESSF   ? ESSF   (src, len) : ID,    name := id==046 or str==ESSF   ? ESSF   : name
+    ID := id==047 or str==ETMA   ? ETMA   (src, len) : ID,    name := id==047 or str==ETMA   ? ETMA   : name
+    ID := id==048 or str==EVMA   ? EVMA   (src, len) : ID,    name := id==048 or str==EVMA   ? EVMA   : name
+    ID := id==049 or str==FAMA   ? FAMA   (src, len) : ID,    name := id==049 or str==FAMA   ? FAMA   : name
+    ID := id==050 or str==FEMA   ? FEMA   (src, len) : ID,    name := id==050 or str==FEMA   ? FEMA   : name
+    ID := id==051 or str==FIBWMA ? FIBWMA (src, len) : ID,    name := id==051 or str==FIBWMA ? FIBWMA : name
+    ID := id==052 or str==FLSMA  ? FLSMA  (src, len) : ID,    name := id==052 or str==FLSMA  ? FLSMA  : name
+    ID := id==053 or str==FRAMA  ? FRAMA  (src, len) : ID,    name := id==053 or str==FRAMA  ? FRAMA  : name
+    ID := id==054 or str==FX     ? FX     (src, len) : ID,    name := id==054 or str==FX     ? FX     : name
+    ID := id==055 or str==GAUS   ? GAUS   (src, len) : ID,    name := id==055 or str==GAUS   ? GAUS   : name
+    ID := id==056 or str==GHL    ? GHL    (src, len) : ID,    name := id==056 or str==GHL    ? GHL    : name
+    ID := id==057 or str==GMA    ? GMA    (src, len) : ID,    name := id==057 or str==GMA    ? GMA    : name
+    ID := id==058 or str==GMMA   ? GMMA   (src, len) : ID,    name := id==058 or str==GMMA   ? GMMA   : name
+    ID := id==059 or str==HCF    ? HCF    (src, len) : ID,    name := id==059 or str==HCF    ? HCF    : name
+    ID := id==060 or str==HEMA   ? HEMA   (src, len) : ID,    name := id==060 or str==HEMA   ? HEMA   : name
+    ID := id==061 or str==HKAMA  ? HKAMA  (src, len) : ID,    name := id==061 or str==HKAMA  ? HKAMA  : name
+    ID := id==062 or str==HMA    ? HMA    (src, len) : ID,    name := id==062 or str==HMA    ? HMA    : name
+    ID := id==063 or str==HSMA   ? HSMA   (src, len) : ID,    name := id==063 or str==HSMA   ? HSMA   : name
+    ID := id==064 or str==HULL   ? HULL   (src, len) : ID,    name := id==064 or str==HULL   ? HULL   : name
+    ID := id==065 or str==HULLT  ? HULLT  (src, len) : ID,    name := id==065 or str==HULLT  ? HULLT  : name
+    ID := id==066 or str==HWMA   ? HWMA   (src, len) : ID,    name := id==066 or str==HWMA   ? HWMA   : name
+    ID := id==067 or str==IE2    ? IE2    (src, len) : ID,    name := id==067 or str==IE2    ? IE2    : name
+    ID := id==068 or str==IIRF   ? IIRF   (src, len) : ID,    name := id==068 or str==IIRF   ? IIRF   : name
+    ID := id==069 or str==ILRS   ? ILRS   (src, len) : ID,    name := id==069 or str==ILRS   ? ILRS   : name
+    ID := id==070 or str==JMA    ? JMA    (src, len) : ID,    name := id==070 or str==JMA    ? JMA    : name
+    ID := id==071 or str==KA     ? KA     (src, len) : ID,    name := id==071 or str==KA     ? KA     : name
+    ID := id==072 or str==KAMA   ? KAMA   (src, len) : ID,    name := id==072 or str==KAMA   ? KAMA   : name
+    ID := id==073 or str==KIJUN  ? KIJUN  (src, len) : ID,    name := id==073 or str==KIJUN  ? KIJUN  : name
+    ID := id==074 or str==KIJUN2 ? KIJUN2 (src, len) : ID,    name := id==074 or str==KIJUN2 ? KIJUN2 : name
+    ID := id==075 or str==LAG    ? LAG    (src, len) : ID,    name := id==075 or str==LAG    ? LAG    : name
+    ID := id==076 or str==LCLSMA ? LCLSMA (src, len) : ID,    name := id==076 or str==LCLSMA ? LCLSMA : name
+    ID := id==077 or str==LEMA   ? LEMA   (src, len) : ID,    name := id==077 or str==LEMA   ? LEMA   : name
+    ID := id==078 or str==LLMA   ? LLMA   (src, len) : ID,    name := id==078 or str==LLMA   ? LLMA   : name
+    ID := id==079 or str==LMA    ? LMA    (src, len) : ID,    name := id==079 or str==LMA    ? LMA    : name
+    ID := id==080 or str==LP     ? LP     (src, len) : ID,    name := id==080 or str==LP     ? LP     : name
+    ID := id==081 or str==LRL    ? LRL    (src, len) : ID,    name := id==081 or str==LRL    ? LRL    : name
+    ID := id==082 or str==LSMA   ? LSMA   (src, len) : ID,    name := id==082 or str==LSMA   ? LSMA   : name
+    ID := id==083 or str==LTB    ? LTB    (src, len) : ID,    name := id==083 or str==LTB    ? LTB    : name
+    ID := id==084 or str==LWMA   ? LWMA   (src, len) : ID,    name := id==084 or str==LWMA   ? LWMA   : name
+    ID := id==085 or str==MAMA   ? MAMA   (src, len) : ID,    name := id==085 or str==MAMA   ? MAMA   : name
+    ID := id==086 or str==MAVW   ? MAVW   (src, len) : ID,    name := id==086 or str==MAVW   ? MAVW   : name
+    ID := id==087 or str==MCGD   ? MCGD   (src, len) : ID,    name := id==087 or str==MCGD   ? MCGD   : name
+    ID := id==088 or str==MF     ? MF     (src, len) : ID,    name := id==088 or str==MF     ? MF     : name
+    ID := id==089 or str==MID    ? MID    (src, len) : ID,    name := id==089 or str==MID    ? MID    : name
+    ID := id==090 or str==MNMA   ? MNMA   (src, len) : ID,    name := id==090 or str==MNMA   ? MNMA   : name
+    ID := id==091 or str==MTMA   ? MTMA   (src, len) : ID,    name := id==091 or str==MTMA   ? MTMA   : name
+    ID := id==092 or str==MVSMA  ? MVSMA  (src, len) : ID,    name := id==092 or str==MVSMA  ? MVSMA  : name
+    ID := id==093 or str==NLMA   ? NLMA   (src, len) : ID,    name := id==093 or str==NLMA   ? NLMA   : name
+    ID := id==094 or str==NWMA   ? NWMA   (src, len) : ID,    name := id==094 or str==NWMA   ? NWMA   : name
+    ID := id==095 or str==PKF    ? PKF    (src, len) : ID,    name := id==095 or str==PKF    ? PKF    : name
+    ID := id==096 or str==PWMA   ? PWMA   (src, len) : ID,    name := id==096 or str==PWMA   ? PWMA   : name
+    ID := id==097 or str==QEMA   ? QEMA   (src, len) : ID,    name := id==097 or str==QEMA   ? QEMA   : name
+    ID := id==098 or str==QMA    ? QMA    (src, len) : ID,    name := id==098 or str==QMA    ? QMA    : name
+    ID := id==099 or str==REMA   ? REMA   (src, len) : ID,    name := id==099 or str==REMA   ? REMA   : name
+    ID := id==100 or str==REPMA  ? REPMA  (src, len) : ID,    name := id==100 or str==REPMA  ? REPMA  : name
+    ID := id==101 or str==RGEMA  ? RGEMA  (src, len) : ID,    name := id==101 or str==RGEMA  ? RGEMA  : name
+    ID := id==102 or str==RMA    ? RMA    (src, len) : ID,    name := id==102 or str==RMA    ? RMA    : name
+    ID := id==103 or str==RMF    ? RMF    (src, len) : ID,    name := id==103 or str==RMF    ? RMF    : name
+    ID := id==104 or str==RMTA   ? RMTA   (src, len) : ID,    name := id==104 or str==RMTA   ? RMTA   : name
+    ID := id==105 or str==RSMA   ? RSMA   (src, len) : ID,    name := id==105 or str==RSMA   ? RSMA   : name
+    ID := id==106 or str==RSRMA  ? RSRMA  (src, len) : ID,    name := id==106 or str==RSRMA  ? RSRMA  : name
+    ID := id==107 or str==RWMA   ? RWMA   (src, len) : ID,    name := id==107 or str==RWMA   ? RWMA   : name
+    ID := id==108 or str==SAMA   ? SAMA   (src, len) : ID,    name := id==108 or str==SAMA   ? SAMA   : name
+    ID := id==109 or str==SFMA   ? SFMA   (src, len) : ID,    name := id==109 or str==SFMA   ? SFMA   : name
+    ID := id==110 or str==SMA    ? SMA    (src, len) : ID,    name := id==110 or str==SMA    ? SMA    : name
+    ID := id==111 or str==SSB    ? SSB    (src, len) : ID,    name := id==111 or str==SSB    ? SSB    : name
+    ID := id==112 or str==SSF    ? SSF    (src, len) : ID,    name := id==112 or str==SSF    ? SSF    : name
+    ID := id==113 or str==SSMA   ? SSMA   (src, len) : ID,    name := id==113 or str==SSMA   ? SSMA   : name
+    ID := id==114 or str==STMA   ? STMA   (src, len) : ID,    name := id==114 or str==STMA   ? STMA   : name
+    ID := id==115 or str==SWMA   ? SWMA   (src, len) : ID,    name := id==115 or str==SWMA   ? SWMA   : name
+    ID := id==116 or str==SW_MA  ? SW_MA  (src, len) : ID,    name := id==116 or str==SW_MA  ? SW_MA  : name
+    ID := id==117 or str==TEMA   ? TEMA   (src, len) : ID,    name := id==117 or str==TEMA   ? TEMA   : name
+    ID := id==118 or str==THMA   ? THMA   (src, len) : ID,    name := id==118 or str==THMA   ? THMA   : name
+    ID := id==119 or str==TL     ? TL     (src, len) : ID,    name := id==119 or str==TL     ? TL     : name
+    ID := id==120 or str==TMA    ? TMA    (src, len) : ID,    name := id==120 or str==TMA    ? TMA    : name
+    ID := id==121 or str==TPBF   ? TPBF   (src, len) : ID,    name := id==121 or str==TPBF   ? TPBF   : name
+    ID := id==122 or str==TRAMA  ? TRAMA  (src, len) : ID,    name := id==122 or str==TRAMA  ? TRAMA  : name
+    ID := id==123 or str==TSF    ? TSF    (src, len) : ID,    name := id==123 or str==TSF    ? TSF    : name
+    ID := id==124 or str==TT3    ? TT3    (src, len) : ID,    name := id==124 or str==TT3    ? TT3    : name
+    ID := id==125 or str==VAMA   ? VAMA   (src, len) : ID,    name := id==125 or str==VAMA   ? VAMA   : name
+    ID := id==126 or str==VAMAF  ? VAMAF  (src, len) : ID,    name := id==126 or str==VAMAF  ? VAMAF  : name
+    ID := id==127 or str==VAR    ? VAR    (src, len) : ID,    name := id==127 or str==VAR    ? VAR    : name
+    ID := id==128 or str==VBMA   ? VBMA   (src, len) : ID,    name := id==128 or str==VBMA   ? VBMA   : name
+    ID := id==129 or str==VHMA   ? VHMA   (src, len) : ID,    name := id==129 or str==VHMA   ? VHMA   : name
+    ID := id==130 or str==VIDYA  ? VIDYA  (src, len) : ID,    name := id==130 or str==VIDYA  ? VIDYA  : name
+    ID := id==131 or str==VMA    ? VMA    (src, len) : ID,    name := id==131 or str==VMA    ? VMA    : name
+    ID := id==132 or str==VSO    ? VSO    (src, len) : ID,    name := id==132 or str==VSO    ? VSO    : name
+    ID := id==133 or str==VWMA   ? VWMA   (src, len) : ID,    name := id==133 or str==VWMA   ? VWMA   : name
+    ID := id==134 or str==WCD    ? WCD    (src, len) : ID,    name := id==134 or str==WCD    ? WCD    : name
+    ID := id==135 or str==WMA    ? WMA    (src, len) : ID,    name := id==135 or str==WMA    ? WMA    : name
+    ID := id==136 or str==XEMA   ? XEMA   (src, len) : ID,    name := id==136 or str==XEMA   ? XEMA   : name
+    ID := id==137 or str==ZEMA   ? ZEMA   (src, len) : ID,    name := id==137 or str==ZEMA   ? ZEMA   : name
+    ID := id==138 or str==ZLDEMA ? ZLDEMA (src, len) : ID,    name := id==138 or str==ZLDEMA ? ZLDEMA : name
+    ID := id==139 or str==ZLEMA  ? ZLEMA  (src, len) : ID,    name := id==139 or str==ZLEMA  ? ZLEMA  : name
+    ID := id==140 or str==ZLTEMA ? ZLTEMA (src, len) : ID,    name := id==140 or str==ZLTEMA ? ZLTEMA : name
+    ID := id==141 or str==ZSMA   ? ZSMA   (src, len) : ID,    name := id==141 or str==ZSMA   ? ZSMA   : name
+    [ID, name]
+
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// Inputs
+ttmod   = ' The Average between the two ID'
+ttpanel = ' You can control the Panel at the bottom, it is designed to make it easy to understand which Moving Average is being used.'
+ttcfg   = ' This is a two of additional options that allow you to call MA by name rather than by ID. Use what you find more comfortable.'
+source  = input.source    (close,     'Source',             inline='src')
+edittf  = input.timeframe ('',        '   TimeFrame',       inline='src')
+seeres1 = input.bool      (true,      'Show ?',             inline='id1')
+seeres2 = input.bool      (true,      'Show ?',             inline='id2')
+seeres3 = input.bool      (true,      'Show ?',             inline='id3')
+seeres4 = input.bool      (true,      'Show ?',             inline='id4')
+length1 = input.int       (50,        'Length',             inline='id1')
+length2 = input.int       (50,        'Length',             inline='id2')
+length3 = input.int       (50,        'Length',             inline='id3')
+length4 = input.int       (50,        'Length',             inline='id4')
+id1     = input.int       (2 ,        'ID  1',              inline='id1', minval=1, maxval=141)
+id2     = input.int       (61,        'ID  2',              inline='id2', minval=1, maxval=141)
+cfg1    = input.string    (LSMA,      'MA 3',               inline='id3', options=[AARMA,ADMA,ADXMA,ADXVMA,AHMA,ALF,ALMA,ALSMA,ALXMA,AMA,ARI,ARSI,AUF,AUTL,BAMA,BFMA,CMA,CORMA,COVEMA,COVNA,CTI,DEC,DEMA,DEVS,DONEMA,DONMA,DSEMA,DSWF,DWMA,E2PBF,E2SSF,E3PBF,E3SSF,EDMA,EDSMA,EEO,EFRAMA,EHMA,EIT,ELF,EMA,EMARSI,EPF,EPMA,EREA,ESSF,ETMA,EVMA,FAMA,FEMA,FIBWMA,FLSMA,FRAMA,FX,GAUS,GHL,GMA,GMMA,HCF,HEMA,HKAMA,HMA,HSMA,HULL,HULLT,HWMA,IE2,IIRF,ILRS,JMA,KA,KAMA,KIJUN,KIJUN2,LAG,LCLSMA,LEMA,LLMA,LMA,LP,LRL,LSMA,LTB,LWMA,MAMA,MAVW,MCGD,MF,MID,MNMA,MTMA,MVSMA,NLMA,NWMA,PKF,PWMA,QEMA,QMA,REMA,REPMA,RGEMA,RMA,RMF,RMTA,RSMA,RSRMA,RWMA,SAMA,SFMA,SMA,SSB,SSF,SSMA,STMA,SWMA,SW_MA,TEMA,THMA,TL,TMA,TPBF,TRAMA,TSF,TT3,VAMA,VAMAF,VAR,VBMA,VHMA,VIDYA,VMA,VSO,VWMA,WCD,WMA,XEMA,ZEMA,ZLDEMA,ZLEMA,ZLTEMA,ZSMA])
+cfg2    = input.string    (XEMA,      'MA 4',               inline='id4', options=[AARMA,ADMA,ADXMA,ADXVMA,AHMA,ALF,ALMA,ALSMA,ALXMA,AMA,ARI,ARSI,AUF,AUTL,BAMA,BFMA,CMA,CORMA,COVEMA,COVNA,CTI,DEC,DEMA,DEVS,DONEMA,DONMA,DSEMA,DSWF,DWMA,E2PBF,E2SSF,E3PBF,E3SSF,EDMA,EDSMA,EEO,EFRAMA,EHMA,EIT,ELF,EMA,EMARSI,EPF,EPMA,EREA,ESSF,ETMA,EVMA,FAMA,FEMA,FIBWMA,FLSMA,FRAMA,FX,GAUS,GHL,GMA,GMMA,HCF,HEMA,HKAMA,HMA,HSMA,HULL,HULLT,HWMA,IE2,IIRF,ILRS,JMA,KA,KAMA,KIJUN,KIJUN2,LAG,LCLSMA,LEMA,LLMA,LMA,LP,LRL,LSMA,LTB,LWMA,MAMA,MAVW,MCGD,MF,MID,MNMA,MTMA,MVSMA,NLMA,NWMA,PKF,PWMA,QEMA,QMA,REMA,REPMA,RGEMA,RMA,RMF,RMTA,RSMA,RSRMA,RWMA,SAMA,SFMA,SMA,SSB,SSF,SSMA,STMA,SWMA,SW_MA,TEMA,THMA,TL,TMA,TPBF,TRAMA,TSF,TT3,VAMA,VAMAF,VAR,VBMA,VHMA,VIDYA,VMA,VSO,VWMA,WCD,WMA,XEMA,ZEMA,ZLDEMA,ZLEMA,ZLTEMA,ZSMA])
+col1    = input.color     (#22ce56, '',                   inline='id1', tooltip=maintooltip1)
+col2    = input.color     (#b0d40d, '',                   inline='id2', tooltip=maintooltip2)
+col3    = input.color     (#4561ff, '',                   inline='id3')
+col4    = input.color     (#a047de, '',                   inline='id4', tooltip=ttcfg)
+average = input.string    ('Hide',    'Average',            options=['Hide', 'Show'], tooltip=ttmod)
+strame  = input.bool      (true,      'Number ID',          inline='name')
+sname   = input.bool      (true,      'Short Name',         inline='name')
+fname   = input.bool      (true,      'Full Name',          inline='name')
+hpanel  = input.bool      (false,     'Hide Panel',         inline='name', tooltip=ttpanel)
+cpanelb = input.bool      (false,     'Custom Panel Color', inline='col')
+cpanelc = input.color     (#ffa726, '',                   inline='col')
+
+[result1, isname1]  = request.security(syminfo.tickerid, edittf, MA(source, length1, id1, '  '))
+[result2, isname2]  = request.security(syminfo.tickerid, edittf, MA(source, length2, id2, '  '))
+[result3, isname3]  = request.security(syminfo.tickerid, edittf, MA(source, length3, 000, cfg1))
+[result4, isname4]  = request.security(syminfo.tickerid, edittf, MA(source, length4, 000, cfg2))
+
+result1 := seeres1 ? result1 : na  
+result2 := seeres2 ? result2 : na  
+result3 := seeres3 ? result3 : na  
+result4 := seeres4 ? result4 : na  
+
+color = result1 < close ? #15aa1a : #cc3d24
+mods = switch average
+    'Hide' => na
+    'Show' => array.avg(array.from(result1, result2, result3, result4))
+
+plot(result1, 'ID 1', color=col1)
+plot(result2, 'ID 2', color=col2)
+plot(result3, 'ID 3', color=col3)
+plot(result4, 'ID 4', color=col4)
+plot(mods, 'Average', color=#fc0505)
+
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————— \\
+// Panel Name displays
+str_filter(series string src, id, occurrence = 0) => // Credit @TradingView
+    sepr    = '|' // Separator
+    str     = str.replace_all(src, '  ', '') // Remove Spaces
+    matchR  = str.match(str, "([^" + sepr + "]*" + sepr + "\s*){" + str.tostring(occurrence + 1) + "}")
+    outR    = str.replace(str, matchR, "") // removed to the right of the separator and vice versa
+    outL    = str.match(str, "(?:[^" + sepr + "]*" + sepr + "){" + str.tostring(occurrence) + "}[^" + sepr + "]*")
+    tnames  = sname ? outL : '' // Short name
+    tnamef  = fname and not sname ? str.replace(outR, '|', '') : fname ? outR : '' // Full name
+    out     = tnames + tnamef
+    out    := strame ? str.tostring(id) + ' = ' + out : out
+
+if not hpanel and ( sname or fname or strame )
+    var table panel = table.new(position = position.bottom_right, columns = 2, rows = 5, bgcolor = #363A45)
+    if seeres1
+        table.cell(panel, 0, 0, text=str_filter(isname1, id1), text_color = cpanelb ? cpanelc : col1, text_halign = text.align_left)
+    if seeres2
+        table.cell(panel, 0, 1, text=str_filter(isname2, id2), text_color = cpanelb ? cpanelc : col2, text_halign = text.align_left)
+    if seeres3
+        table.cell(panel, 0, 2, text=str.replace(str_filter(isname3, ''), ' = ', ''), text_color = cpanelb ? cpanelc : col3, text_halign = text.align_left)
+    if seeres4
+        table.cell(panel, 0, 3, text=str.replace(str_filter(isname4, ''), ' = ', ''), text_color = cpanelb ? cpanelc : col4, text_halign = text.align_left)

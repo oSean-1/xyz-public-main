@@ -1,0 +1,30 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © andr3w321
+
+//@version=5
+indicator("Overvixing")
+
+slope = input.float(-0.44, "VIX SPX regression slope", minval = -9999, maxval = 9999)
+intercept = input.float(0.000642, "VIX SPX regression intercept", minval = -9999, maxval = 9999)
+
+vix = request.security("VIX","D",close)
+spx = request.security("SPX","D",close)
+spx_change = (spx - spx[1])/spx[1] * 100.0
+plot(spx_change, title="SPX change", color=color.blue)
+
+predicted_spx_change = slope * (vix - vix[1]) + intercept
+plot(predicted_spx_change, title="Predicted SPX change", color=color.orange)
+hline(0, title="Zero", color=color.gray)
+
+// cumulative overvixxing
+lookbackInput = input.int(52, "Lookback in bars including today", minval = 1, maxval = 4999)
+cumulative_overvixing = 0.0
+for i = 0 to lookbackInput - 1
+    spx_chg = (spx[i] - spx[i+1])/spx[i+1] * 100.0
+    predicted_spx_chg = slope * (vix[i] - vix[i+1]) + intercept
+    overvixing = spx_chg - predicted_spx_chg
+    cumulative_overvixing := cumulative_overvixing + overvixing
+plot(cumulative_overvixing, title="Cumulative overvixing", color=color.green)
+
+barcolors = cumulative_overvixing > input(10) ? color.green : cumulative_overvixing < input(-10) ? color.red : na
+barcolor(barcolors)

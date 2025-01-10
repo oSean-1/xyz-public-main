@@ -1,0 +1,247 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © shakibsharifian
+
+//@version=5
+indicator("RAINBOW_13th",overlay=true)
+
+varip string optTopo1="EMA"
+varip string optTopo2="RMA"
+varip string optTopo3="WMA"
+varip string optTopo4="RSI"
+varip string optTopo5="SWMA"
+
+eval(_src,_bk,i_TopoType)=>
+    float val = switch i_TopoType
+    	optTopo1 =>ta.ema(_src,_bk)
+    	optTopo2 =>ta.rma(_src,_bk)
+    	optTopo3 =>ta.wma(_src,_bk)
+    	optTopo4 =>ta.rsi(_src,_bk)
+
+    val
+
+src = input.source(hl2, title='SOURCE',group='GENERAL',inline='a')
+bk  = input.int(52, minval=1, title='LENGTH',group='GENERAL',inline='b')
+cont = input.int(70, minval=0, title='TRANSPARENCY',group='DISPLAY',inline='a')
+bndL  = input.int(40, minval=0, title='OVER BOUGHT RSI',group='RSI',inline='a')
+bndH  = input.int(60, minval=0, title='OVER SOLD RSI',group='RSI',inline='a')
+string _i_TopoType = input.string(defval="EMA", title="METHOD", options = [optTopo1,optTopo2, optTopo3,optTopo4],group='GENERAL',inline='a')
+
+txtOpt1="Auto"
+txtOpt2="Tiny"
+txtOpt3="Small"
+txtOpt4="Normal"
+txtOpt5="Large"
+
+string listSize = input.string('Auto',title='STATUS SIZE',options=[txtOpt1,txtOpt2,txtOpt3,txtOpt4,txtOpt5],group='DISPLAY',inline='b')
+
+lstSz = switch listSize
+	txtOpt1 =>        size.auto
+	txtOpt2 =>        size.tiny
+	txtOpt3 =>        size.small
+	txtOpt4 =>        size.normal
+	txtOpt5 =>        size.large
+
+ema1=eval(src,bk   ,_i_TopoType)
+ema2=eval(ema1,bk  ,_i_TopoType)
+ema3=eval(ema2,bk  ,_i_TopoType)
+ema4=eval(ema3,bk  ,_i_TopoType)
+ema5=eval(ema4,bk  ,_i_TopoType)
+ema6=eval(ema5,bk  ,_i_TopoType)
+ema7=eval(ema6,bk  ,_i_TopoType)
+ema8=eval(ema7,bk  ,_i_TopoType)
+ema9=eval(ema8,bk  ,_i_TopoType)
+ema10=eval(ema9,bk ,_i_TopoType)
+ema11=eval(ema10,bk,_i_TopoType)
+ema12=eval(ema11,bk,_i_TopoType)
+ema13=eval(ema12,bk,_i_TopoType)
+
+EMA=            ema1
+DEMA=        (2*ema1)-    ema2
+TEMA=        (3*ema1)- (3*ema2)+      ema3
+QEMA=        (4*ema1)- (6*ema2)+   (4*ema3)-     ema4
+QUIEMA=      (5*ema1)-(10*ema2)+  (10*ema3)-  (5*ema4)+     ema5
+SEMA=        (6*ema1)-(15*ema2)+  (20*ema3)- (15*ema4)+  (6*ema5)-     ema6
+SEPEMA=      (7*ema1)-(21*ema2)+  (35*ema3)- (35*ema4)+ (21*ema5)-  (7*ema6)+     ema7
+OCTEMA=      (8*ema1)-(28*ema2)+  (56*ema3)- (70*ema4)+ (56*ema5)- (28*ema6)+  (8*ema7)-     ema8
+NONEMA=      (9*ema1)-(36*ema2)+  (84*ema3)-(126*ema4)+(126*ema5)- (84*ema6)+ (36*ema7)-  (9*ema8)+     ema9
+DECEMA=     (10*ema1)-(45*ema2)+ (120*ema3)-(210*ema4)+(252*ema5)-(210*ema6)+(120*ema7)- (45*ema8)+ (10*ema9)-    ema10
+EMA11th=    (11*ema1)-(55*ema2)+ (165*ema3)-(330*ema4)+(462*ema5)-(462*ema6)+(330*ema7)-(165*ema8)+ (55*ema9)-(11*ema10)+    ema11
+EMA12th=    (12*ema1)-(66*ema2)+ (220*ema3)-(495*ema4)+(792*ema5)-(924*ema6)+(792*ema7)-(495*ema8)+(220*ema9)-(66*ema10)+(12*ema11)-ema12
+EMA13th=    (13*ema1)-(78*ema2)+ (286*ema3)-(715*ema4)+(1287*ema5)-(1716*ema6)+(1716*ema7)-(1287*ema8)+(715*ema9)-(286*ema10)+(78*ema11)-13*ema12+ema13
+
+color13=color.new(#fc0303,cont)
+color12=color.new(#fc0703,cont)
+color11=color.new(#fc5603,cont)
+color10=color.new(#fc7703,cont)
+color9=color.new(#fc9d03,cont)
+color8=color.new(#fcca03,cont)
+color7=color.new(#fcd703,cont)
+color6=color.new(#d3fc03,cont)
+color5=color.new(#9dfc03,cont)
+color4=color.new(#62fc03,cont)
+color3=color.new(#03fc7b,cont)
+color2=color.new(#03fcf8,cont)
+color1=color.new(#03d3fc,cont)
+
+L1=plot(EMA,  color=color1 ,linewidth=1,title='1st LINE')
+L2=plot(DEMA,  color=color2 ,linewidth=1,title='2nd LINE')
+L3=plot(TEMA,  color=color3 ,linewidth=1,title='3rd LINE')
+L4=plot(QEMA,  color=color4 ,linewidth=1,title='4th LINE')
+L5=plot(QUIEMA,color= color5,linewidth=1,title='5th LINE')
+L6=plot(SEMA,  color= color6,linewidth=1,title='6th LINE')
+L7=plot(SEPEMA,color= color7,linewidth=1,title='7th LINE')
+L8=plot(OCTEMA,color=color8 ,linewidth=1,title='8th LINE')
+L9=plot(NONEMA,color=color9 ,linewidth=1,title='9th LINE')
+L10=plot(DECEMA,color=color10,linewidth=1,title='10 LINE')
+L11=plot(EMA11th,color=color11,linewidth=1,title='11 LINE')
+L12=plot(EMA12th,color=color12,linewidth=1,title='12 LINE')
+L13=plot(EMA13th,color=color13,linewidth=1,title='13 LINE')
+
+fill(L1,L2, color=color1)
+fill(L2,L3, color=color2)
+fill(L3,L4, color=color3)
+fill(L4,L5, color=color4)
+fill(L5,L6, color=color5)
+fill(L6,L7, color=color6)
+fill(L7,L8, color=color7)
+fill(L8,L9, color=color8)
+fill(L9,L10,color=color9)
+fill(L10,L11,color=color10)
+fill(L11,L12,color=color11)
+fill(L12,L13,color=color12)
+
+var t = table.new(position.middle_right, 2, 14, color.rgb(240, 240, 126))
+table.cell(t,0, 0,'BUY',bgcolor=color.new(color.black, 0),text_color=color.yellow,text_size=lstSz)
+table.cell(t,1, 0,'SELL',bgcolor=color.new(color.black, 0),text_color=color.yellow,text_size=lstSz)
+
+buyAssignment=0
+sellAssignment=0
+thisLine1=src
+thisLine2=src
+
+if _i_TopoType!=optTopo4
+	
+	buyAssignment:= src>EMA?buyAssignment+1:buyAssignment
+	sellAssignment:= src<EMA?sellAssignment+1:sellAssignment
+
+	buyAssignment:= src>DEMA?buyAssignment+1:buyAssignment
+	sellAssignment:= src<DEMA?sellAssignment+1:sellAssignment
+
+	buyAssignment:= src>TEMA?buyAssignment+1:buyAssignment
+	sellAssignment:= src<TEMA?sellAssignment+1:sellAssignment
+
+	buyAssignment:= src>QEMA?buyAssignment+1:buyAssignment
+	sellAssignment:= src<QEMA?sellAssignment+1:sellAssignment
+
+	buyAssignment:= src>QUIEMA?buyAssignment+1:buyAssignment
+	sellAssignment:= src<QUIEMA?sellAssignment+1:sellAssignment
+
+	buyAssignment:= src>SEMA?buyAssignment+1:buyAssignment
+	sellAssignment:= src<SEMA?sellAssignment+1:sellAssignment
+
+	buyAssignment:= src>SEPEMA?buyAssignment+1:buyAssignment
+	sellAssignment:= src<SEPEMA?sellAssignment+1:sellAssignment
+
+	buyAssignment:= src>OCTEMA?buyAssignment+1:buyAssignment
+	sellAssignment:= src<OCTEMA?sellAssignment+1:sellAssignment
+
+	buyAssignment:= src>NONEMA?buyAssignment+1:buyAssignment
+	sellAssignment:= src<NONEMA?sellAssignment+1:sellAssignment
+
+	buyAssignment:= src>DECEMA?buyAssignment+1:buyAssignment
+	sellAssignment:= src<DECEMA?sellAssignment+1:sellAssignment
+
+	buyAssignment:= src>EMA11th?buyAssignment+1:buyAssignment
+	sellAssignment:= src<EMA11th?sellAssignment+1:sellAssignment
+
+	buyAssignment:= src>EMA12th?buyAssignment+1:buyAssignment
+	sellAssignment:= src<EMA12th?sellAssignment+1:sellAssignment
+
+	buyAssignment:= src>EMA13th?buyAssignment+1:buyAssignment
+	sellAssignment:= src<EMA13th?sellAssignment+1:sellAssignment
+else
+	thisLine1:=bndH
+	thisLine2:=bndL
+	buyAssignment:= bndL>EMA?buyAssignment+1:buyAssignment
+	sellAssignment:= bndH<EMA?sellAssignment+1:sellAssignment
+
+	buyAssignment:= bndL>DEMA?buyAssignment+1:buyAssignment
+	sellAssignment:= bndH<DEMA?sellAssignment+1:sellAssignment
+
+	buyAssignment:= bndL>TEMA?buyAssignment+1:buyAssignment
+	sellAssignment:= bndH<TEMA?sellAssignment+1:sellAssignment
+
+	buyAssignment:= bndL>QEMA?buyAssignment+1:buyAssignment
+	sellAssignment:= bndH<QEMA?sellAssignment+1:sellAssignment
+
+	buyAssignment:= bndL>QUIEMA?buyAssignment+1:buyAssignment
+	sellAssignment:= bndH<QUIEMA?sellAssignment+1:sellAssignment
+
+	buyAssignment:= bndL>SEMA?buyAssignment+1:buyAssignment
+	sellAssignment:= bndH<SEMA?sellAssignment+1:sellAssignment
+
+	buyAssignment:= bndL>SEPEMA?buyAssignment+1:buyAssignment
+	sellAssignment:= bndH<SEPEMA?sellAssignment+1:sellAssignment
+
+	buyAssignment:= bndL>OCTEMA?buyAssignment+1:buyAssignment
+	sellAssignment:= bndH<OCTEMA?sellAssignment+1:sellAssignment
+
+	buyAssignment:= bndL>NONEMA?buyAssignment+1:buyAssignment
+	sellAssignment:= bndH<NONEMA?sellAssignment+1:sellAssignment
+
+	buyAssignment:= bndL>DECEMA?buyAssignment+1:buyAssignment
+	sellAssignment:= bndH<DECEMA?sellAssignment+1:sellAssignment
+
+	buyAssignment:= bndL>EMA11th?buyAssignment+1:buyAssignment
+	sellAssignment:= bndH<EMA11th?sellAssignment+1:sellAssignment
+
+	buyAssignment:= bndL>EMA12th?buyAssignment+1:buyAssignment
+	sellAssignment:= bndH<EMA12th?sellAssignment+1:sellAssignment
+
+	buyAssignment:= bndL>EMA13th?buyAssignment+1:buyAssignment
+	sellAssignment:= bndH<EMA13th?sellAssignment+1:sellAssignment
+
+line1 = line.new(bar_index, thisLine1,bar_index + 1, thisLine1,color = color.new(color.white,0) , style=line.style_dashed,extend = extend.both)
+line2 = line.new(bar_index, thisLine2, bar_index + 1,thisLine2,color = color.new(color.white,0) , style=line.style_dashed,extend = extend.both)
+
+line.delete(line1[1])
+line.delete(line2[1])
+
+table.cell(t,0, 1,'   ',bgcolor=buyAssignment>12?color.new(#1eff00, 0):color.new(color.black, 0),text_color=color.yellow,text_size=lstSz)
+table.cell(t,1, 1,'   ',bgcolor=sellAssignment>12?color.new(#ff5100, 0):color.new(color.black, 0),text_color=color.yellow,text_size=lstSz)
+
+table.cell(t,0, 2,'   ',bgcolor=buyAssignment>11?color.new(#1eff00, 0):color.new(color.black, 0),text_color=color.yellow,text_size=lstSz)
+table.cell(t,1, 2,'   ',bgcolor=sellAssignment>11?color.new(#ff5100, 0):color.new(color.black, 0),text_color=color.yellow,text_size=lstSz)
+
+table.cell(t,0, 3,'   ',bgcolor=buyAssignment>10?color.new(#1eff00, 0):color.new(color.black, 0),text_color=color.yellow,text_size=lstSz)
+table.cell(t,1, 3,'   ',bgcolor=sellAssignment>10?color.new(#ff5100, 0):color.new(color.black, 0),text_color=color.yellow,text_size=lstSz)
+
+table.cell(t,0, 4,'   ',bgcolor=buyAssignment>9?color.new(#1eff00, 0):color.new(color.black, 0),text_color=color.yellow,text_size=lstSz)
+table.cell(t,1, 4,'   ',bgcolor=sellAssignment>9?color.new(#ff5100, 0):color.new(color.black, 0),text_color=color.yellow,text_size=lstSz)
+
+table.cell(t,0, 5,'   ',bgcolor=buyAssignment>8?color.new(#1eff00, 0):color.new(color.black, 0),text_color=color.yellow,text_size=lstSz)
+table.cell(t,1, 5,'   ',bgcolor=sellAssignment>8?color.new(#ff5100, 0):color.new(color.black, 0),text_color=color.yellow,text_size=lstSz)
+
+table.cell(t,0, 6,'   ',bgcolor=buyAssignment>7?color.new(#1eff00, 0):color.new(color.black, 0),text_color=color.yellow,text_size=lstSz)
+table.cell(t,1, 6,'   ',bgcolor=sellAssignment>7?color.new(#ff5100, 0):color.new(color.black, 0),text_color=color.yellow,text_size=lstSz)
+
+table.cell(t,0, 7,' ☰ ',bgcolor=buyAssignment>6?color.new(#86f777, 0):color.new(#424449, 0),text_color=color.yellow,text_size=lstSz)
+table.cell(t,1, 7,' ☰ ',bgcolor=sellAssignment>6?color.new(#f39d75, 0):color.new(#424449, 0),text_color=color.yellow,text_size=lstSz)
+
+table.cell(t,0, 8,'   ',bgcolor=buyAssignment>5?color.new(#1eff00, 0):color.new(color.black, 0),text_color=color.yellow,text_size=lstSz)
+table.cell(t,1, 8,'   ',bgcolor=sellAssignment>5?color.new(#ff5100, 0):color.new(color.black, 0),text_color=color.yellow,text_size=lstSz)
+
+table.cell(t,0, 9,'   ',bgcolor=buyAssignment>4?color.new(#1eff00, 0):color.new(color.black, 0),text_color=color.yellow,text_size=lstSz)
+table.cell(t,1, 9,'   ',bgcolor=sellAssignment>4?color.new(#ff5100, 0):color.new(color.black, 0),text_color=color.yellow,text_size=lstSz)
+
+table.cell(t,0, 10,'   ',bgcolor=buyAssignment>3?color.new(#1eff00, 0):color.new(color.black, 0),text_color=color.yellow,text_size=lstSz)
+table.cell(t,1, 10,'   ',bgcolor=sellAssignment>3?color.new(#ff5100, 0):color.new(color.black, 0),text_color=color.yellow,text_size=lstSz)
+
+table.cell(t,0, 11,'   ',bgcolor=buyAssignment>2?color.new(#1eff00, 0):color.new(color.black, 0),text_color=color.yellow,text_size=lstSz)
+table.cell(t,1, 11,'   ',bgcolor=sellAssignment>2?color.new(#ff5100, 0):color.new(color.black, 0),text_color=color.yellow,text_size=lstSz)
+
+table.cell(t,0, 12,'   ',bgcolor=buyAssignment>1?color.new(#1eff00, 0):color.new(color.black, 0),text_color=color.yellow,text_size=lstSz)
+table.cell(t,1, 12,'   ',bgcolor=sellAssignment>1?color.new(#ff5100, 0):color.new(color.black, 0),text_color=color.yellow,text_size=lstSz)
+
+table.cell(t,0, 13,'   ',bgcolor=buyAssignment>0?color.new(#1eff00, 0):color.new(color.black, 0),text_color=color.yellow,text_size=lstSz)
+table.cell(t,1, 13,'   ',bgcolor=sellAssignment>0?color.new(#ff5100, 0):color.new(color.black, 0),text_color=color.yellow,text_size=lstSz)

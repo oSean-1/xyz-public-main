@@ -1,0 +1,22 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Shizaru
+
+
+//@version=2
+study("Quantitative Qualitative Estimation by Shizaru",shorttitle="QQE_SH",overlay=false)
+len = input(14,title="RSI length")
+sf = 5
+qqe = 4.236
+
+wildersper = len*2-1
+rsi = rsi(close,len)
+rsima = ema(rsi,sf)
+atr = abs(rsima[1]-rsima)
+maatrrsi = ema(atr,wildersper)
+dar = ema(maatrrsi,wildersper)*qqe
+
+trr = rsima>nz(trr[1])?((rsima-dar)<trr[1]?trr[1]:(rsima-dar)):((rsima+dar)>trr[1]?trr[1]:(rsima+dar))
+
+plot(trr)
+plot(rsima,style=cross,color=red)
+

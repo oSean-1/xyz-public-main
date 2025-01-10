@@ -1,0 +1,112 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © DCAquant
+
+//@version=5
+indicator(title="Multi Timeframe Relative Strength Index {DCAquant}", shorttitle = "MTF RSI {DCAquant}")
+
+f_pos(string position) =>
+    pos = switch position
+        "Top Left" => position.top_left
+        "Middle Left" => position.middle_left
+        "Bottom Left" => position.bottom_left
+        "Top Right" => position.top_right
+        "Middle Right" => position.middle_right
+        "Bottom Right" => position.bottom_right
+        "Top Center" => position.top_center
+        "Bottom Center" => position.bottom_center
+        "Center" => position.middle_center
+    pos
+
+// Input parameters
+pos_table = input.string(defval = "Bottom Right", options = ["Top Left", "Middle Left", "Bottom Left", "Top Right", "Middle Right", "Bottom Right", "Top Center", "Center", "Bottom Center"], title = "Table Position", group = "Table")
+size = input.string(defval='Normal', options=['Tiny', 'Small', 'Normal', 'Large'], title='Table size', group='Table')
+table_size = size == 'Tiny' ? size.tiny : size == 'Small' ? size.small : size == 'Normal' ? size.normal : size == 'Large' ? size.large : na
+
+bg = input(true, "Show Background Color", group = "Plots")
+pl = input(false, "Plot Histogram?")
+
+length = input(14, title="Length", group = "RSI")
+overbought = input.float(0.5, step = 0.1, title="Overbought Level", group = "RSI")
+oversold = input.float(-0.5, step = 0.1, title="Oversold Level", group = "RSI")
+NU = input.float(0.2, "Upper Neutral Threshold", step = 0.1, group = "RSI")
+NL = input.float(-0.2, "Lower Neutral Threshold", step = 0.1, group = "RSI")
+
+type = input.string("HMA", "MA Type", options = ["SMA", "EMA", "SMMA (RMA)", "WMA", "VWMA", "HMA"], group = "MTF RSI")
+hma = input(26, "Smoothing for MTF rsi", group = "MTF RSI")
+use = input(true, "Use MA Smoothing for MTF rsi?", group = "MTF RSI")
+
+tf1 = input.string("2D", "Timeframe 1", options = ["1M","1W","4D","2D", "1D", "720", "600", "480", "360", "240", "120", "60", "30", "15", "10", "5", "1"], group = "MTF")
+tf2 = input.string("1D", "Timeframe 2", options = ["1M","1W","4D","2D", "1D", "720", "600", "480", "360", "240", "120", "60", "30", "15", "10", "5", "1"], group = "MTF")
+tf3 = input.string("240", "Timeframe 3", options = ["1M","1W","4D","2D", "1D", "720", "600", "480", "360", "240", "120", "60", "30", "15", "10", "5", "1"], group = "MTF")
+tf4 = input.string("60", "Timeframe 4", options = ["1M","1W","4D","2D", "1D", "720", "600", "480", "360", "240", "120", "60", "30", "15", "10", "5", "1"], group = "MTF")
+tf5 = input.string("30", "Timeframe 5", options = ["1M","1W","4D","2D", "1D", "720", "600", "480", "360", "240", "120", "60", "30", "15", "10", "5", "1"], group = "MTF")
+tf6 = input.string("15", "Timeframe 6", options = ["1M","1W","4D","2D", "1D", "720", "600", "480", "360", "240", "120", "60", "30", "15", "10", "5", "1"], group = "MTF")
+
+ma(src, hma, type) =>
+    switch type
+        "SMA" => ta.sma(src, hma)
+        "EMA" => ta.ema(src, hma)
+        "SMMA (RMA)" => ta.rma(src, hma)
+        "WMA" => ta.wma(src, hma)
+        "VWMA" => ta.vwma(src, hma)
+        "HMA" => ta.hma(src, hma)
+
+rsi() =>
+    rsi = ta.rsi(close, length)
+    // Define neutral zone boundaries
+    neutral_upper = 60
+    neutral_lower = 40
+    [neutral_lower, neutral_upper, rsi]
+
+[neutral_lower, neutral_upper, rsi] = rsi()
+
+[neutral_lower1, neutral_upper1, rsi1] = request.security(syminfo.tickerid, tf1, rsi())
+[neutral_lower2, neutral_upper2, rsi2] = request.security(syminfo.tickerid, tf2, rsi())
+[neutral_lower3, neutral_upper3, rsi3] = request.security(syminfo.tickerid, tf3, rsi())
+[neutral_lower4, neutral_upper4, rsi4] = request.security(syminfo.tickerid, tf4, rsi())
+[neutral_lower5, neutral_upper5, rsi5] = request.security(syminfo.tickerid, tf5, rsi())
+[neutral_lower6, neutral_upper6, rsi6] = request.security(syminfo.tickerid, tf6, rsi())
+
+rrsi1 = rsi1 > neutral_upper1 and barstate.isconfirmed ? 1 : rsi1 < neutral_lower1 and barstate.isconfirmed ? -1 : 0
+rrsi2 = rsi2 > neutral_upper2 and barstate.isconfirmed ? 1 : rsi2 < neutral_lower2 and barstate.isconfirmed ? -1 : 0
+rrsi3 = rsi3 > neutral_upper3 and barstate.isconfirmed ? 1 : rsi3 < neutral_lower3 and barstate.isconfirmed ? -1 : 0
+rrsi4 = rsi4 > neutral_upper4 and barstate.isconfirmed ? 1 : rsi4 < neutral_lower4 and barstate.isconfirmed ? -1 : 0
+rrsi5 = rsi5 > neutral_upper5 and barstate.isconfirmed ? 1 : rsi5 < neutral_lower5 and barstate.isconfirmed ? -1 : 0
+rrsi6 = rsi6 > neutral_upper6 and barstate.isconfirmed ? 1 : rsi6 < neutral_lower6 and barstate.isconfirmed ? -1 : 0
+
+totalRSI = use ? ma((rrsi1 + rrsi2 + rrsi3 + rrsi4 + rrsi5 + rrsi6) / 6, hma, type) : (rrsi1 + rrsi2 + rrsi3 + rrsi4 + rrsi5 + rrsi6) / 6
+totalUPPER = use ? ma((neutral_upper1 + neutral_upper2 + neutral_upper3 + neutral_upper4 + neutral_upper5 + neutral_upper6) / 6, hma, type) : (neutral_upper1 + neutral_upper2 + neutral_upper3 + neutral_upper4 + neutral_upper5 + neutral_upper6) / 6
+totalLOWER = use ? ma((neutral_lower1 + neutral_lower2 + neutral_lower3 + neutral_lower4 + neutral_lower5 + neutral_lower6) / 6, hma, type) : (neutral_lower1 + neutral_lower2 + neutral_lower3 + neutral_lower4 + neutral_lower5 + neutral_lower6) / 6
+
+finalrsi = totalRSI > NU ? "Long" : totalRSI < NL ? "Short" : "Neutral"
+FBG = finalrsi == "Long" ? " 🚀 " : finalrsi == "Short" ? " ❄️ " : " 💫 "
+
+Long = totalRSI > NU
+Short = totalRSI < NL
+
+// Plot rsi and Signal line
+colorG = totalRSI > NU ? color.new(color.aqua, 10) : totalRSI < NL ? color.new(color.fuchsia, 10) : color.new(color.gray, 10)
+colorB = totalRSI > NU ? color.new(color.aqua, 80) : totalRSI < NL ? color.new(color.fuchsia, 80) : color.new(color.gray, 80)
+
+plot(totalRSI, color = colorG, style = pl ? plot.style_columns : plot.style_line, display = display.pane + display.price_scale)
+
+hline(0, "0 Line", color.gray)
+hline(overbought, "Overbought", color=color.purple)
+hline(oversold, "Oversold", color=color.teal)
+
+bgcolor(bg ? colorB : na)
+
+colorUp = color.aqua
+colorDown = color.fuchsia
+
+overboughtLine = plot(overbought, color = color.from_gradient(totalRSI, NU, overbought, color.new(color.gray, 70), color.new(colorDown, 0)), title="Overbought Line", linewidth = 4)
+oversoldLine = plot(oversold, color = color.from_gradient(totalRSI, oversold, NL, color.new(colorUp, 0), color.new(color.gray, 70)), title="Oversold Line", linewidth = 4)
+
+//Table
+if barstate.islast
+    table1 = table.new(f_pos(pos_table), 4, 17, bgcolor = color.gray, border_width = 1, border_color = color.rgb(21, 23, 27), frame_color = color.rgb(21, 23, 27), frame_width = 2)
+   // Special Cells, change names if you like
+    table.cell(table1, 0, 0, text = str.tostring(FBG) + str.tostring(finalrsi) + str.tostring(FBG), bgcolor = finalrsi == "Long" ? color.new(color.aqua, 75) : finalrsi == "Short" ? color.new(color.fuchsia, 75) : color.new(color.gray, 75), text_color = color.white, text_size = table_size)
+
+alertcondition(Long, "MTF RSI Long", "MTF RSI Long")
+alertcondition(Short, "MTF RSI Short", "MTF RSI Short")

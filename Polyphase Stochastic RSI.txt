@@ -1,0 +1,292 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © The_Peaceful_Lizard
+
+//@version=6
+indicator("Polyphase Stochastic RSI (PSRSI)", explicit_plot_zorder = true, timeframe = "", timeframe_gaps = false)
+
+// HEAD {
+
+// types {
+
+enum select
+    rsi = "RSI"
+    sto = "Stochastic RSI"
+
+enum filter_style
+    sma = "SMA"
+    ema = "EMA"
+
+type RSI
+    float source_current
+    float source_previous
+    float up
+    float down
+    float[] rsi
+    float[] rsi_filter
+    float rsi_smooth
+
+type STOCH
+    float[] k
+    float[] k_smooth
+    float d
+
+type STOCH_RSI
+    RSI rsi
+    STOCH stoch
+
+type settings
+    select style
+    int phases
+    filter_style filter
+    float rsi_period
+    int rsi_avg_period
+    int stoch_period
+    int k_period
+    int d_period
+
+// types }
+
+// init types {
+
+init_rsi(float source, settings config)=>
+    RSI.new(source, 0, na, na, array.new<float>(config.stoch_period, na), array.new<float>(config.rsi_avg_period, na), na)
+
+init_stoch(settings config)=>
+    STOCH.new(array.new<float>(config.k_period, 0), array.new<float>(config.d_period, 0), 0)
+
+init_stoch_rsi(float source, settings config)=>
+    STOCH_RSI.new(init_rsi(source, config), init_stoch(config))
+
+// init types }
+
+// array helper {
+
+method unshift_pop(float[] self, float value)=>
+    self.pop()
+    self.unshift(value)
+
+// array helper }
+
+// rsi {
+
+method rma(RSI self, float source, settings config)=>
+    float alpha = 1.0 / config.rsi_period
+    float i_alpha = 1 - alpha
+
+    float positive_change = math.max(source, 0)
+    float negative_change = -math.min(source, 0)
+
+    self.up := positive_change * alpha + nz(self.up, positive_change) * i_alpha
+    self.down := negative_change * alpha + nz(self.down, negative_change) * i_alpha
+
+    if false
+        log.info("void")
+
+method ema(RSI self, float source, settings config)=>
+    float alpha = 2.0 / (config.rsi_avg_period + 1)
+    float i_alpha = 1 - alpha
+
+    self.rsi_smooth := source * alpha + nz(self.rsi_smooth, source) * i_alpha
+
+    if false
+        log.info("void")
+
+method update_rsi(STOCH_RSI self, float source, settings config)=>
+    RSI rsi = self.rsi
+
+    rsi.source_previous := rsi.source_current
+    rsi.source_current := source
+
+    float change = rsi.source_current - rsi.source_previous
+    rsi.rma(change, config)
+
+    float new_rsi_value = switch
+        rsi.down == 0 => 100
+        rsi.up == 0 => 0
+        => 100 - (100 / (1 + rsi.up / rsi.down))    
+
+    rsi.rsi.unshift_pop(new_rsi_value)
+    rsi.rsi_filter.unshift_pop(new_rsi_value)
+
+    switch config.filter
+        filter_style.sma => rsi.rsi_smooth := rsi.rsi_filter.avg()
+        filter_style.ema => rsi.ema(new_rsi_value, config)
+    
+    if false
+        log.info("void")
+
+// rsi }
+
+// stochastic {
+
+method ema(STOCH self, float source, settings config)=>
+    float alpha = 2.0 / (config.d_period + 1)
+    float i_alpha = 1 - alpha
+
+    self.d := source * alpha + nz(self.d, source) * i_alpha
+
+    if false
+        log.info("void")
+
+method update_stoch(STOCH_RSI self, settings config)=>
+    RSI rsi = self.rsi
+    STOCH stoch = self.stoch
+
+    float max = rsi.rsi.max()
+    float min = rsi.rsi.min()
+
+    float rng = max - min
+    float translated_rsi = rsi.rsi.first() - min
+    float new_stoch_value = 100.0 * translated_rsi / rng
+
+    stoch.k.unshift_pop(new_stoch_value)
+    stoch.k_smooth.unshift_pop(stoch.k.avg())
+
+    switch config.filter
+        filter_style.sma => stoch.d := stoch.k_smooth.avg()
+        filter_style.ema => stoch.ema(stoch.k_smooth.first(), config)
+    
+    if false
+        log.info("void")
+
+// stochastic }
+
+// phaser {
+
+sma(float source, int length)=>
+    var float sma = na
+    var float first_source = na
+    int max_length = math.min(bar_index, length - 1)
+
+    if not na(source) 
+        if na(first_source)
+            first_source := source
+
+        float sum = 0
+        float w = 1.0 / (max_length + 1)
+        for i = 0 to max_length
+            sum += nz(source[i], first_source) * w
+
+        sma := sum
+    sma
+
+wma(float source, int length)=>
+    var float wma = na
+    var float first_source = na
+    int max_length = math.min(bar_index, length - 1)
+
+    if not na(source) 
+        if na(first_source)
+            first_source := source
+
+        float sum = 0
+        float weight = 0
+        for i = 0 to max_length
+            float w = max_length + 1 - i
+            weight += w
+            sum += nz(source[i], first_source) * w
+
+        wma := sum / weight
+    wma
+
+output_filter(float source, settings config)=>
+    float output_filter = sma(wma(source, config.phases), config.phases)
+    output_filter
+
+
+method update_stoch_rsi(STOCH_RSI self, float source, settings config)=>
+    self.update_rsi(source, config)
+    self.update_stoch(config)
+
+phaser(float source, settings config)=>
+    var STOCH_RSI[] stoch_rsi = array.new<STOCH_RSI>()
+    var bool ready = false
+
+    if not ready
+        stoch_rsi.push(init_stoch_rsi(source, config))
+        ready := stoch_rsi.size() == config.phases
+
+    int phase = bar_index % config.phases
+    STOCH_RSI current_stoch_rsi = stoch_rsi.get(phase)
+
+    current_stoch_rsi.update_stoch_rsi(source, config)
+
+    float signal_select = switch config.style
+        select.rsi => current_stoch_rsi.rsi.rsi.first()
+        select.sto => current_stoch_rsi.stoch.k_smooth.first()
+
+    float avg_select = switch config.style
+        select.rsi => current_stoch_rsi.rsi.rsi_smooth
+        select.sto => current_stoch_rsi.stoch.d
+
+    float signal = output_filter(signal_select, config)
+    float avg = output_filter(avg_select, config)
+
+    [signal, avg]
+
+// phaser }
+
+// HEAD }
+
+
+// BODY {
+
+// inputs {
+
+const string global_group = "Global Settings"
+const string phases_tip = "Phases works exactly like a timeframe multiplier. " 
+ + "When set to 2, it will be 2x your chart timeframe"
+
+float source = input.source(close, "Source", group = global_group)
+select style = input.enum(select.sto, "Style Select", group = global_group)
+int phases = input.int(3, "Phases", minval = 1, tooltip = phases_tip, group = global_group)
+filter_style filter = input.enum(filter_style.sma, "Average Style", group = global_group)
+
+const string rsi_group = "RSI Settings"
+float rsi_period = input.float(14, "RSI Period", minval = 2, group = rsi_group)
+int rsi_avg_period = input.int(9, "RSI Average Period", minval = 2, group = rsi_group)
+
+const string stoch_group = "Stochastic Settings"
+int stoch_period = input.int(14, "Stoch Period", minval = 2, group = stoch_group)
+int k_period = input.int(3, "K Period", minval = 1, group = stoch_group)
+int d_period = input.int(3, "D Period", minval = 2, group = stoch_group)
+
+// inputs }
+
+// main {
+
+var settings config = settings.new(style
+                                 , phases
+                                 , filter
+                                 , rsi_period
+                                 , rsi_avg_period
+                                 , stoch_period
+                                 , k_period
+                                 , d_period)
+
+[signal, average] = phaser(source, config)
+
+// main }
+
+// plot {
+
+var int top_level = switch style
+    select.rsi => 70
+    select.sto => 80
+
+var int bottom_level = switch style
+    select.rsi => 30
+    select.sto => 20
+
+upper_band = plot(top_level, "Upper Band", color=#787B86)
+lower_band = plot(bottom_level, "Lower Band", color=#787B86)
+hline(50, "Middle Band", color=color.new(#787B86, 50))
+
+fill(upper_band, lower_band, #2196f31a, "Background")
+
+plot(average, "Average", #FF6D00)
+plot(signal, "Signal", #2962FF)
+
+// plot }
+
+// BODY }

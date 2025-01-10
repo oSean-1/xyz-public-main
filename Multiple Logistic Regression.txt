@@ -1,0 +1,172 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © VanHe1sing
+
+//@version=5
+indicator('Multiple Logistic Regression', 
+             overlay=true, 
+             max_labels_count = 500
+             )
+
+
+import TradingView/ta/7 as ta
+
+// ---------------------------------------------------------------------------------------------------------------------
+// USER INPUTS 
+// ---------------------------------------------------------------------------------------------------------------------
+
+int Length = input(50, "Z score Length", 
+                     group = "Normalized Close (categorical variable Y)")
+
+string group_x = "===========> 𝗘𝗫𝗣𝗟𝗔𝗡𝗔𝗧𝗢𝗥𝗬 𝗩𝗔𝗥𝗜𝗔𝗕𝗟𝗘 𝗜𝗻𝗽𝘂𝘁𝘀 <==========="
+int rsi_length = input.int(35, "RSI",   group = group_x)
+int cci_length = input.int(45, "CCI",   group = group_x)
+int dmi_length = input.int(35, "DMI",   group = group_x)
+int ar_length  = input.int(35, "AROON", group = group_x)
+int ema_length = input(30, "EMA",       group = group_x)
+float factor   = input.float(3.2, "factor (SuperTrend)", step = 0.1, group = "SuperTrend")
+int atrPeriod  = input.int(2, "atrPeriod (SuperTrend)",  step = 1,   group = "SuperTrend")
+
+// User Defined Regression Coefficients
+string group_b = "𝗥𝗘𝗚𝗥𝗘𝗦𝗦𝗜𝗢𝗡 𝗖𝗢𝗘𝗙𝗙𝗜𝗖𝗜𝗘𝗡𝗧 (𝗪𝗲𝗶𝗴𝗵𝘁)"
+float b0 = 1.0
+float b1 = input.float(1, "𝛃1   (rsi)",        step = 1, minval = 1, group = group_b)
+float b2 = input.float(4, "𝛃2   (cci)",        step = 1, minval = 1, group = group_b)
+float b3 = input.float(1, "𝛃3   (dmi)",        step = 1, minval = 1, group = group_b)
+float b4 = input.float(2, "𝛃4   (aroon)",      step = 1, minval = 1, group = group_b)
+float b5 = input.float(5, "𝛃5   (ema)",        step = 1, minval = 1, group = group_b)
+float b6 = input.float(4, "𝛃6   (SuperTrend)", step = 1, minval = 1, group = group_b)
+ // (learning rate)
+float lr = input.float(0.08, 'Step of learing',
+                         step = 0.01, 
+                          maxval = 0.15,
+                           group = "Learning Step (gradient descent)") 
+
+// Visual Inputs
+string group_p = "====================> 𝗣𝗟𝗢𝗧 <===================="
+color color_up = input.color(color.teal, "Color Up",  group = group_p)
+color color_dn = input.color(color.red, "Color Down", group = group_p)
+
+// ---------------------------------------------------------------------------------------------------------------------
+// FUNCTIONS
+// ---------------------------------------------------------------------------------------------------------------------
+
+// Z score Function for normalization of data
+z_score(src)=>
+    basis  = ta.sma(src, Length)
+    zscore = (src - basis) / ta.stdev(src, Length)
+    zscore
+
+// Multiple Logic Regression
+logistic(x1, x2, x3, x4, x5, x6, b0, b1, b2, b3, b4, b5, b6) =>
+    1 / (1 + math.exp(-(b0 + b1 * x1 + b2 * x2 + b3 * x3 + b4 * x4 + b5 * x5 + b6 * x6)))
+
+// Error Function (cross-entropy loss)
+loss(y, p) =>
+    -y * math.log(p) - (1 - y) * math.log(1 - p)
+
+
+// ---------------------------------------------------------------------------------------------------------------------
+// DATA VARIABLES
+// ---------------------------------------------------------------------------------------------------------------------
+
+// Variables
+rsi_value        = ta.rsi(close, rsi_length)
+cci_value        = ta.cci(hlc3, cci_length)
+[plus, minus, _] = ta.dmi(dmi_length, 10)
+[upper, lower]   = ta.aroon(ar_length)
+ema1             = ta.ema(close, ema_length)
+ema2             = ta.ema(close, ema_length-10)
+[st, direction]  = ta.supertrend(factor, atrPeriod)
+
+// Normalized close  (dependent variable)
+y  = z_score(close) > 0 ? 1 : -1  
+// normalized RSI
+x1 = rsi_value > 50     ? 1 : -1     
+// normalized CCI
+var x2 = 0 
+if ta.crossover(cci_value,  100) 
+    x2 := 1 
+if ta.crossunder(cci_value,-100) 
+    x2 := -1
+// normalized DMI 
+x3 = plus  > minus      ? 1 : -1
+// normalized Aroon 
+x4 = upper > lower      ? 1 : -1 
+// normalized ema
+x5 = ema1  > ema2       ? -1 : 1
+// normalized SuperTrend
+x6 = direction * -1
+
+// ---------------------------------------------------------------------------------------------------------------------
+// MULTIPLE LOGISTIC REGRESSION
+// ---------------------------------------------------------------------------------------------------------------------
+// Pre Multiple Logic Regression
+p = logistic(x1, x2, x3, x4, x5, x6, b0, b1, b2, b3, b4, b5, b6)
+// Loss
+loss = loss(y, p)
+
+// Adjusting model weights using gradient descent 
+b1 -= lr * (p + loss) * x1
+b2 -= lr * (p + loss) * x2
+b3 -= lr * (p + loss) * x3
+b4 -= lr * (p + loss) * x4
+b5 -= lr * (p + loss) * x5
+b6 -= lr * (p + loss) * x6
+
+// Multiple Logic Regression With adjusted weights based on loss function
+l_reg = logistic(x1, x2, x3, x4, x5, x6, b0, b1, b2, b3, b4, b5, b6)
+
+
+// ---------------------------------------------------------------------------------------------------------------------
+// VISUALIZATION
+// ---------------------------------------------------------------------------------------------------------------------
+// Color
+color = color.from_gradient(l_reg, 0, 1, color_dn, color_up)
+
+// Sma for vizual representetion of colors and trends
+plot(ta.sma(close, 10), color = color.new(color, 10), linewidth = 3)
+
+// Labels Values of Multiple Logic Regression
+label.new(bar_index, l_reg > 0.5 ? high : low,
+     text      = str.tostring(math.round(l_reg, 1)), 
+     xloc      = xloc.bar_index, 
+     yloc      = l_reg > 0.5 ? yloc.abovebar : yloc.belowbar,
+     style     = label.style_none, 
+     textcolor = color,
+     size      = size.normal
+     ) 
+
+// Signals
+plotchar(ta.crossover(l_reg, 0.5), char = "▲", size = size.tiny, color = color_up, location = location.belowbar)
+plotchar(ta.crossunder(l_reg, 0.5),char = "▼", size = size.tiny, color = color_dn, location = location.abovebar)
+
+barcolor(color, display = display.none)
+
+// Table
+tbl = table.new(position.top_right, 10, 10)
+add_row(row, txt, val, b)=>
+
+    color color_val = val > 0 ? color_up : color_dn
+
+    table.cell(tbl, 0, 0, "𝗩𝗮𝗿𝗶𝗮𝗯𝗹𝗲𝘀",                text_color = color.white)
+    table.cell(tbl, 1, 0, "𝗩𝗮𝗹",                     text_color = color.white)
+    table.cell(tbl, 3, 0, "𝛃",                      text_color = color.white)
+    table.cell(tbl, 0, 8, ">> Logistic Regression", text_color = color.white)
+    table.cell(tbl, 1, 8, str.tostring(math.round(l_reg,1)), text_color = color)
+    table.cell(tbl, 2, 8, l_reg > 0.5 ? "▲" : "▼", text_color = color)
+    
+
+    table.cell(tbl, 4, 0, "space", text_color = color.new(color.black, 100))
+    table.cell(tbl, 2, 0, "")
+
+    table.cell(tbl, 0, row, txt,                             text_color = color_val)
+    table.cell(tbl, 0, 7, "𝘓𝘦𝘢𝘳𝘯𝘪𝘯𝘨 𝘚𝘵𝘦𝘱: "+str.tostring(lr), text_color = #46484a)
+    table.cell(tbl, 1, row, str.tostring(math.round(val,1)), text_color = color_val)
+    table.cell(tbl, 3, row, str.tostring(math.round(b,2)),   text_color = #81888f)
+
+add_row(1, "RSI", x1, b1)
+add_row(2, "CCI", x2, b2)
+add_row(3, "DMI", x3, b3)
+add_row(4, "AROON", x4, b4)
+add_row(5, "EMA",   x5, b5)
+add_row(6, "SuperTrend", x6, b6)

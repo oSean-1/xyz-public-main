@@ -1,0 +1,121 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © flexer_frey
+
+//@version=5
+indicator("Math Neuron" , overlay=false)
+t0 = "search data from last pivots to predict in live candle"
+t1 = "number of candle in neuron's dataset"
+t2 = "number of iterations for the optimization of neuron"
+t3 = "the learning rate is a constant that serves to modify the weight by giving more or less value to the error (0.1 is recommended)"
+
+//input
+lenght = input.int(5, 'lenght pivot' , group='pivot' , tooltip = t0)
+//neural network input
+dataset_int = input.int(50, 'Number of dataset' , tooltip = t1 ,group='neural network' , minval = 10)
+iterazioni = input.int(5000 , 'Number of iterations', tooltip = t2 , group='neural network')
+learning_rate = input.float(0.1 , 'Learning rate', tooltip = t3 , minval = 0.01 , maxval = 1 , group='neural network')
+
+//pivot calculation
+ph1 = ta.pivothigh(lenght, lenght)
+pl1 = ta.pivotlow(lenght, lenght)
+ph = ph1
+if na(ph1)
+	ph := ph[1]
+pl = pl1
+if na(pl1)
+	pl := pl[1]
+
+//data cleaning
+//converto to 0 > x > 1(rsi 0 > x > 10)
+source_1= ta.rsi(close , 14)/10
+source_2 = ta.rsi(volume , 14)/10
+//bool results converted to 0 or 1
+long = ta.change(pl)
+short = ta.change(ph)
+results_L = long ? 1 : 0
+results_S = short ? 1 : 0
+
+//data offset(pivot showed after lenght)
+offset_ = lenght
+
+//archive population
+//            | 1| 2| 3| 4| 5| 6| 7| 8| dataset|
+// archivio_1 |__|__|__|__|__|__|__|__|........|
+// archivio_2 |__|__|__|__|__|__|__|__|........|
+//  results_L |__|__|__|__|__|__|__|__|........|
+//  results_S |__|__|__|__|__|__|__|__|........|
+
+//preparazione delle 4 righe con numero di celle dataset
+archivio_1 = array.new_float(dataset_int)
+archivio_2 = array.new_float(dataset_int)
+archivio_results_L = array.new_float(dataset_int)
+archivio_results_S = array.new_float(dataset_int)
+
+//dataset population
+for i = 0 to (dataset_int - 1)
+    array.set(archivio_1 , i , source_1[i+offset_])
+    array.set(archivio_2 , i , source_2[i+offset_])
+    array.set(archivio_results_L , i , results_L[i])
+    array.set(archivio_results_S , i , results_S[i])
+
+//function
+sigmoide(t) =>
+    1/(1+math.exp(-t))
+
+sigmoide_p(t) =>
+    sigmoide(t) * (1 - sigmoide(t))
+
+Neuron(m1 , w1 , m2 , w2 , b) =>
+    t= m1 * w1 + m2 * w2 + b
+    sigmoide(t)
+
+//weight calculation 
+train(archivio_results) =>
+    w1 = math.random()
+    w2 = math.random()
+    b = math.random()
+    for i = 0 to iterazioni
+        int ri = int(math.random(0,dataset_int))
+        m1 = array.get(archivio_1 , ri)
+        m2 = array.get(archivio_2 , ri)
+        target = array.get(archivio_results , ri)
+    
+        z = m1 * w1 + m2 * w2 + b
+        pred = sigmoide(z)
+
+        //cost= math.pow(pred - target , 2)
+        //derivate cost
+        dcost_dpred = 2* (pred-target)
+        dpred_dz = sigmoide_p(z)
+
+        dz_dw1 = m1
+        dz_dw2 = m2
+        dz_db = 1
+
+        dcost_dz = dcost_dpred * dpred_dz
+
+        dcost_dw1 = dcost_dz * dz_dw1
+        dcost_dw2 = dcost_dz * dz_dw2
+        dcost_db = dcost_dz * dz_db
+
+        w1 := w1 - learning_rate * dcost_dw1
+        w2 := w2 - learning_rate * dcost_dw2
+        b := b - learning_rate * dcost_db
+    [w1 , w2 , b]
+
+[w1_long , w2_long , b_long] = train(archivio_results_L)
+[w1_short , w2_short , b_short] = train(archivio_results_S)
+
+previsioneL = Neuron(source_1 ,w1_long , source_2 , w2_long , b_long)
+previsioneS = Neuron(source_1 ,w1_short , source_2 , w2_short , b_short)
+
+
+//plotting high tech |-|-|
+a = (previsioneL - previsioneS)*10
+plot((-previsioneS)*10)
+plot(previsioneL*10)
+plot( a > 1 or a < -1 ? a : na, color=color.white , style=plot.style_circles , linewidth = 2)
+plot( a > 1 or a < -1 ? a : na, color=color.blue , style=plot.style_circles , linewidth = 1)
+long_prob_color = color.new(color.green , math.floor(100 - previsioneL * 100))
+short_prob_color = color.new(color.red , math.floor(100 - previsioneS * 100))
+bgcolor(previsioneL >= previsioneS ? long_prob_color : short_prob_color)

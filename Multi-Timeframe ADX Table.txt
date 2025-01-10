@@ -1,0 +1,106 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © biiiink
+//@version=6
+indicator("ADX MTF Table", overlay=true)
+
+
+adxLength = input.int(14, title="ADX Length", minval=1)
+// Group for ADX 1 Settings
+groupADX1 = "ADX 1 Settings"
+timeframe1 = input.timeframe("", title="Timeframe", group=groupADX1) // Default to "D" (Daily)
+threshold1 = input.int(20, title="Threshold", minval=1, group=groupADX1) // Threshold for timeframe1
+bgColor1 = input.color(color.gray, title="Background Color for ADX 1", group=groupADX1) // Background color for ADX 1
+bgColor1Low = input.color(color.green, title="Background Color for ADX 1 Below Threshold", group=groupADX1) // Background color below threshold for ADX 1
+
+// Group for ADX 2 Settings
+groupADX2 = "ADX 2 Settings"
+timeframe2 = input.timeframe("5", title="Timeframe", group=groupADX2)
+threshold2 = input.int(25, title="Threshold", minval=1, group=groupADX2) // Threshold for timeframe2
+bgColor2 = input.color(color.gray, title="Background Color for ADX 2", group=groupADX2) // Background color for ADX 2
+bgColor2Low = input.color(color.green, title="Background Color for ADX 2 Below Threshold", group=groupADX2) // Background color below threshold for ADX 2
+
+// Group for Table Settings
+groupTable = "Table Settings"
+tablePosition = input.string("Bottom Center", title="Table Position", options=["Top Right", "Top Left", "Bottom Right", "Bottom Left", "Bottom Center"], group=groupTable)
+adxFontSize = input.string("normal", title="ADX Value Font Size", options=["tiny", "small", "normal", "large", "huge"], group=groupTable)
+
+
+
+// Custom ADX Calculation
+calcADX(length) =>
+    upMove = ta.change(high)
+    downMove = -ta.change(low)
+    plusDM = upMove > downMove and upMove > 0 ? upMove : 0
+    minusDM = downMove > upMove and downMove > 0 ? downMove : 0
+    tr = math.max(math.max(high - low, math.abs(high - close[1])), math.abs(low - close[1]))
+    atr = ta.rma(tr, length)
+    plusDI = 100 * ta.rma(plusDM, length) / atr
+    minusDI = 100 * ta.rma(minusDM, length) / atr
+    dx = 100 * math.abs(plusDI - minusDI) / (plusDI + minusDI)
+    ta.rma(dx, length)
+
+// Function to calculate ADX for a given timeframe
+adxValue(timeframe, length) =>
+    request.security(syminfo.tickerid, timeframe, calcADX(length))
+
+// Check if timeframe1 is empty (allow user to override)
+finalTimeframe1 = timeframe1 == "" ? str.tostring(timeframe.period) : timeframe1 // Default to chart's timeframe if empty
+
+// Calculate ADX values
+adx1 = adxValue(finalTimeframe1, adxLength)
+adx2 = adxValue(timeframe2, adxLength)
+
+// Determine the colors based on threshold
+color1 = adx1 >= threshold1 ? bgColor1 : bgColor1Low // Highlight for timeframe1
+color2 = adx2 >= threshold2 ? bgColor2 : bgColor2Low // Highlight for timeframe2
+
+// Create the table (one-time initialization)
+var table adxTable = table.new(position.top_right, 3, 2, border_width=1, border_color=#373a46)
+
+// Function to format the timeframe label with units and "ADX" added
+formatTimeframeLabel(x) =>
+    out = x
+    if not str.contains(x, "S") and not str.contains(x, "M") and 
+       not str.contains(x, "W") and not str.contains(x, "D")
+        if str.tonumber(x)%60 == 0
+            out := str.tostring(str.tonumber(x)/60)+"H"
+        else 
+            out := x + "m"
+    out
+    // Append "ADX" to the timeframe label
+    out := out + " ADX"
+    out
+
+
+// Update the table with ADX values and corresponding timeframes
+if barstate.islast
+    // Set the table position based on user input
+    pos = tablePosition == "Top Right" ? position.top_right :
+          tablePosition == "Top Left" ? position.top_left :
+          tablePosition == "Bottom Right" ? position.bottom_right :
+          tablePosition == "Bottom Left" ? position.bottom_left :
+          position.bottom_center
+
+    table.set_position(adxTable, pos)
+    
+    // Populate table with ADX values
+    // Headings with smaller font size
+
+
+
+    // Values with user-defined font size
+    adxTextSize = adxFontSize == "tiny" ? size.tiny :
+                 adxFontSize == "small" ? size.small :
+                 adxFontSize == "normal" ? size.normal :
+                 adxFontSize == "large" ? size.large :
+                 size.huge
+
+    // Display formatted timeframes with units
+    formattedTF1 = formatTimeframeLabel(finalTimeframe1)
+    formattedTF2 = formatTimeframeLabel(timeframe2)
+
+    table.cell(adxTable, 1, 0, formattedTF1, bgcolor=#1e222d, text_color=color.white, text_size=size.small)
+    table.cell(adxTable, 1, 1, str.tostring(adx1, "#.0"), bgcolor=color1, text_color=color.white, text_size=adxTextSize)
+
+    table.cell(adxTable, 2, 0, formattedTF2, bgcolor=#1e222d, text_color=color.white, text_size=size.small)
+    table.cell(adxTable, 2, 1, str.tostring(adx2, "#.0"), bgcolor=color2, text_color=color.white, text_size=adxTextSize)

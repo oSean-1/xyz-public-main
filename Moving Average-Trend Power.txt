@@ -1,0 +1,62 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Adam-Szafranski
+
+//@version=5
+indicator("Moving Average-TREND POWER v2.0-(AS)",overlay = false)
+TT_INFO1 = 'HELLO: \nThis indicator is a waaaay simpler version of my other script - Moving Average-TREND POWER v1.1-(AS). Keep this box always on. \nHOW DOES IT WORK: \nScript counts number of bars below or above selected Moving Average (u can se them by turning PLOT BARS on). Then multiplies number of bars by 0.01 and adds previous value. So in the uptrend indicator will be growing faster with every bar when price is above MA. When MA crosess price Value goes to zero so it shows when the market is ranging. If Cross happens when number of bars is higher than Upper treshold or lower then Lower Treshold indicator will go back to zero only if MA crosses with high in UPtrend and low in DNtrend. If cross happens inside THSs Value will be zero when MA crosses with any type of price source(close,high,low,ohlc4,hl etc.....).This helps to get more crosess in side trend and less resets during a visible trend \nHOW TO SET: \nJust select what type of MA you want to use and Length. Then based on your preference set values of THSs'
+TT_INFO2 = 'ADDITIONAL INFORMATION: \n-Script was created and tested on EURUSD 5M. \n-For bigger trends choose slowerMAs and bigger periods and the other way around for short trends (FasterMAs/shorter periods) \n-Below script code you can find not used formulas for calculating indicator value(thanks chat GPT), If you know some pinescript I encourage you to try try them or maybe bulid better ones. Script uses most basic one. \n-Pls give me some feedback/ideas to improve and check out first version. Its way more complicated for no real reason but still worth to take a look'
+ma(type, src, len) =>
+    switch type
+        'SMA'   =>    ta.sma(src, len)
+        'EMA'   =>    ta.ema(src, len)
+        'WMA'   =>    ta.wma(src, len)
+        'HMA'   =>    ta.hma(src,len)
+        'RMA'   =>    ta.rma(src,len)
+README_INFO = input.bool    (true  ,'!---!READ ME!---!'          ,inline = '0',tooltip = TT_INFO1)
+INP_MA1_LEN = input.int     (120   ,'MA1_LEN/TYP'            ,inline = '1')
+INP_MA1_TYP = input.string  ('WMA' ,'/'                      ,inline = '1', options = ['EMA','HMA','WMA','SMA','RMA'])
+INP_TSH_UPP = input.float   (50    ,'TSH ->UP/DN'            ,inline = '2')
+INP_TSH_DWN = input.float   (-50   ,'/'                      ,inline = '2')
+PLT_TSHOLDS = input.bool    (false ,'/'                      ,inline = '3')
+PLT_TRNDNUM = input.bool    (false ,'PLOT->TSH/NUMofBARS?'   ,inline = '3')
+README_MORE = input.bool    (false ,'ADDITIONAL INFORMATION' ,inline = '4',tooltip = TT_INFO2)
+MA1 = ma(INP_MA1_TYP,close,INP_MA1_LEN)
+UP = MA1<close
+DN = MA1>close
+CROSS_NO_TREND  = ta.cross(MA1,close) or ta.cross(MA1,ohlc4) or ta.cross(MA1,hl2) or ta.cross(MA1,high) or ta.cross(MA1,low) or ta.cross(MA1,open) or ta.cross(MA1,hl2) or ta.cross(MA1,hlc3) or ta.cross(MA1,hlcc4)
+CROSS_UP_TREND  = ta.crossover(MA1[1],high[1]) and MA1>high
+CROSS_DN_TREND  = ta.crossunder(MA1[1],low[1]) and MA1<low
+var TREND_NUM   = 0.0
+var IND_VALUE   = 0.0
+GROW_FACTOR     = (0.01 * TREND_NUM)
+if README_INFO
+    if UP
+        TREND_NUM+=1
+        IND_VALUE:=IND_VALUE+GROW_FACTOR
+    if DN
+        TREND_NUM-=1
+        IND_VALUE:=IND_VALUE+GROW_FACTOR
+    if TREND_NUM<INP_TSH_UPP and TREND_NUM>INP_TSH_DWN and CROSS_NO_TREND
+        TREND_NUM:=0
+    if TREND_NUM>INP_TSH_UPP and CROSS_UP_TREND
+        TREND_NUM:=0
+    if TREND_NUM<INP_TSH_DWN and CROSS_DN_TREND
+        TREND_NUM:=0
+    if TREND_NUM == 0
+        IND_VALUE:=0
+
+TRND_P = plot(PLT_TRNDNUM?TREND_NUM:na,'TREND_NUMBERBAR',color.rgb(237, 216, 33))
+GROW_P = plot(README_INFO?IND_VALUE:na,'INDICATOR_VALUE',color.orange)
+ZERO_P = plot(0,'ZERO',color.gray)
+TSHU_P = plot(PLT_TSHOLDS?INP_TSH_UPP:na,'UP',color.gray)
+TSHD_P = plot(PLT_TSHOLDS?INP_TSH_DWN:na,'DN',color.gray)
+fill(ZERO_P,GROW_P,IND_VALUE>0?color.rgb(85, 188, 88, 72):color.rgb(150, 21, 71, 64))
+//plot(MA1)
+
+
+
+//GROW_FACTOR = TREND_NUM > 0 ? (0.01 * TREND_NUM * math.sqrt(TREND_NUM))/100 : TREND_NUM < 0 ? (0.01 * TREND_NUM * math.sqrt(-TREND_NUM))/100 : 0
+//GROW_FACTOR = (0.01 * TREND_NUM)
+//GROW_FACTOR = TREND_NUM > 0 ? math.pow(TREND_NUM, 0.5) : TREND_NUM < 0 ? math.pow(-TREND_NUM, 0.5) : 0
+//GROW_FACTOR = TREND_NUM > 0 ? (1 * TREND_NUM * math.sqrt(TREND_NUM))/100 : TREND_NUM < 0 ? (1 * TREND_NUM * math.sqrt(-TREND_NUM))/100 : 0
+//GROW_FACTOR = TREND_NUM > 0 ? math.log(TREND_NUM + 1) / 100 : TREND_NUM < 0 ? -math.log(-TREND_NUM + 1) / 100 : 0

@@ -1,0 +1,504 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © InvestorUnknown | TRW: @Andrej S.
+//                                                                                  {||}                   
+//                                                       ,                          {||}          
+//                                                  ,,,,,                           {||}
+//                                                ,,,,,       ,       ,,            {||}       
+//                                    ,         ,,,, ,       ,,     ,,,             {||}       
+//             .                   , ,         ,,,,  ,     ,,,,   .,,               {||}            ╔╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╗
+//             ,,                 ,       ,,   ,,,,,,,  ,  ,      ,                 {||}            ╠╬╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╬╣  
+//             ,,                 ,,   ,  ,,  ,,,,,, ,,,,    , ,                    {||}            ╠╣  /$$$$$$                                           /$$                         ╠╣
+//              .,         ,      ,,,  ,,,,,,,,,,,,,, ,,  ,,  , ,         ,,        {||}            ╠╣ |_  $$_/                                          | $$                         ╠╣
+//                           ,  .  ,, ,,,,,,,,,,,,, ,    ,,, , ,,    ,   ,          {||}            ╠╣   | $$   /$$$$$$$  /$$    /$$ /$$$$$$   /$$$$$$$ /$$$$$$    /$$$$$$   /$$$$$$  ╠╣
+//                   ,,           ,,, ,,,,,,,,,,,,,,,,,,,,,,  ,,,   ,,              {||}            ╠╣   | $$  | $$__  $$|  $$  /$$//$$__  $$ /$$_____/|_  $$_/   /$$__  $$ /$$__  $$ ╠╣
+//               , ,   ,,,     .,,,,,,,,,,,, ,,,  ,,,,,,,,   ,,,    ,,              {||}            ╠╣   | $$  | $$  \ $$ \  $$/$$/| $$$$$$$$|  $$$$$$   | $$    | $$  \ $$| $$  \__/ ╠╣      
+//         .,     , ,,  ,,    ,,, ,,,,,,, ,,  ,,, ,,,,, ,,, ,  ,,   ,,              {||}            ╠╣   | $$  | $$  | $$  \  $$$/ | $$_____/ \____  $$  | $$ /$$| $$  | $$| $$       ╠╣     
+//            ,   ,,,,,  ,    ,,,, ,, , ,,,,,,,,,,,,,,,,,,,,,, ,,  ,,               {||}            ╠╣  /$$$$$$| $$  | $$   \  $/  |  $$$$$$$ /$$$$$$$/  |  $$$$/|  $$$$$$/| $$       ╠╣   
+//               .    //./ /// ,,,,,,,,,,,,,,,. ,,,,,,,,,,,,,,,,,,                  {||}            ╠╣ |______/|__/  |__/    \_/    \_______/|_______/    \___/   \______/ |__/       ╠╣
+//                ,  /         ,., ,,,,,,,,,,, ,,,,,,,   ,,,,,,,                    {||}            ╠╣                                                                                ╠╣
+//            .  ,,,  ,/ ///./   ,,,.,,,,,,,,,,,,,,,      ,, , ,                    {||}            ╠╣                                                                                ╠╣
+//             ,,,,,,  //./ , /    .,,.,,, ,,,,,, ,.     ,,,,,,,                    {||}            ╠╣                                                                                ╠╣
+//              ,,,,   //  *, / / ,,,,,,,,,,,,          ,, ,,,,,                    {||}            ╠╣    /$$   /$$           /$$                                                     ╠╣
+//               ,,  // ////.*/// / ,.,,,,,.,, ,,  ,,,, ,,,,,,                      {||}            ╠╣   | $$  | $$          | $$                                                     ╠╣
+//                   ,  /////    //  , ,,,,,, ,,,, ,,,,,  ,,, / /.                  {||}            ╠╣   | $$  | $$ /$$$$$$$ | $$   /$$ /$$$$$$$   /$$$$$$  /$$  /$$  /$$ /$$$$$$$    ╠╣
+//              ,,   ,         ////// ,,,,,,,,,  ,,,,,,,,/ ///  / //                {||}            ╠╣   | $$  | $$| $$__  $$| $$  /$$/| $$__  $$ /$$__  $$| $$ | $$ | $$| $$__  $$   ╠╣
+//                         ///// .// ,,,,,,  ,, ,,,, ,,, ///*  //*///               {||}            ╠╣   | $$  | $$| $$  \ $$| $$$$$$/ | $$  \ $$| $$  \ $$| $$ | $$ | $$| $$  \ $$   ╠╣
+//                           //  .           ,, .// ,,      ///, ///                {||}            ╠╣   | $$  | $$| $$  | $$| $$_  $$ | $$  | $$| $$  | $$| $$ | $$ | $$| $$  | $$   ╠╣
+//                        //////        ,,,,    ///// ,.        ,                   {||}            ╠╣   |  $$$$$$/| $$  | $$| $$ \  $$| $$  | $$|  $$$$$$/|  $$$$$/$$$$/| $$  | $$   ╠╣
+//                   *///////. //              /  */////*                           {||}            ╠╣    \______/ |__/  |__/|__/  \__/|__/  |__/ \______/  \_____/\___/ |__/  |__/   ╠╣ 
+//                         .,,  // ,,,,,,,,,, //* ,,,  //////                       {||}            ╠╬╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╬╣
+//                           ,,,,,   ,,,,,, ,.,,,,,,,                               {||}            ╚╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╝
+//                               ,,,,,,,,,,,, ,,                                    {||}          
+//                                  ,,,,,,,,,                                       {||}                                                                                                                                  
+//                                                                                  {||} 
+//                                                                                  {||} 
+
+//@version=5
+indicator("MA Ratio Weighted Trend System I [InvestorUnknown]", "MAR WTS I", overlay = false, max_bars_back = 5000)
+
+// - - - - - FUNCTIONS - - - - - //{
+type bar
+    float o             = open
+    float h             = high
+    float l             = low
+    float c             = close
+
+method calc_src(bar b, simple string src) =>
+    float x = switch src
+        "open"          => b.o
+        "high"          => b.h
+        "low"           => b.l
+        "close"         => b.c
+        "oc2"           => math.avg(b.o, b.c          )
+        "hl2"           => math.avg(b.h, b.l          )
+        "occ3"          => math.avg(b.o, b.c, b.c     )
+        "hlc3"          => math.avg(b.h, b.l, b.c     )
+        "ohlc4"         => math.avg(b.o, b.h, b.l, b.c)
+        "hlcc4"         => math.avg(b.h, b.l, b.c, b.c)
+    x
+
+// DMI For Loop
+f_DMI_FL(simple int start_len, simple int end_len, simple int smooth) =>
+    var SignalArray = array.new_float(end_len - start_len + 1, 0.0) 
+    for x = 0 to (end_len - start_len) 
+        alpha           = 1.0 / (start_len + x)
+        float plus      = na 
+        float minus     = na
+        up              = ta.change(high) 
+        down            = -ta.change(low) 
+        plusDM          = na(up) ? na : (up > down and up > 0 ? up : 0)
+        minusDM         = na(down) ? na : (down > up and down > 0 ? down : 0)
+        plus            := na(plus[1]) ? ta.sma(plusDM, (start_len + x)) : alpha * plusDM + (1 - alpha) * nz(plus[1]) 
+        minus           := na(minus[1]) ? ta.sma(minusDM, (start_len + x)) : alpha * minusDM + (1 - alpha) * nz(minus[1]) 
+        trend           = plus > minus ? 1 : plus < minus ? -1 : 0 
+        array.set(SignalArray, x, trend) 
+
+    Avg                 = array.avg(SignalArray)
+    float MA            = ta.ema(Avg, smooth)
+
+    [SignalArray, Avg, MA]
+
+// Commodity Channel Index For Loop
+f_CCI_FL(simple int start_len, simple int end_len, series float src, simple int smooth) =>
+    var SignalArray = array.new_float(end_len - start_len + 1, 0.0)
+    for x = 0 to (end_len - start_len)
+        len             = start_len + x
+        ma              = ta.sma(src, len)
+        cci             = (src - ma) / (0.015 * ta.dev(src, len))
+        sig             = cci > 0 ? 1 : -1
+        array.set(SignalArray, x, sig)
+
+    Avg                 = array.avg(SignalArray)
+    float MA            = ta.ema(Avg, smooth)
+
+    [SignalArray, Avg, MA]
+    
+// Aroon For Loop
+f_Aroon_FL(simple int start_len, simple int end_len, simple int smooth) =>
+    var SignalArray = array.new_float(end_len - start_len + 1, 0.0)
+    for x = 0 to (end_len - start_len)
+        len             = start_len + x
+        upper           = 100 * (ta.highestbars(high, len + 1) + len)/len
+        lower           = 100 * (ta.lowestbars(low, len + 1) + len)/len
+        trend           = upper > lower ? 1 : -1
+        array.set(SignalArray, x, trend)
+
+    Avg                 = array.avg(SignalArray)
+    float MA            = ta.ema(Avg, smooth)
+
+    [SignalArray, Avg, MA]
+
+// Zero Lag Exponential Moving Average For Loop
+f_ZLEMA_FL(simple int start_len, simple int end_len, series float src, simple int smooth) =>
+    var Array = array.new_float(end_len - start_len + 1, 0.0)
+    for x = 0 to (end_len - start_len)
+        len             = start_len + x
+        lag             = math.floor((len - 1) / 2)
+        alpha           = 2 / (len + 1)
+        zlema           = 0.0
+        zlema           := na(zlema[1]) ? (src + src - src[lag]) : alpha * (src + src - src[lag]) + (1 - alpha) * nz(zlema[1])
+        trend           =  zlema > zlema[1] ? 1 : -1
+        array.set(Array, x, trend)
+
+    Avg                 = array.avg(Array)
+    float MA            = ta.ema(Avg, smooth)
+
+    [Array, Avg, MA]
+
+// Infinite Impulse Response Filter For Loop
+f_IIRF_FL(simple int start_len, simple int end_len, series float src, simple int smooth) =>
+    var Array = array.new_float(end_len - start_len + 1, 0.0)
+    for x = 0 to (end_len - start_len)
+        len             = start_len + x
+        iirfAlpha       = 2 / (len + 1)
+        iirfLag         = math.round(1 / iirfAlpha - 1)
+        iirf            = 0.0
+        iirf            := iirfAlpha * (src + ta.change(src, iirfLag)) + (1 - iirfAlpha) * nz(iirf[1])
+        trend           = iirf > iirf[1] ? 1 : -1
+        array.set(Array, x, trend)
+
+    Avg                 = array.avg(Array)
+    float MA            = ta.ema(Avg, smooth)
+
+    [Array, Avg, MA]
+
+// Function to calculate weights based on MAR
+f_mar_weights(series float mar, simple int offset, simple float weight_thre) =>
+    o_mar = math.abs(mar[offset])
+
+    float fast_weight   = 0
+    float slow_weight   = 1
+
+    if o_mar != 0
+        if weight_thre > 0
+            if o_mar <= weight_thre
+                fast_weight := o_mar
+
+        else
+            fast_weight := o_mar
+
+    [fast_weight, slow_weight]
+
+// Calculate equity based on signals coming from indicator (similar to TV strategies)
+f_equity(series float sig, simple float threshold, series float r, simple float startDate, string signals, bool endDate_bool) =>
+
+    var signal = 0
+    if ta.crossover(sig, threshold)
+        signal := 1
+    if ta.crossunder(sig, -threshold)
+        signal := -1
+
+    if time >= startDate and endDate_bool
+        float a         = 0
+
+        if signals == "Long & Short"
+            if signal[1] > 0 
+                a       := r
+            else 
+                a       := -r
+
+        else if signals == "Long Only"
+            if signal[1] > 0
+                a       := r
+
+        else if signals == "Short Only"
+            if signal[1] < 0
+                a       := -r
+
+        else
+            runtime.error("No Signal Type found")       
+
+        var float e     = na
+        if na(e[1])
+            e           := 1
+        else
+            e           := e[1] * (1 + a)
+
+// Calculate Buy and Hold equity for asset
+f_buy_and_hold(series float r, simple float startDate, bool endDate_bool) =>
+    float b             = na
+
+    if time >= startDate and endDate_bool
+        
+        if na(b[1])
+            b           := 1
+        else
+            b           := b[1] * (1 + r)
+
+// Calculate the number of bars since the input date
+f_since(simple float date, simple bool active) =>
+    var count = 0
+
+    if active
+        if time >= date
+            count += 1
+
+    output = count > 2 ? count - 1 : count
+
+// Calculate Performance Metrics
+f_PerformanceMetrics(series float base, int Lookback, simple float startDate, bool Annualize = true) =>
+    // Initialize variables for positive and negative returns
+    pos_sum = 0.0
+    neg_sum = 0.0
+    pos_count = 0
+    neg_count = 0
+    returns_sum = 0.0
+    returns_squared_sum = 0.0
+    pos_returns_squared_sum = 0.0
+    neg_returns_squared_sum = 0.0
+    // Loop through the past 'Lookback' bars to calculate sums and counts
+    if (time >= startDate)
+        for i = 0 to Lookback - 1
+            r = (base[i] - base[i + 1]) / base[i + 1]
+            returns_sum += r
+            returns_squared_sum += r * r
+            if r > 0
+                pos_sum += r
+                pos_count += 1
+                pos_returns_squared_sum += r * r
+            if r < 0
+                neg_sum += r
+                neg_count += 1
+                neg_returns_squared_sum += r * r
+
+    float [] export_array = array.new_float(12)
+
+    // Calculate means
+    mean_all        = math.round((returns_sum / Lookback), 4)
+    mean_pos        = math.round((pos_count != 0 ? pos_sum / pos_count : na), 4)
+    mean_neg        = math.round((neg_count != 0 ? neg_sum / neg_count : na), 4)
+
+    // Calculate standard deviations
+    stddev_all      = math.round((math.sqrt((returns_squared_sum - (returns_sum * returns_sum) / Lookback) / Lookback)) * 100, 2)
+    stddev_pos      = math.round((pos_count != 0 ? math.sqrt((pos_returns_squared_sum - (pos_sum * pos_sum) / pos_count) / pos_count) : na) * 100, 2)
+    stddev_neg      = math.round((neg_count != 0 ? math.sqrt((neg_returns_squared_sum - (neg_sum * neg_sum) / neg_count) / neg_count) : na) * 100, 2)
+
+    // Calculate probabilities
+    prob_pos        = math.round((pos_count / Lookback) * 100, 2)
+    prob_neg        = math.round((neg_count / Lookback) * 100, 2)
+    prob_neu        = math.round(((Lookback - pos_count - neg_count) / Lookback) * 100, 2)
+
+    // Calculate ratios
+    sharpe_ratio    = math.round((mean_all / stddev_all * (Annualize ? math.sqrt(Lookback) : 1))* 100, 2)
+    sortino_ratio   = math.round((mean_all / stddev_neg * (Annualize ? math.sqrt(Lookback) : 1))* 100, 2)
+    omega_ratio = math.round(pos_sum / math.abs(neg_sum), 2)
+
+    // Set values in the array
+    array.set(export_array, 0, mean_all),       array.set(export_array, 1, mean_pos),           array.set(export_array, 2, mean_neg),
+    array.set(export_array, 3, stddev_all),     array.set(export_array, 4, stddev_pos),         array.set(export_array, 5, stddev_neg),
+    array.set(export_array, 6, prob_pos),       array.set(export_array, 7, prob_neu),           array.set(export_array, 8, prob_neg),
+    array.set(export_array, 9, sharpe_ratio),   array.set(export_array, 10, sortino_ratio),     array.set(export_array, 11, omega_ratio)
+
+    // Export the array
+    export_array
+//}
+
+
+// - - - - - STRINGS - - - - - //{
+var string G1                       = "General Settings"
+var string G2                       = "Moving Average Ratio Weight Settings"
+var string G3                       = "For Loop Indicator Settings"
+var string G4                       = "Calibration Mode"
+var string G5                       = "Backtest Mode"
+
+var string intrabar_tooltip         = "Updates the Long/Short signal within the bar, but may cause intra-bar signal repainting. This setting also affects alerts."
+
+var string offset_tooltip           = "Shifts the MAR used to determine weights of the inputs. Selecting 0 removes the offset. This is done to avoid the following
+ scenario: when the price makes sudden and huge moves and then quickly reverses, the Moving Average Ratio will generally follow the price,
+ and the faster components will not receive more weight to provide faster exits. By including the offset,
+ the faster components can get more weight and provide faster exits in scenarios like this."
+var string weight_thre_tooltip      = "Range: 0 to 1. Fast Indicators receive weight only when MAR exceeds the input value."
+
+var string use_endDate_tooltip      = "If turned-off, the backtest will run until the current day."
+var string bah_tooltip              = "Plots Buy and Hold Equity for the Backtest Period"
+//}
+
+
+// - - - - - INPUTS - - - - - //{
+
+// General
+simple string disp_mode             = input.string("MAR WTS", "Display Mode", options = ["MAR WTS", "Calibration Mode", "Backtest Mode"], group = G1)
+simple bool   intrabar              = input.bool(true, "Allow Intra-bar Updating", tooltip = intrabar_tooltip, group = G1)
+simple float  signal_thre           = input.float(0.0, "Long/Short Threshold", step = 0.01, group = G1)
+simple bool   color_bars            = input.bool(true, "Color Bars?", group = G1)
+
+// MAR
+simple int    len                   = input.int(30, "Length", group = G2, inline = "M1") 
+simple string m_src                 = input.string("close", "MAR Source", options = ["open", "high", "low", "close", "oc2", "hl2", "occ3", "hlc3", "ohlc4", "hlcc4"], group = G2, inline = "M1")
+simple string ma_main_type          = input.string("SMA", "Moving Average Type", options = ["SMA", "EMA"], group = G2)
+simple int    offset                = input.int(7, "MAR offset", group = G2, tooltip = offset_tooltip)
+simple float  weight_thre           = input.float(0.4, "Weight Threshold (Absolute)", step = 0.01, minval = 0.0, tooltip = weight_thre_tooltip, group = G2)
+
+// Slow Indicators
+simple int    dmi_from              = input.int(24, "DMI From", group = G3, inline = "DMI")
+simple int    dmi_to                = input.int(30, "To", group = G3, inline = "DMI")
+simple int    dmi_smooth            = input.int(3, "DMI Smoothing", group = G3)
+
+simple int    cci_from              = input.int(27, "CCI From", group = G3, inline = "CCI")
+simple int    cci_to                = input.int(35, "To", group = G3, inline = "CCI")
+simple string cci_src               = input.string("close", "CCI Source", options = ["open", "high", "low", "close", "oc2", "hl2", "occ3", "hlc3", "ohlc4", "hlcc4"], group = G3)
+simple int    cci_smooth            = input.int(3, "CCI Smoothing", group = G3)
+
+simple int    aroon_from            = input.int(24, "Aroon From", group = G3, inline = "AR")
+simple int    aroon_to              = input.int(32, "To", group = G3, inline = "AR")
+simple int    aroon_smooth          = input.int(3, "Aroon Smoothing", group = G3)
+
+// Fast Indicators
+simple int    zlema_from            = input.int(23, "ZLEMA From", group = G3, inline = "ZL")
+simple int    zlema_to              = input.int(28, "To", group = G3, inline = "ZL")
+simple string zlema_src             = input.string("close", "ZLEMA Source", options = ["open", "high", "low", "close", "oc2", "hl2", "occ3", "hlc3", "ohlc4", "hlcc4"], group = G3)
+simple int    zlema_smooth          = input.int(2, "ZLEMA Smoothing", group = G3)
+
+simple int    iirf_from             = input.int(25, "IIRF From", group = G3, inline = "II")
+simple int    iirf_to               = input.int(31, "To", group = G3, inline = "II")
+simple string iirf_src              = input.string("close", "IIRF Source", options = ["open", "high", "low", "close", "oc2", "hl2", "occ3", "hlc3", "ohlc4", "hlcc4"], group = G3)
+simple int    iirf_smooth           = input.int(2, "IIRF Smoothing", group = G3)
+
+// Calibration Mode
+simple string calibrate_ind         = input.string("DMI FL", "Calibrate: ", options = ["DMI FL", "CCI FL", "Aroon FL", "ZLEMA FL", "IIRF FL", "MAR"], group = G4, display = display.none)
+
+// Backtesting Mode
+simple string signals               = input.string("Long & Short", "Allowed Signals", options = ["Long & Short", "Long Only", "Short Only"], group = G5, display = display.none)
+simple float  startDate             = input.time(timestamp("2023-1-1"), "Backtest Start Date", group = G5)
+simple float  endDate               = input.time(timestamp("2024-1-1"), "Backtest End Date", group = G5, inline = "C")
+simple bool   use_endDate           = input.bool(false, "Use End Date?", tooltip = use_endDate_tooltip, group = G5, inline = "C")
+simple bool   plot_bah              = input.bool(true, "Plot Buy & Hold equity?", tooltip = bah_tooltip, group = G5)
+simple bool   plot_metric_t         = input.bool(true, "Plot Performance Metrics Table", group = G5)
+//}
+
+
+// - - - - - CALCULATIONS - - - - - //{
+
+// Calculate sources
+b                                   = bar.new()
+
+float MAR_src                       = b.calc_src(m_src)
+float CCI_src                       = b.calc_src(cci_src)
+float ZLEMA_src                     = b.calc_src(zlema_src)
+float IIRF_src                      = b.calc_src(iirf_src)
+
+// Moving Average Ratio (MAR)
+float ma_main                       = switch ma_main_type
+    "SMA"       => ta.sma(MAR_src,  len)
+    "EMA"       => ta.ema(MAR_src,  len)
+
+float mar = (MAR_src / ma_main) -1
+
+// Slow Indicators
+[DMI_array, DMI_avg, DMI]           = f_DMI_FL(dmi_from, dmi_to, dmi_smooth)
+[CCI_array, CCI_avg, CCI]           = f_CCI_FL(cci_from, cci_to, CCI_src, cci_smooth)
+[Aroon_array, Aroon_avg, Aroon]     = f_Aroon_FL(aroon_from, aroon_to, aroon_smooth)
+
+// Fast Indicators
+[ZLEMA_array, ZLEMA_avg, ZLEMA]     = f_ZLEMA_FL(zlema_from, zlema_to, ZLEMA_src, zlema_smooth)
+[IIRF_array, IIRF_avg, IIRF]        = f_IIRF_FL(iirf_from, iirf_to, IIRF_src, iirf_smooth)
+
+// Weights
+[fast_w, slow_w]                    = f_mar_weights(mar, offset, weight_thre)
+
+// Calculate Signal (as weighted average)
+float sig                           = math.round(((DMI*slow_w) + (CCI*slow_w) + (Aroon*slow_w) + (ZLEMA*fast_w) + (IIRF*fast_w)) / (3*slow_w + 2*fast_w), 2)
+//}
+
+
+// - - - - - DEFINE COLORS - - - - - //{
+color bcol                                  =color.rgb(54, 208, 19)
+color scol                                  =color.rgb(227, 34, 34)
+
+var color sig_col                           = color.white
+
+if sig > signal_thre
+    sig_col := bcol
+else if sig < - signal_thre
+    sig_col := scol
+//}
+
+
+// - - - - - PLOTS - - - - - //{
+bool is_backtest                            = disp_mode == "Backtest Mode"
+bool is_calibration                         = disp_mode == "Calibration Mode"
+bool n_sig                                  = is_backtest or is_calibration
+
+// Signal and MAR plots
+base                                        = 0
+
+// MAR Fill
+B = plot(is_backtest ? na : base, "0 Line", color = color.new(color.gray, 40), linewidth = 2)
+P = plot(n_sig ? na : (intrabar ? mar[offset] : mar[offset + 1]), "MAR", 
+ color = color.new(mar[offset] >= 0 ? color.rgb(246, 255, 0) : color.rgb(195, 24, 226), mar[offset] > mar[offset + 1] ? 30 : 60), 
+ linewidth = 1, style = plot.style_columns)
+
+// Signal Fill
+S = plot(n_sig ? na : (intrabar ? sig : sig[1]), "Signal", color = intrabar ? sig_col : sig_col[1], linewidth = 2)
+plot(n_sig ? na : (signal_thre > 0.0 ?  signal_thre : na), "Long Thereshold",  color = bcol)
+plot(n_sig ? na : (signal_thre > 0.0 ? -signal_thre : na), "Short Thereshold", color = scol)
+fill(S, B, sig > base ? sig : base, sig > base ? base : sig, sig > base ? color.new(bcol, 20) : color.rgb(12,12,12,90), sig > base ? color.rgb(12,12,12,90) : color.new(scol,20) )
+
+// Calibration Mode
+calib_col(x) => 
+    x > 0 ? bcol : scol
+
+cal_for = switch calibrate_ind
+    "DMI FL"            => DMI
+    "CCI FL"            => CCI
+    "Aroon FL"          => Aroon
+    "ZLEMA FL"          => ZLEMA
+    "IIRF FL"           => IIRF
+    "MAR"               => mar[offset]
+
+C = plot(is_calibration ? cal_for : na, "Calibration", color = color.white, linewidth = 2)
+fill(C, B, cal_for > base ? cal_for : base, cal_for > base ? base : cal_for, cal_for > base ? bcol : color.rgb(12,12,12,90), cal_for > base ? color.rgb(12,12,12,90) : scol)
+
+// Backtest Mode
+float r                             = 0.0
+bool  endDate_bool                  = use_endDate ? (time <= endDate ? true : false) : true
+float eq                            = 1.0
+float bah                           = 1.0
+
+since                               = f_since(startDate, is_backtest)
+
+if is_backtest
+    r                               := (close[0] - close[1]) / close[1]
+    eq                              := f_equity(sig, signal_thre, r, startDate, signals, endDate_bool)
+    bah                             := f_buy_and_hold(r, startDate, endDate_bool)
+
+plot(is_backtest ? 1 : na, "Base (1) Line", color = color.gray)
+plot(is_backtest ? eq : na, "Backtest Strategy Equity",  color = sig_col[1], linewidth = 3)
+plot(is_backtest ? (plot_bah ? bah : na) : na, "Buy & Hold Equity", color = color.rgb(24, 42, 237), linewidth = 2)
+
+if is_backtest and barstate.islast
+    label.new(bar_index + 5, eq, "Strategy", color = sig_col[1], textcolor = color.white, style = label.style_label_left)
+    label.new(bar_index + 5, bah, "Buy and Hold", color = color.rgb(24, 42, 237), textcolor = color.white, style = label.style_label_left)
+
+// Performance Metrics Table
+float[] eq_array                    = na
+float[] bah_array                   = na
+
+if is_backtest
+    eq_array                        := f_PerformanceMetrics(eq,  since, startDate, true)
+    bah_array                       := f_PerformanceMetrics(bah, since, startDate, true)
+
+var table t                         = table.new(position.bottom_left, 20, 20, frame_color = color.gray, frame_width = 1)
+
+if barstate.islast and is_backtest
+    table.cell(t, 0, 0, "𝙋𝙚𝙧𝙛𝙤𝙧𝙢𝙖𝙣𝙘𝙚 𝙈𝙚𝙩𝙧𝙞𝙘𝙨", text_color=color.white, bgcolor = color.gray)
+    table.merge_cells(t, 0, 0, 2, 0)
+
+    table.cell(t, 1, 1, "Buy & Hold",                       text_color =color.white)
+    table.cell(t, 2, 1, "Strategy",                         text_color =color.white)
+
+    table.cell(t, 0, 2, "Mean (All Returns) %",             text_color =color.white)
+    table.cell(t, 0, 3, "Mean (Positive Returns) %",        text_color =color.white)
+    table.cell(t, 0, 4, "Mean (Negative Returns) %",        text_color =color.white)
+    table.cell(t, 0, 5, "STDEV (All Returns) %",            text_color =color.white)
+    table.cell(t, 0, 6, "STDEV (Positive Returns) %",       text_color =color.white)
+    table.cell(t, 0, 7, "STDEV (Negative Returns) %",       text_color =color.white)
+    table.cell(t, 0, 8, "% Prob. (Positive Returns)",       text_color =color.white)
+    table.cell(t, 0, 9, "% Prob. (Neutral Returns)",        text_color =color.white)
+    table.cell(t, 0, 10, "% Prob. (Negative Returns)",      text_color =color.white)
+    table.cell(t, 0, 11, "Sharpe Ratio",                    text_color =color.white)
+    table.cell(t, 0, 12, "Sortino Ratio",                   text_color =color.white)
+    table.cell(t, 0, 13, "Omega Ratio",                     text_color =color.white)
+
+    for x = 0 to array.size(bah_array) - 1
+        table.cell(t, 1, x + 2, text = str.tostring(array.get(bah_array, x)), text_color =color.white)
+    for x = 0 to array.size(eq_array)  - 1
+        table.cell(t, 2, x + 2, text = str.tostring(array.get(eq_array,  x)), text_color =color.white)
+
+// barcolor
+barcolor(color_bars ? // color_bars == true ? yes -> continue : no -> na
+ (is_backtest ? sig_col[1] : // backtest mode ? yes -> sig_col[1] : no -> continue
+ (is_calibration ? (intrabar ? calib_col(cal_for) : calib_col(cal_for[1])) : // calibration mode ? yes -> calibration color (with intrabar option) : no -> continue
+ (intrabar ? sig_col : sig_col[1]))) : 
+ na)
+//}
+
+// - - - - - ALERTS - - - - - //{
+alert_source                        = sig
+
+bool long_alert                     = ta.crossover (intrabar ? alert_source : alert_source[1], signal_thre)
+bool short_alert                    = ta.crossunder(intrabar ? alert_source : alert_source[1], -signal_thre)
+
+alertcondition(long_alert,  "LONG (MAR Weighted Trend System)",  "MAR Weighted Trend System flipped ⬆LONG⬆")
+alertcondition(short_alert, "SHORT (MAR Weighted Trend System)", "MAR Weighted Trend System flipped ⬇Short⬇")
+//}

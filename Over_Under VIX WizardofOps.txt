@@ -1,0 +1,37 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © gianluca.puglia
+
+//@version=5
+strategy("wagmi", process_orders_on_close=true, default_qty_type =strategy.percent_of_equity)
+
+//hma_threshhold = input(10)
+
+vol_sym = input.symbol("CBOE:VIX", "Vol. Symbol")
+vol = request.security(vol_sym, timeframe.period, close)
+
+vol_change = vol - vol[1]
+sym_change_pct = (close - close[1]) / close[1] * 100
+
+overvix = vol_change - (-136.95 * (sym_change_pct / 100) + 0.0954)
+
+hma1= ta.hma(overvix, input(21))
+hma2= ta.hma(overvix[1], input(21))
+
+//plot(overvix, color=color.blue)
+plot(hma1, color=color.blue)
+plot(hma2, color=color.red, transp=25)
+//plot(ta.hma(overvix[1],input(5)), color=color.red)
+
+[bbMiddle, bbUpper, bbLower] = ta.bb(hma1, input(252), input(3))
+
+plot(bbUpper, color=color.new(color.gray, 0))
+plot(bbLower, color=color.new(color.gray, 0))
+
+barcolor(hma1 >= 12 ? color.red : hma2 > 10 and ta.crossunder(hma1,hma2) ? color.white: na)
+
+//plotshape(ta.hma(overvix,input(21)) >= 9 and ta.crossunder(overvix-overvix[1],input(21))==true, title='bear', style=shape.triangledown,location=location.abovebar, color=color.white, size=size.tiny, transp=75) 
+
+if hma2 > 10 and ta.crossunder(hma1,hma2)
+    strategy.order("short vol", strategy.short, comment = "Short Vol")
+if ta.rsi(close, 14) <= 50 and ta.rsi(close, 14) > ta.rsi(close, 14)[1]
+    strategy.close_all(comment = "Cover")

@@ -1,0 +1,474 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Daveatt
+
+
+//@version=5
+indicator("Market Stats Panel [Daveatt]", "Asset Stats", overlay=false, max_lines_count=500, max_boxes_count=500, max_labels_count=500, max_polylines_count=100, dynamic_requests=true)
+
+// Input parameters
+
+startYear = input.int(2018, "Start Year", minval=2000, maxval=2024, group="Seasonals")
+endYear = input.int(2024, "End Year", minval=2000, maxval=2024, group="Seasonals")
+
+var grpDisplay = "Display Settings"
+i_panelWidth = input.int(300, "Panel Width", group=grpDisplay)
+//i_panelHeight = input.int(300, "Panel Height", group=grpDisplay) 
+i_priceMode = input.string("Percentage", "Price Mode", ["Absolute", "Percentage"], group=grpDisplay)
+//i_showRating = input.bool(true, "Show Rating", group=grpDisplay)
+i_lineWidth = input.int(4, "Line Width", group=grpDisplay)
+
+var grpBoxDimensions = "Box Dimensions"
+i_boxHeight = input.float(25, "Box Height", group=grpBoxDimensions)
+i_boxSpacing = input.float(10, "Box Spacing", group=grpBoxDimensions)
+i_boxWidth = input.int(20, "Box Width", group=grpBoxDimensions)
+i_yBase = input.float(300, "Starting Y Position", group=grpBoxDimensions)
+
+// Performance periods
+var periods = array.from(7, 30, 90, 180)
+var periodLabels = array.from("1W", "1M", "3M", "6M", "YTD", "1Y") 
+
+// Style constants
+var color c_bullish = #089981
+var color c_bearish = #F23645
+var color c_text = color.black
+var color c_box_bg = color.new(#6fa8dc, 80)  // Light blue 
+var color c_box_border = color.new(#6fa8dc, 40)  // Darker blue for border
+
+getYearColor(int year) => switch year 
+    2024 => #2962FF  // Bright blue
+    2023 => #9C27B0  // Purple
+    2022 => #E91E63  // Fuchsia
+    2021 => #009688  // Teal
+    2020 => #4CAF50  // Green
+    2019 => #FF5252  // Red
+    => color.gray    // Default color
+
+// Get performance based on timeframe string
+getPerformance(string timeframe) =>
+    float currPrice = close
+    float prevPrice = na
+    
+    if timeframe == "YTD"
+        //startOfYear = timestamp(year, 01, 03, 0, 0)  // January 3rd
+        yearStartPrice = request.security(syminfo.tickerid, "12M", open, lookahead=barmerge.lookahead_on)
+        if year(time) == year and month(time) >= 1  // Make sure we're in current year
+            prevPrice := yearStartPrice
+    else if timeframe == "1W"
+        prevPrice := request.security(syminfo.tickerid, "D", close[7], lookahead=barmerge.lookahead_off)
+    else if timeframe == "1M"
+        prevPrice := request.security(syminfo.tickerid, "D", close[30], lookahead=barmerge.lookahead_off)
+    else if timeframe == "3M"
+        prevPrice := request.security(syminfo.tickerid, "D", close[90], lookahead=barmerge.lookahead_off)
+    else if timeframe == "6M"
+        prevPrice := request.security(syminfo.tickerid, "D", close[180], lookahead=barmerge.lookahead_off)
+    else if timeframe == "1Y"
+        prevPrice := request.security(syminfo.tickerid, "D", close[365], lookahead=barmerge.lookahead_off)
+    
+    float perf = ((currPrice - prevPrice) / prevPrice) * 100
+    perf
+
+// Januar 2nd of the start year
+timeStart = timestamp(startYear, 02, 01, 00, 00, 00)
+
+var polyline[] yearLines = array.new<polyline>()
+var label[] yearLabels = array.new<label>()
+
+drawYearComparison() =>
+
+    if array.size(yearLines) > 0
+        for poly in yearLines
+            polyline.delete(poly)
+        for lbl in yearLabels
+            label.delete(lbl)
+            
+    array.clear(yearLines)
+    array.clear(yearLabels)
+
+    // Calculate how many months we need
+    monthsBack = (endYear - startYear + 1) * 12
+    
+    startTime = timestamp(startYear, 01, 01, 0, 0)
+    
+    if time >= startTime
+        // Request historical data
+        [c0,t0,c1,t1,c2,t2,c3,t3,c4,t4,c5,t5,c6,t6,c7,t7,c8,t8,c9,t9,
+         c10,t10,c11,t11,c12,t12,c13,t13,c14,t14,c15,t15,c16,t16,c17,t17,c18,t18,c19,t19,
+         c20,t20,c21,t21,c22,t22,c23,t23,c24,t24,c25,t25,c26,t26,c27,t27,c28,t28,c29,t29,
+         c30,t30,c31,t31,c32,t32,c33,t33,c34,t34,c35,t35,c36,t36,c37,t37,c38,t38,c39,t39,
+         c40,t40,c41,t41,c42,t42,c43,t43,c44,t44,c45,t45,c46,t46,c47,t47,c48,t48,c49,t49,
+         c50,t50,c51,t51,c52,t52,c53,t53,c54,t54,c55,t55,c56,t56,c57,t57,c58,t58,c59,t59,
+         c60,t60,c61,t61,c62,t62,c63,t63] = 
+         request.security(syminfo.tickerid, "M", 
+         [open, time, open[1], time[1], open[2], time[2], open[3], time[3], open[4], time[4],
+         open[5], time[5], open[6], time[6], open[7], time[7], open[8], time[8], open[9], time[9],
+         open[10], time[10], open[11], time[11], open[12], time[12], open[13], time[13], open[14], time[14],
+         open[15], time[15], open[16], time[16], open[17], time[17], open[18], time[18], open[19], time[19],
+         open[20], time[20], open[21], time[21], open[22], time[22], open[23], time[23], open[24], time[24],
+         open[25], time[25], open[26], time[26], open[27], time[27], open[28], time[28], open[29], time[29],
+         open[30], time[30], open[31], time[31], open[32], time[32], open[33], time[33], open[34], time[34],
+         open[35], time[35], open[36], time[36], open[37], time[37], open[38], time[38], open[39], time[39],
+         open[40], time[40], open[41], time[41], open[42], time[42], open[43], time[43], open[44], time[44],
+         open[45], time[45], open[46], time[46], open[47], time[47], open[48], time[48], open[49], time[49],
+         open[50], time[50], open[51], time[51], open[52], time[52], open[53], time[53], open[54], time[54],
+         open[55], time[55], open[56], time[56], open[57], time[57], open[58], time[58], open[59], time[59],
+         open[60], time[60], open[61], time[61], open[62], time[62], open[63], time[63]],
+         lookahead=barmerge.lookahead_on)
+
+        // Second request (c64-c127, t64-t127)
+        [c64,t64,c65,t65,c66,t66,c67,t67,c68,t68,c69,t69,
+         c70,t70,c71,t71,c72,t72,c73,t73,c74,t74,c75,t75,c76,t76,c77,t77,c78,t78,c79,t79,
+         c80,t80,c81,t81,c82,t82,c83,t83,c84,t84,c85,t85,c86,t86,c87,t87,c88,t88,c89,t89,
+         c90,t90,c91,t91,c92,t92,c93,t93,c94,t94,c95,t95,c96,t96,c97,t97,c98,t98,c99,t99,
+         c100,t100,c101,t101,c102,t102,c103,t103,c104,t104,c105,t105,c106,t106,c107,t107,
+         c108,t108,c109,t109,c110,t110,c111,t111,c112,t112,c113,t113,c114,t114,c115,t115,
+         c116,t116,c117,t117,c118,t118,c119,t119,c120,t120,c121,t121,c122,t122,c123,t123,
+         c124,t124,c125,t125,c126,t126,c127,t127] = 
+         request.security(syminfo.tickerid, "M", 
+         [open[64], time[64], open[65], time[65], open[66], time[66], open[67], time[67], open[68], time[68],
+         open[69], time[69], open[70], time[70], open[71], time[71], open[72], time[72], open[73], time[73],
+         open[74], time[74], open[75], time[75], open[76], time[76], open[77], time[77], open[78], time[78],
+         open[79], time[79], open[80], time[80], open[81], time[81], open[82], time[82], open[83], time[83],
+         open[84], time[84], open[85], time[85], open[86], time[86], open[87], time[87], open[88], time[88],
+         open[89], time[89], open[90], time[90], open[91], time[91], open[92], time[92], open[93], time[93],
+         open[94], time[94], open[95], time[95], open[96], time[96], open[97], time[97], open[98], time[98],
+         open[99], time[99], open[100], time[100], open[101], time[101], open[102], time[102], open[103], time[103],
+         open[104], time[104], open[105], time[105], open[106], time[106], open[107], time[107], open[108], time[108],
+         open[109], time[109], open[110], time[110], open[111], time[111], open[112], time[112], open[113], time[113],
+         open[114], time[114], open[115], time[115], open[116], time[116], open[117], time[117], open[118], time[118],
+         open[119], time[119], open[120], time[120], open[121], time[121], open[122], time[122], open[123], time[123],
+         open[124], time[124], open[125], time[125], open[126], time[126], open[127], time[127]],
+         lookahead=barmerge.lookahead_on)
+
+        // Convert to arrays for easier processing
+        monthlyOpens = array.from(c0,c1,c2,c3,c4,c5,c6,c7,c8,c9,c10,c11,c12,c13,c14,c15,c16,c17,c18,c19,
+         c20,c21,c22,c23,c24,c25,c26,c27,c28,c29,c30,c31,c32,c33,c34,c35,c36,c37,c38,c39,
+         c40,c41,c42,c43,c44,c45,c46,c47,c48,c49,c50,c51,c52,c53,c54,c55,c56,c57,c58,c59,
+         c60,c61,c62,c63,c64,c65,c66,c67,c68,c69,c70,c71,c72,c73,c74,c75,c76,c77,c78,c79,
+         c80,c81,c82,c83,c84,c85,c86,c87,c88,c89,c90,c91,c92,c93,c94,c95,c96,c97,c98,c99,
+         c100,c101,c102,c103,c104,c105,c106,c107,c108,c109,c110,c111,c112,c113,c114,c115,
+         c116,c117,c118,c119,c120,c121,c122,c123,c124,c125,c126,c127)
+
+        monthlyTimes = array.from(t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11,t12,t13,t14,t15,t16,t17,t18,t19,
+         t20,t21,t22,t23,t24,t25,t26,t27,t28,t29,t30,t31,t32,t33,t34,t35,t36,t37,t38,t39,
+         t40,t41,t42,t43,t44,t45,t46,t47,t48,t49,t50,t51,t52,t53,t54,t55,t56,t57,t58,t59,
+         t60,t61,t62,t63,t64,t65,t66,t67,t68,t69,t70,t71,t72,t73,t74,t75,t76,t77,t78,t79,
+         t80,t81,t82,t83,t84,t85,t86,t87,t88,t89,t90,t91,t92,t93,t94,t95,t96,t97,t98,t99,
+         t100,t101,t102,t103,t104,t105,t106,t107,t108,t109,t110,t111,t112,t113,t114,t115,
+         t116,t117,t118,t119,t120,t121,t122,t123,t124,t125,t126,t127)
+
+        // Define our drawing area
+        int areaWidth = 200  // Width of our polyline area
+        int areaStart = bar_index - i_panelWidth  // Left side of our area
+        int areaEnd = areaStart + areaWidth  // Right side of our area
+        
+        // Y-coordinates to match box levels
+        float yBase = i_yBase
+        float priceRange = ta.highest(close, 500) - ta.lowest(close, 500)
+        float normalizedHeight = math.min(100, math.max(20, i_boxHeight * 2))  // Dynamic height between 20 and 100, based on box height
+        
+        // Draw border box
+        box.new(areaStart, yBase + normalizedHeight/2, areaStart + areaWidth, yBase - normalizedHeight/2, bgcolor=color.new(color.white, 90), border_color=color.black, border_width=1)
+
+        // Calculate Y-axis range from actual data points
+        float maxPrice = float(na)
+        float minPrice = float(na)
+
+        // First find absolute min/max from all years data
+        for y = startYear to endYear
+            if y == year(timenow)
+                if na(maxPrice) or close > maxPrice
+                    maxPrice := close
+                if na(minPrice) or close < minPrice
+                    minPrice := close
+            
+            for i = 0 to array.size(monthlyTimes) - 1
+                monthTime = array.get(monthlyTimes, i)
+                monthClose = array.get(monthlyOpens, i)
+                
+                if year(monthTime) == y and not na(monthClose)
+                    if na(maxPrice) or monthClose > maxPrice
+                        maxPrice := monthClose
+                    if na(minPrice) or monthClose < minPrice
+                        minPrice := monthClose
+
+        // Round to nice numbers
+        float step = math.pow(10, math.floor(math.log10(maxPrice - minPrice))) / 2
+        minPrice := math.floor(minPrice / step) * step
+        maxPrice := math.ceil(maxPrice / step) * step
+        float priceRangeRounded = maxPrice - minPrice
+
+        // Calculate actual min/max percentages across all years
+        float maxPercentage = -999999.0
+        float minPercentage = 999999.0
+
+        for y = startYear to endYear
+            float yearStartPrice = na
+            
+            // Find year's start price and calculate percentage changes
+            for i = 0 to array.size(monthlyTimes) - 1
+                monthTime = array.get(monthlyTimes, i)
+                monthClose = array.get(monthlyOpens, i)
+                
+                if year(monthTime) == y
+                    if na(yearStartPrice)
+                        yearStartPrice := monthClose
+                    if not na(yearStartPrice) and not na(monthClose)
+                        float percChange = ((monthClose - yearStartPrice) / yearStartPrice) * 100
+                        maxPercentage := math.max(maxPercentage, percChange)
+                        minPercentage := math.min(minPercentage, percChange)
+
+        // Round to nice numbers for the scale
+        float percStep = math.pow(10, math.floor(math.log10(maxPercentage - minPercentage))) / 2
+        minPercentage := math.floor(minPercentage / percStep) * percStep
+        maxPercentage := math.ceil(maxPercentage / percStep) * percStep
+
+        // Add Y-axis labels
+        int numYLabels = 10
+        for i = 0 to numYLabels
+            float yPos = yBase + normalizedHeight/2 - (normalizedHeight * i / numYLabels)
+            string labelText = ""
+            
+            if i_priceMode == "Percentage"
+                float _range = maxPercentage - minPercentage
+                float currentPerc = maxPercentage - (_range * i / numYLabels)
+                labelText := str.tostring(math.round(currentPerc, 1)) + "%"
+            else
+                float price = maxPrice - (priceRangeRounded * i / numYLabels)
+                labelText := str.tostring(price, format.mintick)
+            
+            label.new(x=areaStart + areaWidth + 55, y=yPos, text=labelText, color=na, textcolor=color.black, style=label.style_label_left, size=size.small)
+
+        // Add month labels below the box
+        for m = 1 to 12
+            label.new(areaStart + math.round(m * areaWidth / 12), yBase - normalizedHeight/1.5, text=array.get(array.from("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"), m-1), color=na, textcolor=color.black, style=label.style_label_center, size=size.normal, text_font_family=font.family_monospace)
+
+        // Process each year's data
+        for y = startYear to endYear
+            var points = array.new<chart.point>()
+            array.clear(points)
+            
+            float yearStartPrice = na
+            float maxPerf = -999999
+            float minPerf = 999999
+            
+            if y == year(timenow)
+                
+                // Current year handling
+                float currentPrice = close
+
+                // Request data for current year
+                [firstOpen, firstTime] = request.security(syminfo.tickerid, "12M", [open, time], lookahead=barmerge.lookahead_off)
+
+                // Start of year condition
+                if na(yearStartPrice)  // Only set it once
+                    yearStartPrice := firstOpen
+
+                if not na(yearStartPrice)
+                    float yearPerformance = ((currentPrice - yearStartPrice) / yearStartPrice) * 100
+                    //log.info("Year performance: " + str.tostring(yearPerformance) + "%")
+                                
+                // First pass for min/max - only completed months
+                for i = array.size(monthlyTimes) - 1 to 0
+                    monthTime = array.get(monthlyTimes, i)
+                    if year(monthTime) == y and monthTime < timenow
+                        monthClose = array.get(monthlyOpens, i)
+                        
+                        if not na(yearStartPrice) and not na(monthClose)
+                            float val = i_priceMode == "Absolute" ? monthClose : ((monthClose - yearStartPrice) / yearStartPrice) * 100
+                            maxPerf := math.max(maxPerf, val)
+                            minPerf := math.min(minPerf, val)
+                
+                // Add current price to min/max calculation
+                float currentVal = i_priceMode == "Absolute" ? currentPrice : ((currentPrice - yearStartPrice) / yearStartPrice) * 100
+                maxPerf := math.max(maxPerf, currentVal)
+                minPerf := math.min(minPerf, currentVal)
+
+                // Create points for completed months
+                for i = array.size(monthlyTimes) - 1 to 0
+                    monthTime = array.get(monthlyTimes, i)
+                    if year(monthTime) == y and monthTime < timenow
+                        monthClose = array.get(monthlyOpens, i)
+                        
+                        if not na(monthClose)
+                            float monthNum = month(monthTime)
+                            int x = areaStart + math.round(monthNum * areaWidth / 12)
+                            float val = i_priceMode == "Absolute" ? monthClose : ((monthClose - yearStartPrice) / yearStartPrice) * 100
+                            float scaledY = i_priceMode == "Absolute" ? yBase + ((monthClose - minPrice) / priceRangeRounded) * normalizedHeight - normalizedHeight/2 :
+                             yBase + ((val - minPercentage) / (maxPercentage - minPercentage)) * normalizedHeight - normalizedHeight/2
+                            point = chart.point.from_index(x, scaledY)
+                            array.push(points, point)
+                
+                // Add current point
+                float currentMonth = month(timenow)
+                int currentX = areaStart + math.round(currentMonth * areaWidth / 12)
+                //float currentVal = i_priceMode == "Absolute" ? currentPrice : ((currentPrice - yearStartPrice) / yearStartPrice) * 100
+                float currentScaledY = i_priceMode == "Absolute" ?  yBase + ((currentPrice - minPrice) / priceRangeRounded) * normalizedHeight - normalizedHeight/2 :
+                 yBase + ((currentVal - minPercentage) / (maxPercentage - minPercentage)) * normalizedHeight - normalizedHeight/2
+                point = chart.point.from_index(currentX, currentScaledY)
+                array.push(points, point)
+
+                // Create current year labels
+                if array.size(points) > 0
+                    yearCol = getYearColor(y)
+                    poly = polyline.new(points=points, curved=false, closed=false, xloc=xloc.bar_index, line_color=yearCol, line_width=i_lineWidth)
+                    array.push(yearLines, poly)
+
+                    // Labels for current year
+                    lbl = label.new(x=areaStart + areaWidth + 5, y=currentScaledY, text=str.tostring(y), color=yearCol, textcolor=color.white, style=label.style_label_left, xloc=xloc.bar_index)
+                    array.push(yearLabels, lbl)
+                    
+                    valueText = i_priceMode == "Absolute" ? str.tostring(currentPrice, format.mintick) : str.tostring(((currentPrice - yearStartPrice) / yearStartPrice) * 100, "#.##") + "%"
+                    valueLbl = label.new(x=areaStart + areaWidth + 45, y=currentScaledY, text=valueText, color=yearCol, textcolor=color.white, style=label.style_label_left, xloc=xloc.bar_index)
+                    array.push(yearLabels, valueLbl)
+
+            else
+                // Historical years
+                float yearStartPrice = na
+                float yearEndPrice = na
+                float decemberPrice = na  // Keep this for plotting
+                float decemberY = na
+                
+                // First find January price for this year
+                for i = 0 to array.size(monthlyTimes) - 1
+                    monthTime = array.get(monthlyTimes, i)
+                    monthOpen = array.get(monthlyOpens, i)
+                    
+                    if year(monthTime) == y and month(monthTime) == 1
+                        yearStartPrice := monthOpen
+                        break
+                
+                // Find January price of next year (for performance calculation)
+                for i = 0 to array.size(monthlyTimes) - 1
+                    monthTime = array.get(monthlyTimes, i)
+                    monthOpen = array.get(monthlyOpens, i)
+                    
+                    if year(monthTime) == y + 1 and month(monthTime) == 1
+                        yearEndPrice := monthOpen
+                        break
+
+                // Draw the year's line
+                var points = array.new<chart.point>()
+                array.clear(points)
+                
+                // Process all months for the line
+                for i = 0 to array.size(monthlyTimes) - 1
+                    monthTime = array.get(monthlyTimes, i)
+                    monthOpen = array.get(monthlyOpens, i)
+                    
+                    if year(monthTime) == y and not na(monthOpen)
+                        float monthNum = month(monthTime)
+                        int x = areaStart + math.round(monthNum * areaWidth / 12)
+                        float val = i_priceMode == "Absolute" ? monthOpen : ((monthOpen - yearStartPrice) / yearStartPrice) * 100
+                        float scaledY = i_priceMode == "Absolute" ? yBase + ((monthOpen - minPrice) / priceRangeRounded) * normalizedHeight - normalizedHeight/2 :
+                         yBase + ((val - minPercentage) / (maxPercentage - minPercentage)) * normalizedHeight - normalizedHeight/2
+                        point = chart.point.from_index(x, scaledY)
+                        array.push(points, point)
+                        
+                        // Save December values for labels and plotting
+                        if month(monthTime) == 12
+                            decemberPrice := monthOpen
+                            decemberY := scaledY
+
+                if array.size(points) > 0 and not na(yearStartPrice) and not na(yearEndPrice)
+                    yearCol = getYearColor(y)
+                    poly = polyline.new(points=points, curved=false, closed=false, xloc=xloc.bar_index, line_color=yearCol, line_width=i_lineWidth)
+                    array.push(yearLines, poly)
+
+                    float yearPerformance = ((yearEndPrice - yearStartPrice) / yearStartPrice) * 100
+                    
+                    // Debug logs
+                    log.info("Year " + str.tostring(y) + ":")
+                    log.info("  Start Price: " + str.tostring(yearStartPrice))
+                    log.info("  End Price: " + str.tostring(yearEndPrice))
+                    log.info("  Performance: " + str.tostring(yearPerformance) + "%")
+
+                    lbl = label.new(x=areaStart + areaWidth + 5, y=decemberY, text=str.tostring(y), color=yearCol, textcolor=color.white, style=label.style_label_left, xloc=xloc.bar_index)
+                    array.push(yearLabels, lbl)
+                    
+                    valueText = i_priceMode == "Absolute" ? str.tostring(yearEndPrice, format.mintick) : str.tostring(yearPerformance, "#.##") + "%"
+                    valueLbl = label.new(x=areaStart + areaWidth + 45, y=decemberY, text=valueText, color=yearCol, textcolor=color.white, style=label.style_label_left, xloc=xloc.bar_index)
+                    array.push(yearLabels, valueLbl)
+
+// Draw performance boxes
+drawPerformanceBoxes() =>
+    var box[] perfBoxes = array.new_box()
+    var label[] perfLabels = array.new_label()
+    var label[] timeframeLabels = array.new_label()
+    
+    // Clear previous drawings
+    for b in perfBoxes
+        box.delete(b)
+    for l in perfLabels
+        label.delete(l)
+    for t in timeframeLabels
+        label.delete(t)
+        
+    perfBoxes.clear()
+    perfLabels.clear()
+    timeframeLabels.clear()
+    
+    float box_height = i_boxHeight  // Box height
+    float box_spacing = i_boxSpacing  // Box spacing
+    int box_width = i_boxWidth  // Box width
+    color darkGreen = c_bullish  // Dark green for positive percentages
+    color darkRed = #F23645    // Dark red for negative percentages
+
+    // Utiliser la même base Y que le panneau principal
+    float normalizedHeight = math.min(100, math.max(20, i_boxHeight * 2))
+    float panelTop = i_yBase + normalizedHeight/2  // Même calcul que dans drawYearComparison
+    
+    // Ajuster y_base pour aligner avec le haut du panneau
+    float y_base = panelTop
+    float y_offset = box_height + box_spacing
+    int x_start = bar_index + 30
+    float x_spacing = box_width + box_spacing
+
+    for i = 0 to array.size(periodLabels)-1
+        int row = math.floor(i / 3)  // Calculate row (0 or 1)
+        int col = i % 3  // Calculate column (0, 1, or 2)
+        
+        string timeframe = array.get(periodLabels, i)
+        float perf = getPerformance(timeframe)
+        string perf_text = str.tostring(perf, "#.##") + "%"
+        string period_text = array.get(periodLabels,i)
+
+        float y_top = y_base - (row * y_offset)
+        float y_bottom = y_top - box_height
+        float y_middle = (y_top + y_bottom)/2
+        
+        float x_box_start = x_start + (col * (box_width + x_spacing))
+
+        // Create box
+        box b = box.new(int(x_box_start), y_top, int(x_box_start + box_width), y_bottom, bgcolor=c_box_bg, border_color=c_box_border, border_width=1)
+        
+        // Adjusted y-positions for better centering
+        // Create percentage label (moved up slightly)
+        label l = label.new(int(x_box_start + box_width/2), y_middle + 2, perf_text, color=color.new(color.white, 100), textcolor=perf >= 0 ? darkGreen : darkRed, style=label.style_label_center, text_font_family=font.family_monospace, size=size.large)
+
+        // Create timeframe label (moved down slightly)
+        label t = label.new(int(x_box_start + box_width/2), y_middle - 2, period_text, color=color.new(color.white, 100), textcolor=color.black, style=label.style_label_center, text_font_family=font.family_monospace, size=size.normal)
+
+        perfBoxes.push(b)
+        perfLabels.push(l)
+        timeframeLabels.push(t)
+
+// Draw all components
+if barstate.islast
+
+    // Cleaning previous drawings
+
+    for _lbl in label.all
+        label.delete(_lbl)
+    for _poly in polyline.all
+        polyline.delete(_poly)
+    for _box in box.all
+        box.delete(_box)
+
+    // Main Routines
+
+    drawYearComparison()
+    drawPerformanceBoxes()
+
+    // Add debug logging
+    //for timeframe in periodLabels
+    //    log.info(timeframe + " Performance: " + str.tostring(getPerformance(timeframe)) + "%")

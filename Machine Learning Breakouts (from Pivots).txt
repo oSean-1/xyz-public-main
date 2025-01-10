@@ -1,0 +1,58 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © tkarolak 
+// @version=5
+
+/////////////////
+// Description // 
+/////////////////
+
+// "ML Pivots Breakouts" identifies multiple breakout zones through kNN ML prediction from pivot points,
+// offering essential insights for breakout and trend follower traders. It visually alerts on bullish breakouts above high lines and
+// bearish breakouts below low lines, designed for both long and short strategies, adapting to volatility and market shifts.
+
+indicator("Machine Learning Breakouts (from Pivots)", shorttitle="ML Pivots Breakouts", overlay=true, precision=4, format=format.price)
+import tkarolak/MLPivotsBreakouts/1 as fn
+
+// Tooltip strings for user inputs
+string togglePivotsTooltip = "Toggle to show or hide pivot points on the chart."
+string sourceTooltip = "Selects the price source for the indicator's calculations, impacting the analysis significantly."
+string numberOfNeighborsTooltip = "Controls the number of neighbors to consider in the k-NN prediction, affecting sensitivity."
+string pivotBarsTooltip = "Specifies the number of bars for pivot point identification, influencing market trend clarity."
+string maxDataPointsTooltip = "Sets the maximum dataset size, balancing between analysis depth and computational efficiency."
+string predictionSmoothingTooltip = "Applies smoothing to predictions, aiming to reduce noise in the output."
+
+// Group names for organization
+string inputSettingsGroup = "Input Parameters Settings"
+string mlModelSettingsGroup = "ML Model Settings"
+
+// User-defined inputs
+source = input.source(close, "Source", tooltip = sourceTooltip)
+pivotBars = input.int(20, "Pivot Bars", maxval=100, tooltip = pivotBarsTooltip)
+togglePivots = input.bool(false, "Show/Hide Pivots", tooltip = togglePivotsTooltip, display = display.none)
+
+// ML model parameters
+numNeighbors = input.int(20, "Number of Neighbors (k)", tooltip=numberOfNeighborsTooltip, maxval=100, group=mlModelSettingsGroup)
+maxData = input.int(40, "Maximum Data Points", maxval=200, step=10, tooltip=maxDataPointsTooltip, group=mlModelSettingsGroup)
+predictionSmoothing = input.int(20, "Prediction Smoothing", group=mlModelSettingsGroup, tooltip=predictionSmoothingTooltip)
+
+// Function to draw labels on chart for pivot points
+drawLabel(condition, labelText, yLocation, offset, pivotPrice, style, textColor) =>
+    if condition
+        label.new(bar_index[offset], pivotPrice, labelText, yloc=yLocation, style=style, color=textColor)
+
+// Perform predictions
+[lowerBand, higherBand, pivot] = fn.breakouts(source, pivotBars, numNeighbors, maxData, predictionSmoothing)
+
+// Draw labels for pivot points
+drawLabel(togglePivots and pivot == 1, "H", yloc.abovebar, pivotBars, source[pivotBars], label.style_label_down, color.red)
+drawLabel(togglePivots and pivot == -1, "L", yloc.belowbar, pivotBars, source[pivotBars], label.style_label_up, color.green)
+
+// Plot extrapolated and smoothed bands
+plot(lowerBand, "Lower Band", color=color.new(color.red, 60))
+plot(higherBand, "Higher Band", color=color.new(color.green, 60))
+
+// Determine and fill breakout zones
+fillColor = source > higherBand ? color.new(color.green, 90) : source < lowerBand ? color.new(color.red, 90) : na
+fillLine = plot(source > higherBand ? higherBand : source < lowerBand ? lowerBand : source, color=fillColor)
+sourcePlot = plot(source, display = display.none)
+fill(sourcePlot, fillLine, fillColor)

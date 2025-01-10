@@ -1,0 +1,152 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © sudoMode
+
+
+//@version=5
+//@release=0.0.7
+indicator(title = 'Pressure Gauge', shorttitle = 'Equilibrium', overlay = false)
+
+
+// --- user-input ---
+// setting groups
+group_1 = 'Gauge Settings'
+group_2 = 'Oscillator Settings'
+
+// gauge settings
+show_gauge = input.bool(false, 'Show Gauge', inline = '1', group = group_1)
+show_text  = input.bool(false, 'Show Text', inline = '1', group = group_1)
+sell_color = input.color(color.red, title = 'Sell Color', inline = '2', group = group_1)
+buy_color  = input.color(color.green, title = 'Buy Color', inline = '2', group = group_1)
+alignment  = input.string('Vertical', title = 'Alignment',
+             options = ['Vertical', 'Horizontal'], inline = '3', group = group_1)
+lookback_1   = input.int(50, title = 'Lookback Period', minval = 10, maxval = 1000, step = 10,
+             inline = '3', group = group_1)
+
+// oscillator settings
+_sell_color     = input.color(color.rgb(125, 10, 10), title = 'Sell Color', inline = '4', group = group_2)
+_buy_color      = input.color(color.rgb(50, 150, 200), title = 'Buy Color', inline = '4', group = group_2)
+short_ma_length = input.int(3, title = 'Short MA Length', minval = 1, maxval = 10, inline = '5', group = group_2)
+show_long_ma    = input.bool(false, title = 'Show Long MA', inline = '6', group = group_2)
+long_ma_length  = input.int(10, title = 'Long MA Length', minval = 10, maxval = 30, inline = '7', group = group_2)
+lookback_2      = input.int(30, title = 'Lookback Period', minval = 5, maxval = 100, inline = '8', group = group_2)
+
+// --- globals ---
+var white = color.white
+var tiny  = size.tiny
+var scale = 25
+
+
+// --- utils ---
+// scale value between a range
+scaler(_series, minimum = -1, maximum = 1) =>
+	_min   = ta.min(_series)
+	_max   = ta.max(_series)
+	_range = _max - _min
+	((_series - _min) / _range) * (maximum - minimum) + minimum
+
+
+// position gauge based on alignment
+position_map(alignment) =>
+    switch alignment
+        'Vertical'     => position.middle_right
+        'Horizontal'   => position.bottom_center
+
+
+// create an empty table -> to be used as the gauge
+init_gauge(alignment) =>
+    columns   = alignment == 'Vertical'   ? 1 : scale
+    rows      = alignment == 'Horizontal' ? 1 : scale
+    position  = position_map(alignment)
+    table.new(position = position, columns = columns, rows = rows)
+
+
+// compute length distribution of red & green candles
+candle_distribution(red, green) =>
+    total       = red + green
+    dist_red    = int((red / total) * scale)
+    dist_green  = scale - dist_red
+    [dist_red, dist_green]
+
+
+// generate cell color based on type
+color_map(_type) =>
+    switch _type
+        'sell' => sell_color
+        'buy'  => buy_color
+
+
+// generate column & row index
+coordinate_map(alignment, _type, index) =>
+    column = alignment == 'Vertical'   ? 0 : (_type == 'sell' ? scale - index - 1 : index)
+    row    = alignment == 'Horizontal' ? 0 : (_type == 'sell' ? index : scale - index - 1)
+    [column, row]
+
+
+// popluate the gauge
+// higher distribution => higher presssure => greater color intensity
+// vertical alignment   :  sell => top to bottom | buy => bottom to top
+// horizontal alignment :  sell => right to left | buy => left to right
+project_pressure(gauge, alignment, scale, index, dist, _type) =>
+    if index < dist
+        [column, row] = coordinate_map(alignment, _type, index)
+        percentage = str.tostring(math.round(dist * (100/scale))) + '%'
+        _color     = color.new(color_map(_type), (100 - ((100 / scale) * index)))
+        _text      = show_text and index + 2 == dist ? percentage : ''
+        width      = _text == '' ? (alignment == 'Vertical' ? 2 : 4) : 0
+        height     = _text == '' ? 4 : 0
+        table.cell(gauge, column = column, row = row, bgcolor = _color, text = _text, text_color = white,
+                     text_size = tiny, width = width, height=height)
+
+
+// indicate buy/sell pressure by populating the gauge
+draw_pressure_gauge(red, green, alignment='Vertical') =>
+    gauge                  = init_gauge(alignment)
+    
+
+    for i = 0 to math.max(red, green)
+        project_pressure(gauge, alignment, scale, i, red, 'sell')
+        project_pressure(gauge, alignment, scale, i, green, 'buy')
+
+
+// compute total candle lengths for the given lookback period
+compute_lengths(lookback) =>
+    red   = 0
+    green = 0
+    for i = 0 to lookback
+        _range = (close[i] - open[i]) * volume[i]
+        if _range > 0
+            green += int(_range)
+        else
+            red += int(math.abs(_range))
+    [red, green]
+
+
+
+// --- driver ---
+// gauge
+if show_gauge
+    // compute distribution
+    [red_gauge, green_gauge]           = compute_lengths(lookback_1)
+    [dist_red_gauge, dist_green_gauge] = candle_distribution(red_gauge, green_gauge)
+    // draw gauge
+    draw_pressure_gauge(dist_red_gauge, dist_green_gauge, alignment)
+
+
+// oscillator
+// compute pressure
+[red_oscillator, green_oscillator]           = compute_lengths(lookback_2)
+[dist_red_oscillator, dist_green_oscillator] = candle_distribution(red_oscillator, green_oscillator)
+raw_pressure    = dist_green_oscillator - dist_red_oscillator
+scaled_pressure = raw_pressure < 0 ? scaler(raw_pressure, -1, 0) : scaler(raw_pressure, 0, 1)
+short_pressure = ta.ema(scaled_pressure, short_ma_length)
+long_pressure  = ta.sma(scaled_pressure, long_ma_length)
+
+// draw oscillator
+_buy_color  := color.from_gradient(short_pressure, 0, 1, color.new(_buy_color, 50), color.new(_buy_color, 0))
+_sell_color := color.from_gradient(short_pressure, -1, 0, color.new(_sell_color, 0), color.new(_sell_color, 50))
+
+short_color = short_pressure < 0 ? _sell_color : _buy_color
+plot(short_pressure, style = plot.style_columns, color = short_color)
+
+long_color = show_long_ma ? color.gray : na
+plot(long_pressure, style = plot.style_line, color = long_color, linewidth = 2)

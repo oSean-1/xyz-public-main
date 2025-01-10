@@ -1,0 +1,154 @@
+// This work is a variation of the original "Machine Learning Momentum Index (MLMI)" script by Zeiierman,
+// licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License (CC BY-NC-SA 4.0).
+// You can find the original work at:
+// https://www.tradingview.com/script/I2X9DE84-Machine-Learning-Momentum-Index-MLMI-Zeiierman/
+//
+// This variation is created by tkarolak and is also licensed under the CC BY-NC-SA 4.0 license.
+// For more information about the CC BY-NC-SA 4.0 license, visit https://creativecommons.org/licenses/by-nc-sa/4.0/
+//
+// © 2024 tkarolak
+//
+// Variation Description:
+// In my adaptation of the "Machine Learning Momentum Index (MLMI)" initially
+// devised by Zeiierman, I have increased the model's prediction accuracy and responsiveness
+// by incorporating additional parameters for prediction.
+// Unlike the original MLMI, this version focuses on pivots rather than trend crosses,
+// offering a novel approach to momentum-based trading strategies.
+// Additionally, I have implemented a cap on the dataset that accumulates over time, aiming to make the indicator
+// less susceptible to calculation timeouts. This adjustment ensures that the indicator remains efficient and
+// responsive, even as it processes large volumes of data over extended periods.
+
+// If you've found value in my work and wish to support further development, consider buying me a coffee.
+// Your generosity helps keep the innovation brewing, enabling me to continue creating tools and content
+// that empower traders and developers alike. https://www.buymeacoffee.com/tkarolak
+
+//@version=5
+indicator(title='ML - Momentum Index (Pivots)', shorttitle='MLMI with Pivots', overlay=false, precision=2)
+
+// Type Definition
+type Data
+    array<float> parameter1
+    array<float> parameter2
+    array<float> parameter3
+    array<float> parameter4
+    array<float> priceArray
+    array<float> resultArray
+
+// Tooltips & Groups
+string t0 = "This parameter selects the price source for the indicator's calculations, such as the closing price or the ohlc4. The choice of price source significantly impacts the analysis: \n\nUsing the close price provides a snapshot of market sentiment at the end of the trading period, reflecting the final consensus value for that time frame. It's often used for its simplicity and direct representation of market closure conditions. \n\nAlternatively, using ohlc4 averages out the intra-period volatility, offering a smoother analysis that mitigates the effects of spikes or drops within the period. This can lead to a more balanced view of market behavior, useful for identifying underlying trends without the noise of short-term fluctuations. The selection should be based on the aspects of market behavior you aim to analyze and your overall trading strategy."
+string t1 = "This parameter controls the number of neighbors to consider while making a prediction using the k-Nearest Neighbors (k-NN) algorithm. By modifying the value of k, you can change how sensitive the prediction is to local fluctuations in the data. \n\nA smaller value of k will make the prediction more sensitive to local variations and can lead to a more erratic prediction line. \n\nA larger value of k will consider more neighbors, thus making the prediction more stable but potentially less responsive to sudden changes."
+string t2 = "The parameter controls the length of the trend used in computing the momentum. This length refers to the number of periods over which the momentum is calculated, affecting how quickly the indicator reacts to changes in the underlying price movements. \n\nA shorter trend length (smaller momentumWindow) will make the indicator more responsive to short-term price changes, potentially generating more signals but at the risk of more false alarms. \n\nA longer trend length (larger momentumWindow) will make the indicator smoother and less responsive to short-term noise, but it may lag in reacting to significant price changes."
+string t3 = "This parameter specifies the number of bars to consider for identifying pivot points within the price data. Pivot points are significant price levels used to determine the overall direction of the market's movement. \n\nA higher number of pivot bars will lead to fewer, but potentially more significant pivot points, offering a clearer indication of long-term market trends. \n\nConversely, a lower number of pivot bars will identify more pivot points, increasing the sensitivity to short-term market fluctuations but possibly resulting in more noise."
+string t4 = "This parameter sets the maximum size of the dataset used for making predictions, effectively limiting the amount of historical data considered by the model. A larger dataset may provide a more comprehensive view of market behavior but can also increase computational complexity and the risk of overfitting. \n\nConversely, a smaller dataset might lead to faster computations and a model that adapts more quickly to recent market conditions, though it may be more susceptible to noise and short-term fluctuations. Balancing the size of the dataset is crucial for optimizing the model's performance and responsiveness."
+string g1 = "Input parameters settings" 
+string g2 = "ML Model settings"
+
+// Input Parameters
+source         = input.source(close, "Price source", tooltip = t0, group=g1)
+pivotBars      = input.int(20, "Pivot bars", tooltip = t3, group=g1)
+momentumWindow = input.int(25, "Trend Length", step=2, minval=10, maxval=200, tooltip=t2, group=g1)
+maxData        = input.int(500, "Maximum Data Points", maxval=1000, step=100, tooltip=t4, group=g2)
+numNeighbors   = input.int(100, "Number of Neighbors (k)", tooltip=t1, maxval=200, group=g2)
+predictionSmoothing = input.int(20, "Prediction Smoothing", group=g2)
+
+// Functions
+rescale(series float sourceSeries, float oldMin, float oldMax, float newMin, float newMax) =>
+    newMin + (newMax - newMin) * (sourceSeries - oldMin) / math.max(oldMax - oldMin, 10e-10)
+
+// Method that saves the last trade
+method storePreviousTrade(Data d, p1, p2, p3, p4, price, n) =>
+    size = d.priceArray.size()
+    prevPrice = d.priceArray.last()
+    d.parameter1.push(p1)
+    d.parameter2.push(p2)
+    d.parameter3.push(p3)
+    d.parameter4.push(p4)
+    d.priceArray.push(price)
+    d.resultArray.push(price >= prevPrice ? 1 : -1)
+    if size > n-1
+        d.parameter1.shift()
+        d.parameter2.shift()
+        d.parameter3.shift()
+        d.parameter4.shift()
+        d.priceArray.shift()
+        d.resultArray.shift()
+
+// Method to Make Prediction
+method knnPredict(Data d, p1, p2, p3, p4, k) =>
+    // Create a Distance Array (Euclidean distance formula)
+    distances = array.new_float(0)
+    n = d.parameter1.size() - 1
+    for i = 0 to n
+        distance = math.sqrt(math.pow(p1 - d.parameter1.get(i), 2) + math.pow(p2 - d.parameter2.get(i), 2) + math.pow(p3 - d.parameter3.get(i), 2) + math.pow(p4 - d.parameter4.get(i), 2))
+        distances.push(distance)
+    sortedIndices = array.sort_indices(distances)
+    neighbors = array.new_float()
+    for i = 0 to k - 1
+        array.push(neighbors, d.resultArray.get(sortedIndices.get(i)))
+    // Return Prediction
+    prediction = neighbors.avg()
+    min = ta.lowest(prediction,2000)
+    max = ta.highest(prediction,2000)
+    rescale(prediction,min,max,-100,100)
+
+// Create a Data object
+var data = Data.new(array.new_float(numNeighbors, na), array.new_float(numNeighbors, na), array.new_float(numNeighbors, na), array.new_float(numNeighbors, na), array.new_float(numNeighbors, na), array.new_float(numNeighbors, na))
+param1   = ta.wma(ta.rsi(source,12),momentumWindow)
+param2   = ta.wma(ta.rsi(source, 25),momentumWindow)
+param3   = ta.wma(ta.rsi(source, 50),momentumWindow)
+param4   = ta.wma(ta.rsi(source, 100),momentumWindow)
+
+// Pivots Detection
+ph = ta.pivothigh(pivotBars, pivotBars)
+pl = ta.pivotlow(pivotBars, pivotBars)
+phDetected = not na(ph)
+plDetected = not na(pl) 
+
+// Adding point to data set
+if phDetected or plDetected
+    data.storePreviousTrade(param1[pivotBars], param2[pivotBars], param3[pivotBars], param4[pivotBars], source[pivotBars], maxData)
+
+// Plots
+prediction    = data.knnPredict(param1, param2, param3, param4, numNeighbors)
+prediction_ma = ta.wma(prediction, predictionSmoothing)
+
+// Gradient Color
+upper         = 100
+lower         = -100
+upper_        = upper - ta.ema(ta.stdev(prediction,20),20)
+lower_        = lower + ta.ema(ta.stdev(prediction,20),20)
+plotColor = color.from_gradient(prediction_ma,lower_,upper_,color.red,color.green)
+
+// Plots
+hm = hline(0, "Middle Band", color=color.new(#787B86, 50))
+plot(prediction, color=color.new(color.silver,50), title="MLMI Prediction",linewidth = 1)
+plot(prediction_ma, color=plotColor, title="WMA of MLMI Prediction", linewidth = 2)
+
+// Plot dynamic lines for ob/os oscillator levels
+var line upperLine = na
+var line lowerLine = na
+if (not na(upperLine))
+    line.delete(upperLine) // Delete the previous upper line
+if (not na(lowerLine))
+    line.delete(lowerLine) // Delete the previous lower line
+upperLine := line.new(bar_index-1, upper_, bar_index, upper_, color=color.new(color.lime,50), extend=extend.left)
+lowerLine := line.new(bar_index-1, lower_, bar_index, lower_, color=color.new(color.red,50), extend=extend.left)
+
+// ~~ Alerts {
+P_OB_Over   = ta.crossover(prediction,upper_)
+P_OB_Under  = ta.crossunder(prediction,upper_)
+P_OS_Over   = ta.crossover(prediction,lower_)
+P_OS_Under  = ta.crossunder(prediction,lower_)
+P_Mid_Over  = ta.crossover(prediction,0)
+P_Mid_Under = ta.crossunder(prediction,0)
+P_MA_Over   = ta.crossover(prediction,prediction_ma)
+P_MA_Under  = ta.crossunder(prediction,prediction_ma)
+
+alertcondition(P_OB_Over,  title = "MLMI Crossover OB",  message = "MLMI Crossover OB")
+alertcondition(P_OB_Under, title = "MLMI Crossunder OB", message = "MLMI Crossunder OB")
+alertcondition(P_OS_Over,  title = "MLMI Crossover OS",  message = "MLMI Crossover OS")
+alertcondition(P_OS_Under, title = "MLMI Crossunder OS", message = "MLMI Crossunder OS")
+alertcondition(P_Mid_Over, title = "MLMI Crossover 50",  message = "MLMI Crossover 50")
+alertcondition(P_Mid_Under,title = "MLMI Crossunder 50", message = "MLMI Crossunder 50")
+alertcondition(P_MA_Over,  title = "MLMI Crossover Ma",  message = "MLMI Crossover Ma")
+alertcondition(P_MA_Under, title = "MLMI Crossunder Ma", message = "MLMI Crossunder Ma")

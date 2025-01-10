@@ -1,0 +1,208 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © ChartingCycles
+
+
+//@version=5
+indicator("Moving Average Cycles", overlay=false, shorttitle="MA Cycles")
+
+// Inputs
+maPeriod = input.int(50, title="MA Period", minval=1)
+maResolution = input.timeframe(title="MA Resolution", defval="D", options=["D", "W", "M"])
+currentTextSize = input.string('normal', title="Current Values Text Size", options=['small', 'normal', 'large'])
+historicalTextSize = input.string('small', title="Historical Values Text Size", options=['small', 'normal', 'large'])
+cycleMode = input.string("Sharp", title="Cycle Mode", options=["Sharp", "Smoothed"])
+smoothedCycleCandles = input.int(3, title="Smoothed Cycle Candles", minval=2, tooltip="Number of candles required to confirm cycle change in Smoothed mode")
+
+// Calculate the moving average with user-selected resolution
+movingAverage() => request.security(syminfo.tickerid, maResolution, ta.sma(close, maPeriod))
+
+// Function to check if the price has crossed the MA
+priceCrossedMA() => 
+    (close[1] < movingAverage()[1] and close > movingAverage()) or (close[1] > movingAverage()[1] and close < movingAverage())
+
+// Custom sign function
+customSign(value) =>
+    value > 0 ? 1 : value < 0 ? -1 : 0
+
+// Initialize counters and accumulators
+var int counter = 0
+var int bullCycleCandles = 0
+var float maxBullCycleDist = 0.0
+var int bearCycleCandles = 0
+var float maxBearCycleDist = 0.0
+var int bullCycles = 0
+var int bearCycles = 0
+
+// Initialize variables to hold averages and overall maximums
+var float avgBullCycleCandles = 0.0
+var float avgBearCycleCandles = 0.0
+var float overallMaxBullCycleDist = 0.0
+var float overallMaxBearCycleDist = 0.0
+var float avgBullCycleDist = 0.0
+var float avgBearCycleDist = 0.0
+var int maxBullCycleCandles = 0
+var int maxBearCycleCandles = 0
+
+// New variables for current max cycle distances
+var float currentMaxBullCycleDist = 0.0
+var float currentMaxBearCycleDist = 0.0
+
+// Declare crossed and percentDistance in the global scope
+var bool crossed = false
+var float percentDistance = 0.0
+
+// New variables to track cycle start prices and peaks/troughs
+var float cycleStartPrice = na
+var float cyclePeak = na
+var float cycleTrough = na
+var int cycleCandleCount = 0
+
+// New variable to track MA price at crossover
+var float maCrossoverPrice = na
+
+// New variables for smoothed cycle tracking
+var int smoothCounter = 0
+var float lastMA = na
+
+// Main script logic
+if bar_index > 1
+    crossed := priceCrossedMA()
+    currentSign = customSign(close - movingAverage())
+    
+    if cycleMode == "Sharp"
+        if crossed
+            maCrossoverPrice := movingAverage()
+            cycleCandleCount := 0
+            cycleStartPrice := close
+            cyclePeak := high
+            cycleTrough := low
+            percentDistance := 0.0
+            if currentSign > 0
+                bearCycles += 1
+                if bearCycleCandles > 0
+                    avgBearCycleCandles := (avgBearCycleCandles * (bearCycles - 1) + bearCycleCandles) / bearCycles
+                    avgBearCycleDist := (avgBearCycleDist * (bearCycles - 1) + currentMaxBearCycleDist) / bearCycles
+                    overallMaxBearCycleDist := math.max(overallMaxBearCycleDist, currentMaxBearCycleDist)
+                    maxBearCycleCandles := math.max(maxBearCycleCandles, bearCycleCandles)
+                bearCycleCandles := 0
+                currentMaxBearCycleDist := 0.0
+                bullCycleCandles := 1
+            else
+                bullCycles += 1
+                if bullCycleCandles > 0
+                    avgBullCycleCandles := (avgBullCycleCandles * (bullCycles - 1) + bullCycleCandles) / bullCycles
+                    avgBullCycleDist := (avgBullCycleDist * (bullCycles - 1) + currentMaxBullCycleDist) / bullCycles
+                    overallMaxBullCycleDist := math.max(overallMaxBullCycleDist, currentMaxBullCycleDist)
+                    maxBullCycleCandles := math.max(maxBullCycleCandles, bullCycleCandles)
+                bullCycleCandles := 0
+                currentMaxBullCycleDist := 0.0
+                bearCycleCandles := 1
+            counter := currentSign
+        else
+            if counter > 0
+                bullCycleCandles += 1
+            else if counter < 0
+                bearCycleCandles += 1
+    else
+        if crossed
+            smoothCounter := currentSign
+        else
+            smoothCounter += currentSign
+        
+        if math.abs(smoothCounter) >= smoothedCycleCandles and customSign(smoothCounter) != customSign(counter)
+            maCrossoverPrice := lastMA
+            cycleCandleCount := 0
+            cycleStartPrice := close
+            cyclePeak := high
+            cycleTrough := low
+            percentDistance := 0.0
+            
+            if smoothCounter > 0
+                bearCycles += 1
+                if bearCycleCandles > 0
+                    avgBearCycleCandles := (avgBearCycleCandles * (bearCycles - 1) + bearCycleCandles) / bearCycles
+                    avgBearCycleDist := (avgBearCycleDist * (bearCycles - 1) + currentMaxBearCycleDist) / bearCycles
+                    overallMaxBearCycleDist := math.max(overallMaxBearCycleDist, currentMaxBearCycleDist)
+                    maxBearCycleCandles := math.max(maxBearCycleCandles, bearCycleCandles)
+                bearCycleCandles := 0
+                currentMaxBearCycleDist := 0.0
+                bullCycleCandles := smoothedCycleCandles
+            else
+                bullCycles += 1
+                if bullCycleCandles > 0
+                    avgBullCycleCandles := (avgBullCycleCandles * (bullCycles - 1) + bullCycleCandles) / bullCycles
+                    avgBullCycleDist := (avgBullCycleDist * (bullCycles - 1) + currentMaxBullCycleDist) / bullCycles
+                    overallMaxBullCycleDist := math.max(overallMaxBullCycleDist, currentMaxBullCycleDist)
+                    maxBullCycleCandles := math.max(maxBullCycleCandles, bullCycleCandles)
+                bullCycleCandles := 0
+                currentMaxBullCycleDist := 0.0
+                bearCycleCandles := smoothedCycleCandles
+            
+            counter := customSign(smoothCounter)
+            smoothCounter := 0
+        else
+            if counter > 0
+                bullCycleCandles += 1
+            else if counter < 0
+                bearCycleCandles += 1
+
+    // Update cycle metrics (same for both modes)
+    if counter > 0
+        cyclePeak := math.max(cyclePeak, high)
+        currentMaxBullCycleDist := math.max(currentMaxBullCycleDist, ((cyclePeak - maCrossoverPrice) / maCrossoverPrice) * 100)
+        percentDistance := ((high - maCrossoverPrice) / maCrossoverPrice) * 100
+    else if counter < 0
+        cycleTrough := math.min(cycleTrough, low)
+        currentMaxBearCycleDist := math.max(currentMaxBearCycleDist, ((maCrossoverPrice - cycleTrough) / maCrossoverPrice) * 100)
+        percentDistance := ((low - maCrossoverPrice) / maCrossoverPrice) * 100
+    
+    cycleCandleCount += 1
+    lastMA := movingAverage()
+
+// Plot the histogram (Candles from MA) and area (% Distance)
+histColor = counter > 0 ? color.new(color.green, 0) : color.new(color.red, 0)
+plot(counter > 0 ? bullCycleCandles : -bearCycleCandles, style=plot.style_columns, color=histColor, linewidth=2, title="Candles")
+plot(percentDistance, style=plot.style_histogram, color=color.rgb(255, 255, 255, 25), linewidth=1, title="% Distance from Crossover")
+
+// Determine the color for current values
+currentValueColor = counter > 0 ? color.green : counter < 0 ? color.red : color.white
+
+// Add this near the end of your script, before the table creation
+var line currentMaxLine = na
+var line candleCountLine = na
+
+// Delete the previous lines if they exist
+if not na(currentMaxLine)
+    line.delete(currentMaxLine)
+if not na(candleCountLine)
+    line.delete(candleCountLine)
+
+// Draw a new line at the current max distance
+currentMaxLine := line.new(x1 = bar_index[500], y1 = counter > 0 ? currentMaxBullCycleDist : -currentMaxBearCycleDist, x2 = bar_index + 500, y2 = counter > 0 ? currentMaxBullCycleDist : -currentMaxBearCycleDist,color = color.rgb(255, 255, 255, 25),style = line.style_dashed,width = 1,extend = extend.left)
+
+// Draw a new line for the candle count
+candleCountLine := line.new(x1 = bar_index[500], y1 = counter > 0 ? bullCycleCandles : -bearCycleCandles, x2 = bar_index + 500, y2 = counter > 0 ? bullCycleCandles : -bearCycleCandles,color = counter > 0 ? color.green : color.red,style = line.style_dashed,width = 1,extend = extend.left)
+// Table for displaying metrics
+table t = table.new(position = position.top_right, columns = 2, rows = 10, bgcolor=color.rgb(0, 0, 0), border_color=color.gray, border_width=1)
+
+table.cell(t, 0, 0, "Current Candles", text_color=currentValueColor, text_size=currentTextSize)
+table.cell(t, 1, 0, str.tostring(math.abs(counter > 0 ? bullCycleCandles : bearCycleCandles)), text_color=currentValueColor, text_size=currentTextSize)
+table.cell(t, 0, 1, "Current Max % Dist", text_color=currentValueColor, text_size=currentTextSize)
+table.cell(t, 1, 1, str.tostring(math.abs(counter > 0 ? currentMaxBullCycleDist : currentMaxBearCycleDist), "#.#"), text_color=currentValueColor, text_size=currentTextSize)
+table.cell(t, 0, 2, "Max Bull Candles", text_color=color.green, text_size=historicalTextSize)
+table.cell(t, 1, 2, str.tostring(maxBullCycleCandles), text_color=color.green, text_size=historicalTextSize)
+table.cell(t, 0, 3, "Max Bull % Dist", text_color=color.green, text_size=historicalTextSize)
+table.cell(t, 1, 3, str.tostring(overallMaxBullCycleDist, "#.#"), text_color=color.green, text_size=historicalTextSize)
+table.cell(t, 0, 4, "Avg Bull Candles", text_color=color.rgb(129, 213, 132), text_size=historicalTextSize)
+table.cell(t, 1, 4, str.tostring(avgBullCycleCandles, "#.#"), text_color=color.rgb(129, 213, 132), text_size=historicalTextSize)
+table.cell(t, 0, 5, "Avg Bull % Dist", text_color=color.rgb(129, 213, 132), text_size=historicalTextSize)
+table.cell(t, 1, 5, str.tostring(avgBullCycleDist, "#.#"), text_color=color.rgb(129, 213, 132), text_size=historicalTextSize)
+table.cell(t, 0, 6, "Max Bear Candles", text_color=color.red, text_size=historicalTextSize)
+table.cell(t, 1, 6, str.tostring(maxBearCycleCandles), text_color=color.red, text_size=historicalTextSize)
+table.cell(t, 0, 7, "Max Bear % Dist", text_color=color.red, text_size=historicalTextSize)
+table.cell(t, 1, 7, str.tostring(overallMaxBearCycleDist, "#.#"), text_color=color.red, text_size=historicalTextSize)
+table.cell(t, 0, 8, "Avg Bear Candles", text_color=color.rgb(255, 127, 127), text_size=historicalTextSize)
+table.cell(t, 1, 8, str.tostring(avgBearCycleCandles, "#.#"), text_color=color.rgb(255, 127, 127), text_size=historicalTextSize)
+table.cell(t, 0, 9, "Avg Bear % Dist", text_color=color.rgb(255, 127, 127), text_size=historicalTextSize)
+table.cell(t, 1, 9, str.tostring(avgBearCycleDist, "#.#"), text_color=color.rgb(255, 127, 127), text_size=historicalTextSize)
+

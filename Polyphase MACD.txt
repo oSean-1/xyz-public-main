@@ -1,0 +1,231 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © The_Peaceful_Lizard
+
+//@version=6
+indicator("Polyphase MACD (PMACD)", explicit_plot_zorder = true, timeframe = "", timeframe_gaps = false)
+
+// HEAD {
+
+// types and enums {
+
+enum filter_style
+    sma = "SMA"
+    ema = "EMA"
+
+type MACD
+    float[] source
+    float fast
+    float slow
+    float[] macd
+    float signal
+    float hist
+
+type settings
+    int phases
+    int fast_length
+    int slow_length
+    int signal_length
+    filter_style oscillator_style
+    filter_style signal_style
+    color rising_up
+    color rising_down
+    color falling_down
+    color falling_up
+
+// types and enums }
+
+// polyphase macd {
+
+method unshift_pop(float[] self, float value)=>
+    self.pop()
+    self.unshift(value)
+
+method ema(float self, float source, int period)=>
+    float alpha = 2.0 / (period + 1)
+    float i_alpha = 1 - alpha
+    float ema = source * alpha + nz(self, source) * i_alpha
+    ema
+
+method sma(float[] self, int period)=>
+    bool slice = period < self.size()
+    float sma = 0
+    if slice
+        sma := self.slice(0, period).avg()
+    else
+        sma := self.avg()
+    sma
+
+filter(float source, float[] input_array, float input_variable, int period, filter_style style)=>
+    float filter = switch style
+        filter_style.sma => input_array.sma(period)
+        filter_style.ema => input_variable.ema(source, period)
+    filter
+
+sma(float source, int length)=>
+    var float sma = na
+    var float first_source = na
+    int max_length = math.min(bar_index, length - 1)
+
+    if not na(source) 
+        if na(first_source)
+            first_source := source
+
+        float sum = 0
+        float w = 1.0 / (max_length + 1)
+        for i = 0 to max_length
+            sum += nz(source[i], first_source) * w
+
+        sma := sum
+    sma
+
+wma(float source, int length)=>
+    var float wma = na
+    var float first_source = na
+    int max_length = math.min(bar_index, length - 1)
+
+    if not na(source) 
+        if na(first_source)
+            first_source := source
+
+        float sum = 0
+        float weight = 0
+        for i = 0 to max_length
+            float w = max_length + 1 - i
+            weight += w
+            sum += nz(source[i], first_source) * w
+
+        wma := sum / weight
+    wma
+
+output_filter(float source, settings config)=>
+    float output_filter = sma(wma(source, config.phases), config.phases)
+    output_filter
+
+
+init_macd(float source, settings config)=>
+    MACD.new(
+     array.new<float>(math.max(config.fast_length, config.slow_length), source)
+     , na
+     , na
+     , array.new<float>(config.signal_length, 0)
+     , na
+     , na
+     )
+
+method update(MACD self, float source, settings config)=>
+    self.source.unshift_pop(source)
+    self.fast := filter(source, self.source, self.fast, config.fast_length, config.oscillator_style)
+    self.slow := filter(source, self.source, self.slow, config.slow_length, config.oscillator_style)
+
+    float new_macd = self.fast - self.slow
+    self.macd.unshift_pop(new_macd)
+
+    float new_signal = filter(new_macd, self.macd, self.signal, config.signal_length, config.signal_style)
+    self.signal := new_signal
+    self.hist := new_macd - new_signal
+
+    if false
+        log.info("VOID")
+
+method histogram_color(float self, settings config)=>
+    var color histogram_color = na
+    
+    if self >= 0
+        if self >= nz(self[1], self)
+            histogram_color := config.rising_up
+        else
+            histogram_color := config.rising_down
+    else
+        if self <= nz(self[1], self)
+            histogram_color := config.falling_down
+        else
+            histogram_color := config.falling_up
+    histogram_color
+
+phaser(float source, settings config)=>
+    var MACD[] macd_phases = array.new<MACD>()
+
+    var bool ready = false
+    int phase = bar_index % config.phases
+
+    if not ready
+        macd_phases.push(init_macd(source, config))
+        ready := macd_phases.size() == config.phases
+
+    MACD macd_phase = macd_phases.get(phase)
+    macd_phase.update(source, config)
+
+    float macd = output_filter(macd_phase.macd.first(), config)
+    float signal = output_filter(macd_phase.signal, config)
+    float hist = output_filter(macd_phase.hist, config)
+    color hist_color = hist.histogram_color(config)
+
+    [macd, signal, hist, hist_color]
+
+
+// polyphase macd }
+
+// HEAD }
+
+
+// BODY {
+
+// inputs {
+
+const string global_group = "Global"
+const string phases_tip = "Phases works exactly like a timeframe multiplier. " 
+ + "When set to 2, it will be 2x your chart timeframe"
+
+float source = input.source(close, "Source", group = global_group)
+int phases = input.int(1, "Phases", minval = 1, tooltip = phases_tip, group = global_group)
+
+const string settings_group = "Polyphase MACD"
+int fast_length = input.int(12, "Fast Length", minval = 1, group = settings_group)
+int slow_length = input.int(26, "Slow Length", minval = 2, group = settings_group)
+int signal_length = input.int(9, "Signal Smoothing", minval = 1, group = settings_group)
+filter_style oscillator_style = input.enum(filter_style.ema, "Oscillator MA Type", group = settings_group)
+filter_style signal_style = input.enum(filter_style.ema, "Signal MA Type", group = settings_group)
+
+const string visual_group = "Visuals"
+const string hist_inline = "Histogram Inline"
+color macd_color = input.color(#2962FF, "MACD", group = visual_group)
+color signal_color = input.color(#FF6D00, "Signal", group = visual_group)
+color rising_up = input.color(#26A69A, "Histogram", inline = hist_inline, group = visual_group)
+color rising_down = input.color(#B2DFDB, "", inline = hist_inline, group = visual_group)
+color falling_down = input.color(#FF5252, "", inline = hist_inline, group = visual_group)
+color falling_up = input.color(#FFCDD2, "", inline = hist_inline, group = visual_group)
+color zero_line = input.color(#787b8680, "Zero Line", group = visual_group)
+
+// inputs }
+
+// calculations {
+
+var settings config = settings.new(
+   phases
+ , fast_length
+ , slow_length
+ , signal_length
+ , oscillator_style
+ , signal_style
+ , rising_up
+ , rising_down
+ , falling_down
+ , falling_up
+ )
+
+
+[macd, signal, hist, hist_color] = phaser(source, config)
+
+// calculations }
+
+// plot {
+
+hline(0, "Zero Line", zero_line)
+plot(hist, "Histogram", hist_color, 1, plot.style_columns)
+plot(signal, "Signal", signal_color)
+plot(macd, "MACD", macd_color)
+
+// plot }
+
+// BODY }
+

@@ -1,0 +1,252 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © kikfraben
+
+//@version=5
+indicator("Oscillator Suite [KFB Quant]", overlay = false)
+
+import TradingView/ta/7 as ta
+
+// INPUTS OVERVIEW
+// Input I      = AROON
+// Input II     = AWESEOME OSCILLATOR
+// Input III    = CHAIKIN OSCILLATOR
+// Input IIIV   = CHANDE MOMENTUM OSCILLATOR
+// Input V      = DIRECTIONAL MOVEMENT INDEX
+// Input VI     = PRICE OSCILLATOR
+// Input VII    = RELATIVE STRENGTH INDEX
+// Input VIII   = TRUE STRENGTH INDEX
+// Input IX     = TRIX
+// Input X      = ULTIMATE OSCILLATOR
+// Input XI     = VORTEX INDICATOR
+
+// ----------------------------------------------------------------------------------------------------------------
+// 𝙐𝙎𝙀𝙍 𝙄𝙉𝙋𝙐𝙏𝙎
+// ----------------------------------------------------------------------------------------------------------------
+// Base Settings
+bool plotScoreHist      = input.bool(true, "Plot Histogram (Aggregated Score)", group = "Base Settings")
+bool plotScoreMA        = input.bool(true, "Plot Smoothed Score", group = "Base Settings")
+string scoreMAType      = input.string("DEMA", "Smoothing Type", options=["DEMA", "EMA", "SMA", "RMA"], group
+ = "Base Settings")
+int scoreMALength       = input.int(14, "Smoothing Length", group = "Base Settings")
+color bullishColor      = input.color(#3FA8C9, "Bullish Score Color", group = "Base Settings")
+color bearishColor      = input.color( #C9843E, "Bearish Score Color", group = "Base Settings")
+color smoothedColor     = input.color(#B33EC9, "Smoothed Score Color", group = "Base Settings")
+
+// Input I
+int length_I            = input.int(22, "Aroon Length", group = "Input I") // Indicator Default = 14
+bool plotSignal_I       = input.bool(false, "Plot Aroon Signal",  group = "Input I")
+
+// Input II
+int length_II_F         = input.int(7, "Aweseom Oscillator Fast Length",  group = "Input II") // Indicator Default = 5
+int length_II_S         = input.int(22, "Awesome Oscillator Slow Length",  group = "Input II") // Indicator Default = 34
+float src_II            = input.source(hl2, "Awesome Oscillator Source",  group = "Input II") // Indicator Default = hl2
+bool plotSignal_II      = input.bool(false, "Awesome Oscillator Signal",  group = "Input II")
+
+// Input III
+int length_III_F        = input.int(7, "Chaikin Oscillator Fast Length",  group = "Input III") // Indicator Default = 3
+int length_III_S        = input.int(22, "Chaikin Oscillator Slow Length",  group = "Input III") // Indicator Default = 10
+bool plotSignal_III     = input.bool(false, "Plot Chaikin Oscillator Signal",  group = "Input III")
+
+// Input IV
+int length_IV           = input.int(22, "Chande Momentum Oscillator Length",  group = "Input IV") // Indicator Default = 9
+float src_IV            = input.source(close, "Chande Momentum Oscillator Source",  group = "Input IV") // Indicator Default = close
+bool plotSignal_IV      = input.bool(false, "Plot Chande Momentum Oscillator Signal",  group = "Input IV")
+
+// Input V
+int length_V            = input.int(22, "DI Length", group = "Input V") // Indicator Default = 14
+int length_V_           = input.int(22, "ADX Smoothing Length", group = "Input V") // Indicator Default = 14
+bool plotSignal_V       = input.bool(false, "Plot DMI Signal",  group = "Input V")
+
+// Input VI
+int length_VI_F         = input.int(7, "Price Oscillator Fast Length", group = "Input VI") // Indicator Default = 10
+int length_VI_S         = input.int(22, "Price Oscillator Slow Length", group = "Input VI") // Indicator Default = 21
+float src_VI            = input.source(close, "Price Oscillator Source", group = "Input VI") // Indicator Default = close
+bool type_VI            = input.bool(false, "Exponential", group = "Input VI") // Indicator Default = false
+bool plotSignal_VI      = input.bool(false, "Plot Price Oscillator Signal",  group = "Input VI")
+
+// Input VII
+int length_VII          = input.int(22, "Relative Strength Index Length", group = "Input VII") // Indicator Default = 14
+float src_VII           = input.source(close, "Relative Strength Index Source", group = "Input VII") // Indicator Default = close
+bool plotSignal_VII     = input.bool(false, "Plot Relative Strength Index Signal", group = "Input VII")
+
+// Input VIII
+int length_VIII_F       = input.int(7, "True Strength Index Fast Length", group = "Input VIII") // Indicator Default = 13
+int length_VIII_S       = input.int(22, "True Strength Index Slow Length", group = "Input VIII") // Indicator Default = 25
+float src_VIII          = input.source(close, "True Strength Index Source", group = "Input VIII") // Indicator Default = close
+bool plotSignal_VIII    = input.bool(false, "Plot True Strength Index Signal", group = "Input VIII")
+
+// Input IX
+int length_IX           = input.int(22, "TRIX Length", group = "Input IX") // Indicator Default = 14
+int length_IX_          = input.int(7, "TRIX Smoothing Length", group = "Input IX") // Indicator Default = 9
+float src_IX            = input.source(close, "TRIX Source", group = "Input IX") // Indicator Default = close
+bool type_IX            = input.bool(false, "Exponential", group = "Input IX") // Indicator Default = false
+bool plotSignal_IX      = input.bool(false, "Plot TRIX Signal", group = "Input IX")
+
+// Input X
+int length_X_F          = input.int(7, "Ultimate Oscillator Fast Length", group = "Input X") // Indicator Default = 7
+int length_X_M          = input.int(14, "Ultimate Oscillator Medium Length", group = "Input X") // Indicator Default = 14
+int length_X_S          = input.int(22, "Ultimate Oscillator Slow Length", group = "Input X") // Indicator Default = 28
+bool plotSignal_X       = input.bool(false, "Plot Ultimate Oscillator Signal", group = "Input X")
+
+// Input XI
+int length_XI           = input.int(22, "Vortex Indicator Length", group = "Input XI") // Indicator Default = 14
+bool plotSignal_XI      = input.bool(false, "Plot Vortex indicator Signal", group = "Input XI")
+
+// ----------------------------------------------------------------------------------------------------------------
+// 𝘾𝘼𝙇𝘾𝙐𝙇𝘼𝙏𝙄𝙊𝙉𝙎
+// ----------------------------------------------------------------------------------------------------------------
+// Input I
+[aroonUp, aroonDown] = ta.aroon(length_I)
+
+int signal_I = 0
+
+if aroonUp > aroonDown
+    signal_I := 1
+if aroonDown > aroonUp
+    signal_I := -1
+
+// Input II
+ao = ta.ao(src_II, length_II_F, length_II_S)
+
+int signal_II = 0
+
+if ao > 0
+    signal_II := 1
+if ao < 0
+    signal_II := -1
+
+// Input III
+co = ta.ema(ta.accdist, length_III_F) - ta.ema(ta.accdist, length_III_S)
+
+int signal_III = 0
+
+if co > 0
+    signal_III := 1
+if co < 0
+    signal_III := -1
+
+// Input IV
+cmo = ta.cmo(src_IV, length_IV)
+
+int signal_IV = 0
+
+if cmo > 0
+    signal_IV := 1
+if cmo < 0
+    signal_IV := -1
+
+// Input V
+[diPlus, diMinus, adx] = ta.dmi(length_V, length_V_)
+
+int signal_V = 0
+
+if diPlus > diMinus
+    signal_V := 1
+if diMinus > diPlus
+    signal_V := -1
+
+// Input VI
+ma(float source, int length)=>
+	sma = ta.sma(source, length)
+	ema = ta.ema(source, length)
+	type_VI ? ema : sma
+
+poFast = ma(src_VI, length_VI_F)
+poSlow = ma(src_VI, length_VI_S)
+
+po = (poFast - poSlow) / poSlow * 100
+
+int signal_VI = 0
+
+if po > 0
+    signal_VI := 1
+if po < 0
+    signal_VI := -1
+
+// Input VII
+rsi = ta.rsi(src_VII, length_VII)
+
+int signal_VII = 0
+
+if rsi > 50
+    signal_VII := 1
+if rsi < 50
+    signal_VII := -1
+
+// Input VIII
+tsi = ta.tsi(src_VIII, length_VIII_F, length_VIII_S)
+
+int signal_VIII = 0
+
+if tsi > 0
+    signal_VIII := 1
+if tsi < 0
+    signal_VIII := -1
+
+// Input IX
+[trix, trixSig, trixHist] = ta.trix(src_IX, length_IX, length_IX_, type_IX)
+
+int signal_IX = 0
+
+if trix > 0
+    signal_IX := 1
+if trix < 0
+    signal_IX := -1
+// Input X
+uo = ta.uo(length_X_F, length_X_M, length_X_S)
+
+int signal_X = 0
+
+if uo > 50
+    signal_X := 1
+if uo < 50
+    signal_X := -1
+
+// Input XI
+[viPlus, viMinus] = ta.vi(length_XI)
+
+int signal_XI = 0
+
+if viPlus > viMinus
+    signal_XI := 1
+if viMinus > viPlus
+    signal_XI := -1
+
+// Score (Equal Weights)
+score = math.avg(signal_I, signal_II, signal_III, signal_IV, signal_V, signal_VI, signal_VII, signal_VIII,
+ signal_IX, signal_X, signal_XI)
+
+// Smoothed Score
+maType(source, length, type) =>
+    switch type
+        "DEMA" => ta.dema(source, length)
+        "EMA" => ta.ema(source, length)
+        "SMA" => ta.sma(source, length)
+        "RMA" => ta.rma(source, length)
+
+smoothedScore = maType(score, scoreMALength, scoreMAType)
+
+// ----------------------------------------------------------------------------------------------------------------
+// 𝙑𝙄𝙎𝙐𝘼𝙇𝙄𝙕𝘼𝙏𝙄𝙊𝙉
+// ----------------------------------------------------------------------------------------------------------------
+// Score
+plot(plotScoreHist ? score : na, title = "Score", style = plot.style_columns, color = (score >= 0 ? (score[1] <
+ score ? bullishColor : color.new(bullishColor, 50)) : (score[1] < score ? color.new(bearishColor, 50) : bearishColor)))
+// Smoothed Score
+plot(plotScoreMA ? smoothedScore : na, "Smoothed Score", smoothedColor, 2)
+// Zero Line
+hline(0, "Zero Line", color.new(color.white, 70), hline.style_dashed)
+// Signal I - Signal XI
+plot(plotSignal_I ? (signal_I > 0 ? 3.1 : signal_I < 0 ? 1.1 : 2.1) : na, title = "Signal I",color = color.red, linewidth = 2)
+plot(plotSignal_II ? (signal_II > 0 ? 5.2 : signal_II < 0 ? 3.2 : 4.2) : na, title = "Signal II",color = color.orange, linewidth = 2)
+plot(plotSignal_III ? (signal_III > 0 ? 7.3 : signal_III < 0 ? 5.3 : 6.3) : na, title = "Signal III",color = color.yellow, linewidth = 2)
+plot(plotSignal_IV ? (signal_IV > 0 ? 9.4 : signal_IV < 0 ? 7.4 : 8.4) : na, title = "Signal IV",color = color.fuchsia, linewidth = 2)
+plot(plotSignal_V ? (signal_V > 0 ? 11.5 : signal_V < 0 ? 9.5 : 10.5) : na, title = "Signal V",color = color.aqua, linewidth = 2)
+plot(plotSignal_VI ? (signal_VI > 0 ? 13.6 : signal_VI < 0 ? 11.6 : 12.6) : na, title = "Signal VI",color = color.lime, linewidth = 2)
+plot(plotSignal_VII ? (signal_VII > 0 ? 15.7 : signal_VII < 0 ? 13.7 : 14.7) : na, title = "Signal VII",color = color.blue, linewidth = 2)
+plot(plotSignal_VIII ? (signal_VIII > 0 ? 17.8 : signal_VIII < 0 ? 15.8 : 16.8) : na, title = "Signal VIII",color = color.maroon, linewidth = 2)
+plot(plotSignal_IX ? (signal_IX > 0 ? 19.9 : signal_IX < 0 ? 17.9 : 18.9) : na, title = "Signal IX",color = color.navy, linewidth = 2)
+plot(plotSignal_X ? (signal_X > 0 ? 22 : signal_X < 0 ? 20 : 21) : na, title = "Signal X",color = color.olive, linewidth = 2)
+plot(plotSignal_XI ? (signal_XI > 0 ? 24.1 : signal_XI < 0 ? 22.1 : 23.1) : na, title = "Signal XI",color = color.green, linewidth = 2)
+
+barcolor(score >= 0 ? color.green : score <= 0 ? color.red : na)

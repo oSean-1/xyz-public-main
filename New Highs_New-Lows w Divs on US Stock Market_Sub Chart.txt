@@ -1,0 +1,117 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Benni_R
+
+//@version=5
+indicator("New Highs-New-Lows on US Stock Market - Sub Chart Edition", overlay = false)
+
+//Inputs
+Cons_NYSE = input.bool(true,title = "NYSE:",group="Exchange",tooltip="Consider new highs and lows of NYSE?")
+Cons_AMEX = input.bool(true,title = "AMEX:",group="Exchange",tooltip="Consider new highs and lows of AMEX?")
+Cons_NASDAQ = input.bool(true,title = "NASDAQ:",group="Exchange",tooltip="Consider new highs and lows of NASDAQ?")
+
+Act_Str_1 = input.bool(true,title="Highlight Divergences", group = "Divergence-Settings")
+Hoch_S = input.source(high, title="Source for divergence highs: ", group = "Divergence-Settings", inline = "1")
+Tief_S = input.source(low, title="Source for divergence highs: ", group = "Divergence-Settings", inline = "1")
+
+MBuSS=input.int(10,title="Minimum Bull Signal Strength [0-100%]:", tooltip = "0: Show every signal // 100: Filter everything but hyper signal", minval=0, maxval=100, group = "Signal")
+MBeSS=input.int(10,title="Minimum Bear Signal Strength [0-100%]:", tooltip = "0: Show every signal // 100: Filter everything but hyper signal", minval=0, maxval=100, group = "Signal")
+
+EMA_NHNL_Lenghts = input.int(50, title = "Lenghts of EMA-NHNL:", group ="EMA", inline = "3")
+EMA_Color = input.color(color.blue, title="",group="EMA", inline = "3")
+
+//Variables
+var float Last_Hoch = 0  //initialise last high
+var float Last_NHNL_H = 0 //initialise last NHNL value on last high
+var int Last_Hoch_Barindex = na //initialise last High Barindex
+var float Last_Tief = 999999999  //initialise last low
+var float Last_NHNL_T = 100 // initialise last NHNL value on last high
+var int Last_Tief_Barindex = na //initialise last Low Barindex
+
+Bull_Div = false //initialise bullish divergence
+Bear_Div = false //initialise bearish divergence
+
+Signal_long = false //initialise long Signal
+Signal_short = false //initialise short Signal
+
+float BeSS_2_Faktor = 0 //initialise Bearish signal strength
+float BuSS_2_Faktor = 0 //initialise bullish signal strength
+
+//Funktions
+f_Security(_Sym) =>
+    Wert = request.security_lower_tf(_Sym, 'D', close) 
+
+f_line(X1, X2, Y1, Y2, Color) => // Verticle Line Function, ≈50-54 lines maximum allowable per indicator
+    Ergebnis = line.new(X1, Y1, X2, Y2, xloc.bar_index, extend.none, Color, style=line.style_solid, width=1) // Suitable for study(overlay=false) and RSI, Stochastic, etc...
+
+//Import NHNL Values
+float[] NYSE_H = Cons_NYSE ? f_Security('INDEX:HIGN') : na
+float[] NYSE_L = Cons_NYSE ? f_Security('INDEX:LOWN') : na
+float[] AMEX_H = Cons_AMEX ? f_Security('INDEX:HIGA') : na
+float[] AMEX_L = Cons_AMEX ? f_Security('INDEX:LOWA') : na
+float[] NASDAQ_H = Cons_NASDAQ ? f_Security('INDEX:HIGQ') : na
+float[] NASDAQ_L = Cons_NASDAQ ? f_Security('INDEX:LOWQ') : na
+
+NHNL = (Cons_NYSE ? array.sum(NYSE_H) - array.sum(NYSE_L) : 0) + (Cons_AMEX ? array.sum(AMEX_H) - array.sum(AMEX_L) : 0) + (Cons_NASDAQ ? array.sum(NASDAQ_H) - array.sum(NASDAQ_L) : 0)
+
+//EMA's
+EMA_NHNL = ta.ema(NHNL,EMA_NHNL_Lenghts)
+MA_Fast = ta.ema(close,10)
+MA_Slow = ta.ema(close,50)
+
+//Check if new high 
+Neues_Hoch = Hoch_S[2] < Hoch_S[1] and Hoch_S[0] < Hoch_S[1]
+
+// Check if bearish divergence between NHNL and price
+if Neues_Hoch and Hoch_S[1] > Last_Hoch 
+    Bear_Div := NHNL[1] < Last_NHNL_H
+
+    if Bear_Div and Last_Hoch_Barindex > 0 and Act_Str_1
+        f_line(Last_Hoch_Barindex, bar_index[1], Last_NHNL_H, NHNL[1], color.red)
+        Signal_short := true
+        BeSS_2_Faktor := NHNL[1]/Last_NHNL_H*100
+
+    Last_Hoch := Hoch_S[1]
+    Last_NHNL_H := NHNL[1]
+    Last_Hoch_Barindex := bar_index[1]
+
+// Reset last high values if fast EMA crosse slow EMA below
+if MA_Fast[1] > MA_Slow[1] and MA_Fast < MA_Slow
+    Last_Hoch := 0
+    Last_NHNL_H := 0
+    Last_Hoch_Barindex := na
+
+//Check if new low
+Neues_Tief = Tief_S[2] > Tief_S[1] and Tief_S[0] > Tief_S[1]
+
+// Check if bullish divergence between NHNL and price
+if Neues_Tief and Tief_S[1] < Last_Tief 
+    Bull_Div := NHNL[1] > Last_NHNL_T
+
+    if Bull_Div and Last_Tief_Barindex > 0 and Act_Str_1
+        f_line(Last_Tief_Barindex, bar_index[1], Last_NHNL_T, NHNL[1], color.green)
+        Signal_long:= true
+        BuSS_2_Faktor:= NHNL[1]/Last_NHNL_T*100
+
+    Last_Tief := Tief_S[1]
+    Last_NHNL_T := NHNL[1]
+    Last_Tief_Barindex := bar_index[1]
+
+// Reset last low values if fast EMA crosse slow EMA up
+if MA_Fast[1] < MA_Slow[1] and MA_Fast > MA_Slow
+    Last_Tief := 999999999
+    Last_NHNL_T := 100
+    Last_Tief_Barindex := na
+
+// Evaluate Signal strength
+BeSS_1 = EMA_NHNL > 150 ? 3 : EMA_NHNL >= 120 ? 10 : EMA_NHNL >= 90 ? 20 : EMA_NHNL >= 60 ? 30 : EMA_NHNL >= 30 ? 40 : 50
+BeSS_2 = BeSS_2_Faktor > 80 ? 2 : BeSS_2_Faktor <= 80 ? 10 : BeSS_2_Faktor <= 60 ? 20 : BeSS_2_Faktor <= 40 ? 30 : BeSS_2_Faktor <= 20 ? 40 : 50
+BuSS_1 = EMA_NHNL < -150 ? 3 : EMA_NHNL <= -120 ? 10 : EMA_NHNL <= -90 ? 20 : EMA_NHNL <= -60 ? 30 : EMA_NHNL <= -30 ? 40 : 50
+BuSS_2 = BuSS_2_Faktor > 80 ? 2 : BuSS_2_Faktor <= 80 ? 10 : BuSS_2_Faktor <= 60 ? 20 : BuSS_2_Faktor <= 40 ? 30 : BuSS_2_Faktor <= 20 ? 40 : 50
+
+Bear_signal_strengh = BeSS_1 + BeSS_2
+Bull_signal_strengh = BuSS_1 + BuSS_2
+
+//plot
+plot(NHNL, title="Net New High/Low", color= NHNL>=0 ? color.new(color.green, 50) : color.new(color.red, 50), style= plot.style_columns)
+plot(EMA_NHNL, title="EMA New High/Low", color=EMA_Color, style= plot.style_line)
+bgcolor(Signal_long and (Bull_signal_strengh >= MBuSS)? color.new(color.green, 100-Bull_signal_strengh) : Signal_short and (Bear_signal_strengh >= MBeSS)? color.new(color.red, 100-Bear_signal_strengh) : na)

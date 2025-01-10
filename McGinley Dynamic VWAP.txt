@@ -1,0 +1,66 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Neobutane
+
+
+//@version=3
+// @NeoButane 1 Sept. 2018
+
+
+//  The main concept for creating this was to completely remove 
+//  the whipsaw nature of VWAP by introducing lag.
+//
+// McGinley Dynamic Indicator is a technical indicator 
+// that improves upon moving average lines by 
+// adjusting for shifts in market speed. The indicator attempts 
+// to solve a problem inherent in moving averages which use
+// fixed time lengths - e.g., a 10- or 20-day moving average. 
+// The basic problem is that variable speeds of a market
+// can throw off reliable signals of a moving average line. 
+// The McGinley Dynamic Indicator takes into account speed 
+// changes in a market(hence, "dynamic") to show a smoother moving average line.
+// John R. McGinley, a market technician, is the inventor of the eponymous indicator.
+//
+//  tl;dr it move nice and slow to follow trend
+//
+//  References:
+//      https://www.investopedia.com/articles/forex/09/mcginley-dynamic-indicator.asp     <- read this one
+//      https://www.investopedia.com/terms/m/mcginley-dynamic.asp
+//      https://www.investopedia.com/articles/trading/11/trading-with-vwap-mvwap.asp
+//
+// Tips appreciated!
+//  BTC: 3JqpCdJexzvjUPSFa8J2ZqtNrUZV7ivJy2
+//  NEO: ARtdje1hhtb5yYDzHbz2eNwkBzEwbUG5kz
+//  TRX: TDkhnw14L1BbtS7tWZb6EfFxnyyzncghPC
+//
+strategy(title="McGinley Dynamic VWAP/MVWAP [NeoButane]", overlay=true)
+
+log   = input(true, "Log")
+mvLen = input(10, "MVWAP Length",    minval=1)
+mgLen = input(11, "McGinley Length", minval=1)
+showX = input(true, "Show Crosses")
+
+src = log ? log(vwap) : vwap //makes it faster
+
+mg = 0.0
+mg := na(mg[1]) ? ema(src, mgLen) : mg[1] + (src - mg[1]) / (mgLen * pow(src/mg[1], 4))
+
+mgFinal = log ? exp(mg) : mg
+plot(mgFinal, "McGinley VWAP", #f6546a)
+
+mv = log ? exp(ema(src, mvLen)) : ema(src, mvLen)
+plot(mv, "EMA VWAP", #0079cf, 1)
+
+xUp = mv > mgFinal
+xDn = mv < mgFinal
+plotshape(showX and xUp and xUp != xUp[1] ? close : na, "Uptrend", shape.circle, location.top, #0079cf, size=size.tiny)
+plotshape(showX and xDn and xDn != xDn[1] ? close : na, "Downtrend", shape.xcross, location.top, #f6546a, size=size.tiny)
+
+// Buy condition: Fast MA crosses above Slow MA
+buy_condition = showX and xUp and xUp != xUp[1]
+
+// Sell condition: Fast MA crosses below Slow MA
+sell_condition = showX and xDn and xDn != xDn[1]
+
+// Strategy logic
+strategy.entry("Buy", strategy.long, when = buy_condition)
+strategy.close("Buy", when = sell_condition)

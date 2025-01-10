@@ -1,0 +1,37 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © peacefulLizard50262
+
+//@version=5
+indicator("Noise Gate")
+// Define the input parameters for the script
+alt       = input.bool(false, "Use Source as Input")
+source    = input.source(close, "Source")
+ratio     = input.float(10, "Ratio", 0.00000001)
+level     = input.float(0, "Threshold", 0)
+knee_type = input.string("soft", "Knee Type", ["soft", "hard"])
+
+noise_gate(signal, ratio, level, knee_type) =>
+    // Calculate the absolute value of the signal
+    abs_signal = math.abs(signal)
+
+    // Check the value of the knee_type parameter
+    if knee_type == "hard"
+        // If the knee_type is "hard", apply a hard knee
+        if abs_signal > level
+            out = signal
+        else
+            out = signal / ratio
+    else
+        // If the knee_type is not "hard", apply a soft knee
+        if (abs_signal > level) or level == 0
+            // If the absolute value is above the threshold, return the signal as is
+            out = signal
+        else
+            // If the absolute value is below the threshold, calculate the soft knee ratio
+            soft_knee_ratio = 1 - (level - abs_signal) / level
+            // Reduce the amplitude of the signal by the soft knee ratio
+            out = signal * soft_knee_ratio
+
+    // Return the filtered signal
+
+plot(noise_gate(alt ? source : volume, ratio, level, knee_type))

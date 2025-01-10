@@ -1,0 +1,509 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © junhong
+
+// In the trend trading community, there has been a mystical indicator that has been passed around, which not only 
+// helps to identify relatively strong stocks but is also considered a holy grail for trading and a basis for buying 
+// stocks. This indicator is the Relative Price Strength (RPS) indicator.
+//
+// I did not find an open-source RPS indicator on TradingView, so I tried using ChatGPT to construct an RPS indicator. 
+// I provided the following prompt:"
+//
+// You are an expert in TradingView and the Pine Script language. Please write a program in TradingView’s Pine Script v5
+// to plot the Relative Price Strength (RPS) indicator and generate trading signals based on RPS trends, then display 
+// backtesting results. The specific requirements are as follows:
+//
+// 1. The RPS indicator refers to the ranking of a stock’s price increase among all stocks over a certain period.
+// 2. Due to TradingView’s limitations, a script can only access information from 40 other stocks. 
+//    Please select 30 from the NDX 100 stocks based on weight, plus 4 index ETFs: SPY, QQQ, DIA, IWM, 
+//    and 6 user-input custom stocks. Use the request.security function to calculate RPS values for each stock 
+//    as the request.security function does not support arrays.
+// 3. The display color should change with the score, from low to high: the lower the score, the closer the color to purple. 
+//    As the score increases, the colors should progress through purple, blue, cyan, green, yellow, orange, and red. 
+//    Use the color.from_gradient function for the gradient.
+// 4. Users input a high threshold (default 85) and a low threshold (default 15). Draw the threshold lines, 
+//    with the high threshold as a thin solid red line and the low threshold as a thin solid cyan line.
+// 5. Fill the RPS area above 85 with light red and the area below 15 with light green.
+// 6. Allow user input to toggle the display of trading signals.
+// 7. Allow user input for the moving average length and overlay the MA on the main chart.
+// 8. Determine whether the stock is in a bull or bear market based on the long moving average value.
+// 9. When the market is above the long-term moving average, if the RPS value falls below the low threshold and continues 
+//    for 3 days, a buy signal appears; if the RPS reaches the high threshold and then falls below the high threshold minus 10, 
+//    a sell signal appears.
+// 10. Overlay the buy and sell signals on the main chart.
+// 11. Allow user input to perform backtesting of the aforementioned trading signals and input the start and end dates 
+//     of the backtest.
+// 12. Conduct backtesting based on the above trading signals and overlay the backtest results on the main chart using label 
+//     function.
+//
+// Please ensure the program complies with the TradingView Pine Script v5 specifications and has a clear structure and comments 
+// to facilitate user understanding and use."
+//
+// The ChatGPT only completed 6 out of the 12 tasks mentioned above, specifically tasks 1, 4, 6, 7, 8, and 11, achieving only 
+// half of the tasks. Although it provided code for the other tasks, they were all unusable. The role of ChatGPT is to provide 
+// a basic framework for programs, but some specific program logic still needs to be completed by programmers. Fortunately, 
+// large models are updated and iterated very quickly nowadays, and I hope that in the future, programmers will no longer 
+// be needed.
+//
+
+
+//@version=5  
+indicator("Relative Price Strength(RPS) Indicator with Trading Signals and Backtesting by AI", shorttitle="RPS", overlay=false)  
+
+// User inputs  
+length = input.int(14, title="rps length", minval=1)  
+rpshigh = input.float(90, title="rps high", minval=0)
+rpslow = input.float(10, title="rps low", minval=0)
+
+// Function to calculate RPS  
+rps(source, length) =>  
+    // Calculate the price change for the source over the specified length  
+    priceChange = (source - source[length]) / source[length]  
+    priceChange  
+
+// Get the current stock's price change  
+currentPriceChange = rps(close, length)  
+
+
+// Calculate the RPS by ranking the current stock's price change against others  
+rpsValue = 0.0  
+stock_count = 1
+symbols = array.new_string(0)
+//
+// !!! Since the security function needs a non-mutable string as the input for the ticker,  
+// we could not read symbols (strings) from an array. (The array.get returns a series[string] object, 
+// while the security function only accepts simple strings. ) So we have to calculate the rps one by one. 
+//
+// top 30 NDX100 Companies by Weight
+mysym = "AAPL" // 01
+array.push(symbols, mysym)  
+priceChange = request.security(mysym, "D", rps(close, length)) 
+stock_count := stock_count + 1
+if currentPriceChange > priceChange  
+    rpsValue := rpsValue + 1  
+mysym := "NVDA" // 02
+array.push(symbols, mysym)  
+priceChange := request.security(mysym, "D", rps(close, length)) 
+stock_count := stock_count + 1
+if currentPriceChange > priceChange  
+    rpsValue := rpsValue + 1  
+mysym := "MSFT" // 03
+array.push(symbols, mysym)  
+priceChange := request.security(mysym, "D", rps(close, length)) 
+stock_count := stock_count + 1
+if currentPriceChange > priceChange  
+    rpsValue := rpsValue + 1  
+mysym := "AVGO" // 04
+array.push(symbols, mysym)  
+priceChange := request.security(mysym, "D", rps(close, length)) 
+stock_count := stock_count + 1
+if currentPriceChange > priceChange  
+    rpsValue := rpsValue + 1  
+mysym := "META" // 05
+array.push(symbols, mysym)  
+priceChange := request.security(mysym, "D", rps(close, length)) 
+stock_count := stock_count + 1
+if currentPriceChange > priceChange  
+    rpsValue := rpsValue + 1  
+mysym := "AMZN" // 06
+array.push(symbols, mysym)  
+priceChange := request.security(mysym, "D", rps(close, length)) 
+stock_count := stock_count + 1
+if currentPriceChange > priceChange  
+    rpsValue := rpsValue + 1  
+mysym := "TSLA" // 07
+array.push(symbols, mysym)  
+priceChange := request.security(mysym, "D", rps(close, length)) 
+stock_count := stock_count + 1
+if currentPriceChange > priceChange  
+    rpsValue := rpsValue + 1  
+mysym := "COST" // 08
+array.push(symbols, mysym)  
+priceChange := request.security(mysym, "D", rps(close, length)) 
+stock_count := stock_count + 1
+if currentPriceChange > priceChange  
+    rpsValue := rpsValue + 1  
+mysym := "GOOG" // 09
+array.push(symbols, mysym)  
+priceChange := request.security(mysym, "D", rps(close, length)) 
+stock_count := stock_count + 1
+if currentPriceChange > priceChange  
+    rpsValue := rpsValue + 1  
+mysym := "NFLX" // 10
+array.push(symbols, mysym)  
+priceChange := request.security(mysym, "D", rps(close, length)) 
+stock_count := stock_count + 1
+if currentPriceChange > priceChange  
+    rpsValue := rpsValue + 1  
+mysym := "TMUS" // 11
+array.push(symbols, mysym)  
+priceChange := request.security(mysym, "D", rps(close, length)) 
+stock_count := stock_count + 1
+if currentPriceChange > priceChange  
+    rpsValue := rpsValue + 1  
+mysym := "AMD" // 12
+array.push(symbols, mysym)  
+priceChange := request.security(mysym, "D", rps(close, length)) 
+stock_count := stock_count + 1
+if currentPriceChange > priceChange  
+    rpsValue := rpsValue + 1  
+mysym := "PEP" // 13
+array.push(symbols, mysym)  
+priceChange := request.security(mysym, "D", rps(close, length)) 
+stock_count := stock_count + 1
+if currentPriceChange > priceChange  
+    rpsValue := rpsValue + 1  
+mysym := "LIN" // 14
+array.push(symbols, mysym)  
+priceChange := request.security(mysym, "D", rps(close, length)) 
+stock_count := stock_count + 1
+if currentPriceChange > priceChange  
+    rpsValue := rpsValue + 1  
+mysym := "CSCO" // 15
+array.push(symbols, mysym)  
+priceChange := request.security(mysym, "D", rps(close, length)) 
+stock_count := stock_count + 1
+if currentPriceChange > priceChange  
+    rpsValue := rpsValue + 1  
+mysym := "ADBE" // 16
+array.push(symbols, mysym)  
+priceChange := request.security(mysym, "D", rps(close, length)) 
+stock_count := stock_count + 1
+if currentPriceChange > priceChange  
+    rpsValue := rpsValue + 1  
+mysym := "QCOM" // 17
+array.push(symbols, mysym)  
+priceChange := request.security(mysym, "D", rps(close, length)) 
+stock_count := stock_count + 1
+if currentPriceChange > priceChange  
+    rpsValue := rpsValue + 1  
+mysym := "ISRG" // 18
+array.push(symbols, mysym)  
+priceChange := request.security(mysym, "D", rps(close, length)) 
+stock_count := stock_count + 1
+if currentPriceChange > priceChange  
+    rpsValue := rpsValue + 1  
+mysym := "TXN" // 19
+array.push(symbols, mysym)  
+priceChange := request.security(mysym, "D", rps(close, length)) 
+stock_count := stock_count + 1
+if currentPriceChange > priceChange  
+    rpsValue := rpsValue + 1  
+mysym := "AMGN" // 20
+array.push(symbols, mysym)  
+priceChange := request.security(mysym, "D", rps(close, length)) 
+stock_count := stock_count + 1
+if currentPriceChange > priceChange  
+    rpsValue := rpsValue + 1  
+mysym := "INTU" // 21
+array.push(symbols, mysym)  
+priceChange := request.security(mysym, "D", rps(close, length)) 
+stock_count := stock_count + 1
+if currentPriceChange > priceChange  
+    rpsValue := rpsValue + 1  
+mysym := "CMCSA" // 22
+array.push(symbols, mysym)  
+priceChange := request.security(mysym, "D", rps(close, length)) 
+stock_count := stock_count + 1
+if currentPriceChange > priceChange  
+    rpsValue := rpsValue + 1  
+mysym := "AMAT" // 23
+array.push(symbols, mysym)  
+priceChange := request.security(mysym, "D", rps(close, length)) 
+stock_count := stock_count + 1
+if currentPriceChange > priceChange  
+    rpsValue := rpsValue + 1  
+mysym := "BKNG" // 24
+array.push(symbols, mysym)  
+priceChange := request.security(mysym, "D", rps(close, length)) 
+stock_count := stock_count + 1
+if currentPriceChange > priceChange  
+    rpsValue := rpsValue + 1  
+mysym := "HON" // 25
+array.push(symbols, mysym)  
+priceChange := request.security(mysym, "D", rps(close, length)) 
+stock_count := stock_count + 1
+if currentPriceChange > priceChange  
+    rpsValue := rpsValue + 1  
+mysym := "VRTX" // 26
+array.push(symbols, mysym)  
+priceChange := request.security(mysym, "D", rps(close, length)) 
+stock_count := stock_count + 1
+if currentPriceChange > priceChange  
+    rpsValue := rpsValue + 1  
+mysym := "MU" // 27
+array.push(symbols, mysym)  
+priceChange := request.security(mysym, "D", rps(close, length)) 
+stock_count := stock_count + 1
+if currentPriceChange > priceChange  
+    rpsValue := rpsValue + 1  
+mysym := "PANW" // 28
+array.push(symbols, mysym)  
+priceChange := request.security(mysym, "D", rps(close, length)) 
+stock_count := stock_count + 1
+if currentPriceChange > priceChange  
+    rpsValue := rpsValue + 1  
+mysym := "ADP" // 29
+array.push(symbols, mysym)  
+priceChange := request.security(mysym, "D", rps(close, length)) 
+stock_count := stock_count + 1
+if currentPriceChange > priceChange  
+    rpsValue := rpsValue + 1  
+mysym := "ADI" // 30
+array.push(symbols, mysym)  
+priceChange := request.security(mysym, "D", rps(close, length)) 
+stock_count := stock_count + 1
+if currentPriceChange > priceChange  
+    rpsValue := rpsValue + 1  
+// 4 index ETFs
+mysym := "SPY" // 31
+array.push(symbols, mysym)  
+priceChange := request.security(mysym, "D", rps(close, length))
+stock_count := stock_count + 1
+if currentPriceChange > priceChange  
+    rpsValue := rpsValue + 1  
+mysym := "QQQ" // 32
+array.push(symbols, mysym)  
+priceChange := request.security(mysym, "D", rps(close, length)) 
+stock_count := stock_count + 1
+if currentPriceChange > priceChange  
+    rpsValue := rpsValue + 1  
+mysym := "DIA" // 33
+array.push(symbols, mysym)  
+priceChange := request.security(mysym, "D", rps(close, length)) 
+stock_count := stock_count + 1
+if currentPriceChange > priceChange  
+    rpsValue := rpsValue + 1  
+mysym := "IWM" // 34
+array.push(symbols, mysym)  
+priceChange := request.security(mysym, "D", rps(close, length)) 
+stock_count := stock_count + 1
+if currentPriceChange > priceChange  
+    rpsValue := rpsValue + 1  
+// 6 user input stocks
+//mysym := "AMT" // 35
+mysym1 = input.string("AMT", title="User input stock1")
+array.push(symbols, mysym1)  
+priceChange := request.security(mysym1, "D", rps(close, length)) 
+stock_count := stock_count + 1
+if currentPriceChange > priceChange  
+    rpsValue := rpsValue + 1  
+//mysym := "IBIT" // 36
+mysym2 = input.string("IBIT", title="User input stock2")
+array.push(symbols, mysym2)  
+priceChange := request.security(mysym2, "D", rps(close, length)) 
+stock_count := stock_count + 1
+if currentPriceChange > priceChange  
+    rpsValue := rpsValue + 1  
+//mysym := "LLY" // 37
+mysym3 = input.string("LLY", title="User input stock3")
+array.push(symbols, mysym3)  
+priceChange := request.security(mysym3, "D", rps(close, length)) 
+stock_count := stock_count + 1
+if currentPriceChange > priceChange  
+    rpsValue := rpsValue + 1  
+//mysym := "NVO" // 38
+mysym4 = input.string("NVO", title="User input stock4")
+array.push(symbols, mysym4)  
+priceChange := request.security(mysym4, "D", rps(close, length)) 
+stock_count := stock_count + 1
+if currentPriceChange > priceChange  
+    rpsValue := rpsValue + 1  
+//mysym := "ANET" // 39
+mysym5 = input.string("ANET", title="User input stock5")
+array.push(symbols, mysym5)  
+priceChange := request.security(mysym5, "D", rps(close, length)) 
+stock_count := stock_count + 1
+if currentPriceChange > priceChange  
+    rpsValue := rpsValue + 1  
+//mysym := "PDD" // 40
+mysym6 = input.string("PDD", title="User input stock6")
+array.push(symbols, mysym6)  
+priceChange := request.security(mysym6, "D", rps(close, length)) 
+stock_count := stock_count + 1
+if currentPriceChange > priceChange  
+    rpsValue := rpsValue + 1  
+    
+//
+// !!! Script requests 40 securities at most  (limit)
+//
+
+// check if the current stock is contained in the symbols array
+for i = 0 to array.size(symbols) - 1  
+    mysym := array.get(symbols, i)  
+    b_find = str.contains(mysym, syminfo.ticker)
+    if b_find
+        stock_count := stock_count - 1
+
+// Normalize the RPS value to a percentage  
+rpsPercentage = (rpsValue / stock_count) * 100  
+
+// Adding threshold lines  
+highLine = hline(rpshigh, title="rps high", color=color.red, linestyle=hline.style_solid, linewidth=1)  
+lowLine = hline(rpslow, title="rps low", color=color.lime, linestyle=hline.style_solid, linewidth=1)  
+maxLevelPlot = hline(100, title="Max Level", linestyle=hline.style_dotted, color=color.new(color.white, 100))
+minLevelPlot = hline(0, title="Min Level", linestyle=hline.style_dotted, color=color.new(color.white, 100))
+
+// Color scale based on threshold  
+color_fill_high = rpsPercentage > rpshigh ? color.new(color.red,70) : color.new(color.white, 100)
+color_fill_low = rpsPercentage < rpslow ? color.new(color.green,70) : color.new(color.white, 100)  
+
+// Filling areas based on thresholds  
+fill(maxLevelPlot, highLine, color=color_fill_high)
+fill(minLevelPlot, lowLine, color=color_fill_low)
+
+
+// Color scale based on RPS value  
+color rpsColor = rpsPercentage < 30 ? color.from_gradient(rpsPercentage,rpslow,35,color.rgb(0,0,255),color.rgb(0,255,0)) :
+                 rpsPercentage < 70 ? color.from_gradient(rpsPercentage,30,70,color.green,color.yellow) : 
+                 color.from_gradient(rpsPercentage,70,rpshigh,color.orange,color.rgb(255,15,15))
+
+// Plot the RPS value  
+plot(rpsPercentage, title="RPS", color=rpsColor, linewidth=2)  
+// Add threshold line
+hline(50, "50% Line", color=color.gray, linestyle=hline.style_dashed)
+
+
+
+//===========================================================================================
+// Display Trading Signals by rpsPercentage
+var bool signal_low = false
+var bool start_trade = false
+var bool end_trade = false
+var bool signal_high = false
+// Signal variables  
+var buySignal = 0  
+var sellSignal = 0  
+
+showSignals = input(true, title="Show Trading Signals")  
+// User inputs 
+maLength = input.int(225, title="ma length", minval=1)  
+
+// Moving Average Calculation  
+maValue = ta.sma(close, maLength)
+plot(showSignals ? maValue : na, title="Long Moving Average", color=color.blue, force_overlay = true)  
+
+// Determine Bullish or Bearish Trend  
+trendIsBullish = close > maValue  
+
+// Trading Signals: entry (arrowup)
+// Buy signal logic  
+if ta.crossunder(rpsPercentage, rpslow) 
+    signal_low := true   
+signal_entry = signal_low and ta.crossover(rpsPercentage, rpslow+50) and trendIsBullish and not start_trade
+plotshape(showSignals ? signal_entry : na, title="entry", style=shape.labelup, location=location.belowbar, color=color.aqua, size=size.small, force_overlay = true)
+if signal_entry
+    signal_low := false
+    start_trade := true
+    end_trade := false
+    signal_high := false
+
+// Trading Signals: exit (arrowdown)
+// Sell signal logic
+if ta.crossover(rpsPercentage, rpshigh)
+    signal_high := true   
+signal_exit = signal_high and ta.crossunder(rpsPercentage, rpshigh-10) and start_trade and not end_trade
+plotshape(showSignals ? signal_exit: na, title="exit", style=shape.labeldown, location=location.abovebar, color=color.fuchsia, size=size.small, force_overlay = true)
+if signal_exit
+    signal_low := false
+    start_trade := false
+    end_trade := true
+    signal_high := false
+
+
+//-------------------- Information
+showBTinfo = input(true, 'Show Backtesting Info')
+//===========================================================================================
+// Perform backtesting to verify the above trading signals
+// for debug
+f_print(_text, _y) => label.new(bar_index, _y, _text, style=label.style_none, color=color.gray, size=size.small)
+//===========================================================================================
+//set the backtest time 
+startDate = input.time(timestamp("2024-01-01 00:00 +0000"), title="Backtesting start date")  
+endDate = input.time(timestamp("2024-12-31 00:00 +0000"), title="Backtesting end date")  
+
+//-------------------- Backtesting (TODO)
+lot_size  = input.float(1, 'Lot Size', options=[0.01,0.1,0.2,0.3,0.5,1,2,3,5,10,20,30,50,100,1000]) 
+var float start_long_trade  = 0.  
+var float end_long_trade    = 0.  
+var float long_trades       = 0.
+var float start_short_trade = 0.  
+var float short_trades      = 0.
+var int   wins              = 0
+var int   trade_count       = 0
+var int   bar_count         = 0
+var float profit_percent    = 0. 
+var float max_drawdown      = 0. 
+var float max_reward        = 0. 
+var float profit            = 0. 
+var float loss              = 0. 
+
+//start_long_trade  := 0.  
+//end_long_trade  := 0.  
+long_trades       := 0.
+start_short_trade := 0.  
+short_trades      := 0.
+wins              := 0
+trade_count       := 0
+//bar_count       := 0
+profit_percent    := 0. 
+profit            := 0. 
+loss              := 0. 
+ohl3 = (open+high+low)/3
+//ohl3 = close
+if(time >= startDate and time <= endDate and showBTinfo)
+    if start_trade and start_long_trade == 0.
+        start_long_trade := ohl3
+        bar_count := 1 
+        end_long_trade  := 0.  
+        f_print(str.tostring(ohl3, "#.##"), 50)
+        f_print(str.format_time(time, "yy-MM-dd"), 40)
+    if end_trade and start_long_trade > 0. and  end_long_trade == 0.
+        trade_count  := 1
+        ldiff = (ohl3 - start_long_trade)
+        if ldiff > 0
+            profit := ldiff
+        if ldiff < 0
+            loss := ldiff
+        //
+        profit_percent := ldiff/start_long_trade
+        if profit_percent > max_reward
+            max_reward := profit_percent
+        if profit_percent < max_drawdown
+            max_drawdown := profit_percent
+        //
+        wins         := ldiff > 0 ? 1 : 0
+        long_trades  := ldiff * lot_size
+        //
+        start_long_trade  := 0.  
+        bar_count := 0 
+        end_long_trade := ohl3
+        f_print(str.tostring(profit_percent, "#.##"), 70)
+        f_print(str.tostring(ldiff, "#.##"), 60)
+        f_print(str.tostring(ohl3, "#.##"), 50)
+        f_print(str.format_time(time, "yy-MM-dd"), 40)
+
+
+cumreturn   = ta.cum(long_trades) + ta.cum(short_trades)  //-- cumulative return 
+cumreturnpercent = ta.cum(profit_percent)
+totaltrades = ta.cum(trade_count)
+totalwins   = ta.cum(wins)  
+totallosses = totaltrades - totalwins == 0 ? 1 : totaltrades - totalwins
+totaltradebars = ta.cum(bar_count) 
+gross_profits = ta.cum(profit)
+gross_losses = ta.cum(loss)
+
+//-------------------- Show Information
+var label lbl = na
+info =  'Net Profit: ' + str.tostring(cumreturn, '#.#  ') + str.tostring(cumreturnpercent, '#.##%')
+      + '\nTrades: '   + str.tostring(totaltrades, '#')
+      + '\nWinning Rate: ' + str.tostring(totaltrades==0 ? na : totalwins/totaltrades, '#.##%') 
+      + '\nProfit Factor: '  + str.tostring(gross_losses==0 ? na : gross_profits < -gross_losses ? gross_profits/gross_losses : -gross_profits/gross_losses, '#.###') 
+      + '\nMax Reward: ' + str.tostring(max_reward, '#.##%') 
+      + '\nMax Drawdown: ' + str.tostring(max_drawdown, '#.##%') 
+      + '\nAve #Bars in Trades: ' + str.tostring(totaltradebars==0 ? 0 : (totaltradebars+1)/totaltrades, '#')
+      + '\nTime From: ' + str.format_time(startDate, "yyyy-MM-dd")
+
+if showBTinfo and barstate.islast  
+    lbl := label.new(bar_index, close, info, xloc.bar_index, yloc.price, 
+                     color.new(color.blue, 100), label.style_label_left, color.black, size.normal, text.align_left, force_overlay = true)
+    label.delete(lbl[1])

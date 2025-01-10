@@ -1,0 +1,98 @@
+// This work is licensed under Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License (CC BY-NC-SA 4.0) https://creativecommons.org/licenses/by-nc-sa/4.0/
+// © Trendoscope
+//                                       ░▒             
+//                                  ▒▒▒   ▒▒      
+//                              ▒▒▒▒▒     ▒▒      
+//                      ▒▒▒▒▒▒▒░     ▒     ▒▒          
+//                  ▒▒▒▒▒▒           ▒     ▒▒          
+//             ▓▒▒▒       ▒        ▒▒▒▒▒▒▒▒▒▒▒  
+//   ▒▒▒▒▒▒▒▒▒▒▒ ▒        ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒         
+//   ▒  ▒       ░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░        
+//   ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░▒▒▒▒▒▒▒▒         
+//   ▓▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ ▒▒                       
+//    ▒▒▒▒▒         ▒▒▒▒▒▒▒                            
+//                 ▒▒▒▒▒▒▒▒▒                           
+//                ▒▒▒▒▒ ▒▒▒▒▒                          
+//               ░▒▒▒▒   ▒▒▒▒▓      ████████╗██████╗ ███████╗███╗   ██╗██████╗  ██████╗ ███████╗ ██████╗ ██████╗ ██████╗ ███████╗
+//              ▓▒▒▒▒     ▒▒▒▒      ╚══██╔══╝██╔══██╗██╔════╝████╗  ██║██╔══██╗██╔═══██╗██╔════╝██╔════╝██╔═══██╗██╔══██╗██╔════╝
+//              ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒        ██║   ██████╔╝█████╗  ██╔██╗ ██║██║  ██║██║   ██║███████╗██║     ██║   ██║██████╔╝█████╗ 
+//             ▒▒▒▒▒       ▒▒▒▒▒       ██║   ██╔══██╗██╔══╝  ██║╚██╗██║██║  ██║██║   ██║╚════██║██║     ██║   ██║██╔═══╝ ██╔══╝  
+//            ▒▒▒▒▒         ▒▒▒▒▒      ██║   ██║  ██║███████╗██║ ╚████║██████╔╝╚██████╔╝███████║╚██████╗╚██████╔╝██║     ███████╗
+//             ▒▒             ▒                        
+//@version=5
+indicator("Oscillator Volume Profile [Trendoscope®]", "OVP [Trendoscope®]")
+import HeWhoMustNotBeNamed/arraymethods/1
+import HeWhoMustNotBeNamed/ta/1 as eta
+indicatorType = input.string('rsi', 'Type', ['rsi', 'cmo', 'cog', 'mfi', 'roc', 'cci', 'stoch', 'tsi', 'wpr'], tooltip = 'Oscillator Type', group='Oscillator')
+length = input.int(14, 'Length', minval=2, step=5, tooltip = 'Oscillator Length', group = 'Oscillator', display = display.none)
+shortLength = input.int(13, 'Fast Length', minval=2, step=5, tooltip='Fast Length (Used for stochastic osillator, tsi)', group = 'Oscillator', display = display.none)
+longLength = input.int(25, 'Slow Length', minval=2, step=5, tooltip = 'Slow Length (Used for stochastic oscilator, tsi)', group = 'Oscillator', display = display.none)
+
+rangeMethod = input.string('highlow', 'Calculation Method', ['highlow', 'ema', 'sma', 'rma', 'hma', 'wma', 'vwma', 'linreg', 'median'], 'Calculation method for high/low range', group='Range', display=display.none)
+rangeLength = input.int(50, 'Length', 20, step=20, tooltip = 'Range Calculation Length', group='Range', display=display.none)
+sticky = input.bool(true, 'Sticky Borders', 'When enabled, border values will only change during the breakouts.', group='Range', display = display.none)
+
+trendFilter = input.string('any', 'Filter', ['uptrend', 'downtrend', 'any', 'external'], 'Trend filter based on the last touch of oscillator', group = 'Volume Profile', display = display.none)
+external = input.source(close, 'External Filter', 'Applicable only when Trend Filter is set to external. This is an external input where users can plug another indicator output. '+
+                                     'The output 1 refers to include the volume data for profile calculation whereas 0 refers to exclude the volume data for profile calculation.', 
+                                     group='Volume Profile', display = display.none)
+precision = input.int(1, 'Precision', minval=0, step=1, tooltip = 'Floating point precision of indicator to be used', group = 'Volume Profile', display = display.none)
+limitLastN = input.bool(true, 'Limit bars', inline='limit', group='Volume Profile', display = display.none)
+volumeProfileLength = input.int(1000, '', minval=20, step=100, inline='limit', tooltip = 'Limit calculation to last N bars', group='Volume Profile', display = display.none)
+profileLength = 100
+
+[osc, overbought, oversold] = eta.oscillator(indicatorType,  length, shortLength, longLength, method=rangeMethod, highlowLength=rangeLength, sticky=sticky)
+
+type VolumeData
+    float _osc
+    float _volume = volume
+
+var array<VolumeData> volumeDataArray = array.new<VolumeData>()
+
+method profile(array<VolumeData> this, bool limit = false, bool includeInProfile = true, int length = 20)=>
+    var map<float, float> volumeProfile = map.new<float, float>()
+    if(this.size() > 0 and includeInProfile)
+        last = this.last()
+        if(not na(last._osc))
+            volumeProfile.put(last._osc, (volumeProfile.contains(last._osc)?volumeProfile.get(last._osc):0.0)+last._volume)
+        if(limit)
+            while(this.size() > length)
+                old = this.shift()
+                volumeProfile.put(old._osc, volumeProfile.get(old._osc)-old._volume)
+    volumeProfile
+
+var trend = 0
+trend := osc > overbought? 1 : osc < oversold ? -1 : trend
+
+includeInProfile = trendFilter == 'any' or (trendFilter == 'uptrend' and trend == 1) or (trendFilter == 'downtrend' and trend == -1) or (trendFilter == 'external' and external != 0)
+
+if includeInProfile
+    volumeData = VolumeData.new(math.round(osc, precision), volume*close)
+    volumeDataArray.push(volumeData)
+
+volumeProfileData = volumeDataArray.profile(limitLastN, includeInProfile, volumeProfileLength)
+
+if(barstate.islast)
+    var profilePoints = array.new<chart.point>()
+    profilePoints.clear()
+
+    startBar = bar_index +10
+    keys = volumeProfileData.keys()
+    values = volumeProfileData.values()
+    valueSortKeys = values.sort_indices(order.ascending)
+    for sortedKey in valueSortKeys
+        key = keys.get(sortedKey)
+        value = volumeProfileData.get(key)
+        currentProfileLength = profileLength*value/values.max()
+        endBar = int(startBar + currentProfileLength)
+        profilePoints.push(chart.point.from_index(startBar, key))
+        if(startBar != endBar)
+            profilePoints.push(chart.point.from_index(endBar, key))
+            profilePoints.push(chart.point.from_index(startBar, key))
+
+    var polyline ln = na
+    ln.delete()
+    ln := polyline.new(profilePoints, false, true, xloc.bar_index, color.purple, color.purple, line.style_solid, 1)
+plot(osc, 'Oscillator', color.blue)
+plot(overbought, 'Overbought', color.green)
+plot(oversold, 'Oversold', color.red)

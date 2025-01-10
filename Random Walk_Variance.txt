@@ -1,0 +1,143 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © THE_REAL_BCT
+//
+// Based on 1988 MacKinley law & test - paper "Stock Market Prices do not follow a random walk"
+// We use their hypothesis testing framework. 
+// idea: exploit variance scaling. Under the assumption of iid (random walk) we have the following:
+//   H0:   Var(Sum(retunrs over K bars))=Sum(Var(returns over 1 bar))=k*Var(return over 1 bar) 
+// We simply reject if that does not check out and confirm that indeed returns depend on current and prior info
+// 
+// In this script, we compare the variance of the (log) returns for the chart selected between:
+// - The variance over k bars
+// - The variance over 1 bar
+// We computer the Variance Ratio VR(k)=Var(over k bars)/(Sum(Var(over 1 bar)))-1
+// Then we compute the Z-score.
+// The line drawn is the Z-Score for VR(k). It represents the number of standard deviations of VR(k) from 0
+// If this line is > 2, the ticker does not follow a random walk (so has predictable components)
+// If this line is positive, it means that the Variance on the k tickers is larger than the variance on 1 ticker (more variance on longer timeframes)
+// If this line is negative, it means that the Variance on the k tickers is smaller than the variance on 1 ticker  (more variance on smaller timeframes)
+
+
+//@version=4
+study("RWalk", overlay = false, max_lines_count=500, max_boxes_count=500)
+K                           = input(16,"custom return lookback K")
+SRC                         = input(close, "source")
+LOOKBACK                    = input(500, "lookback for variance analysis")
+
+// Calculate start/end date and time condition
+TIMETOGGLE  = input(defval=false, title="Timeframe selector")
+STARTDATE   = input(timestamp("2021-04-02T00:00:00"), type = input.time)
+ENDDATE     = input(timestamp("2022-01-01T00:00:00"), type = input.time)
+time_cond   = time >= STARTDATE and time <= ENDDATE
+time_cond   := time_cond or not(TIMETOGGLE)
+
+var float[] ret1_arr        = array.new_float(0)
+var float[] ret2_arr        = array.new_float(0)
+var float[] ret4_arr        = array.new_float(0)
+var float[] ret8_arr        = array.new_float(0)
+var float[] retK_arr        = array.new_float(0)
+
+var float[] z1_arr        = array.new_float(0)
+var float[] z2_arr        = array.new_float(0)
+var float[] z4_arr        = array.new_float(0)
+var float[] z8_arr        = array.new_float(0)
+var float[] zK_arr        = array.new_float(0)
+
+
+
+obs_ser                     = float(0)                      // observations stored as a time series (test)
+
+
+// Variance Ratio = (k-day var)/(k*daily var)-1, s^2 = 2*(k-1)*(2k-1)/3kn - k = #periods lookback for ret, n = sample size    
+vr(ret_1_, ret_k_, k_) =>
+    var1_= variance(ret_1_, LOOKBACK)
+    vark_= variance(ret_k_, LOOKBACK)
+    vark_/(k_*var1_) - 1
+
+// Var of Variance Ratio
+var_vr(k_,n_) =>   
+//    2*(k_-1)*(2*k_-1)/(3*k_*n_)
+    2*(k_-1)/(n_*k_)
+
+// Z-stat for the Variance Ratio
+z_vr(ret_1_, ret_k_, k_) =>
+    vr_=vr(ret_1_, ret_k_, k_)
+    vr_/sqrt(var_vr(k_, LOOKBACK))
+
+////////////////////////////
+//obs_ser := time_cond?SRC:na
+obs_ser := log(SRC)
+k_=K
+n_=LOOKBACK
+
+ret1 = obs_ser - obs_ser[1]
+ret2 = obs_ser - obs_ser[2]
+ret4 = obs_ser - obs_ser[4]
+ret8 = obs_ser - obs_ser[8]
+retK = obs_ser - obs_ser[K]
+
+
+zstatVR(vark, var1, n, k) =>
+    VRk=vark/(k*var1)-1
+    VRk/sqrt(var_vr(k, n))
+//add returns to array without overlapping bars - keep array size to match the lookback period
+add_ret(ret_arr,ret,k) =>
+    if bar_index % k == 0
+        array.push(ret_arr, ret)
+    if array.size(ret_arr) > LOOKBACK/k
+        array.shift(ret_arr)
+add_ret(ret2_arr,ret2,2)
+add_ret(ret4_arr,ret4,4)
+add_ret(ret8_arr,ret8,8)
+add_ret(retK_arr,retK,K)
+
+var1_= variance(ret1, LOOKBACK)
+var2_= array.variance(ret2_arr) //variance(ret2, LOOKBACK)
+var4_= array.variance(ret4_arr) //variance(ret4, LOOKBACK)
+var8_= array.variance(ret8_arr) //variance(ret8, LOOKBACK)
+vark_= array.variance(retK_arr) //variance(retK, LOOKBACK)
+
+vr2_=var2_/(2*var1_) - 1
+vr4_=var4_/(4*var1_) - 1
+vr8_=var8_/(8*var1_) - 1
+vrk_=vark_/(k_*var1_) - 1
+zvr1=0
+zvr2=vr2_/sqrt(var_vr(2, n_))
+zvr4=vr4_/sqrt(var_vr(4, n_))
+zvr8=vr8_/sqrt(var_vr(8, n_))
+zvrK=vrk_/sqrt(var_vr(k_, n_))
+
+plot(zvrK, color=abs(zvrK)<2?color.red:color.teal, title="return on K bar")
+//plot(vrk_, color=abs(zvrK)<2?color.red:color.teal, title="return on K bar")
+hline(0), hline(2, color=color.teal), hline(-2, color=color.teal)
+
+////////////////////////////
+
+
+if barstate.islastconfirmedhistory
+    var color_notrej = color.red
+    var color_rej = color.teal
+    var ZTable = table.new(position = position.bottom_right, columns = 5, rows = 4, bgcolor = color.teal, border_width = 1)
+    table.cell(table_id = ZTable, column = 0, row = 0, text = "K=1", bgcolor=color.yellow)
+    table.cell(table_id = ZTable, column = 1, row = 0, text = "K=2", bgcolor=color.yellow)
+    table.cell(table_id = ZTable, column = 2, row = 0, text = "K=4", bgcolor=color.yellow)
+    table.cell(table_id = ZTable, column = 3, row = 0, text = "K=8", bgcolor=color.yellow)
+    table.cell(table_id = ZTable, column = 4, row = 0, text = "K="+tostring(K), bgcolor=color.yellow)
+    table.cell(table_id = ZTable, column = 0, row = 1, text = tostring(zvr1, "#.#"), bgcolor= abs(zvr1)<2? color_notrej:color_rej)
+    table.cell(table_id = ZTable, column = 1, row = 1, text = tostring(zvr2, "#.#"), bgcolor= abs(zvr2)<2? color_notrej:color_rej)
+    table.cell(table_id = ZTable, column = 2, row = 1, text = tostring(zvr4, "#.#"), bgcolor= abs(zvr4)<2? color_notrej:color_rej)
+    table.cell(table_id = ZTable, column = 3, row = 1, text = tostring(zvr8, "#.#"), bgcolor= abs(zvr8)<2? color_notrej:color_rej)
+    table.cell(table_id = ZTable, column = 4, row = 1, text = tostring(zvrK, "#.#"), bgcolor= abs(zvrK)<2? color_notrej:color_rej)
+    table.cell(table_id = ZTable, column = 0, row = 2, text = abs(zvr1)>2?"H0 rej.":"H0 not rej.", bgcolor= abs(zvr1)<2? color_notrej:color_rej)
+    table.cell(table_id = ZTable, column = 1, row = 2, text = abs(zvr2)>2?"H0 rej.":"H0 not rej.", bgcolor= abs(zvr2)<2? color_notrej:color_rej)
+    table.cell(table_id = ZTable, column = 2, row = 2, text = abs(zvr4)>2?"H0 rej.":"H0 not rej.", bgcolor= abs(zvr4)<2? color_notrej:color_rej)
+    table.cell(table_id = ZTable, column = 3, row = 2, text = abs(zvr8)>2?"H0 rej.":"H0 not rej.", bgcolor= abs(zvr8)<2? color_notrej:color_rej)
+    table.cell(table_id = ZTable, column = 4, row = 2, text = abs(zvrK)>2?"H0 rej.":"H0 not rej.", bgcolor= abs(zvrK)<2? color_notrej:color_rej)
+
+    var TextTable = table.new(position = position.top_right, columns = 5, rows = 4, bgcolor = color.teal, border_width = 1)
+    table.cell(table_id = TextTable, column = 0, row = 3, text = "H0: returns follow a random walk (efficient market hyp.)", bgcolor=color.yellow)
+
+
+
+
+

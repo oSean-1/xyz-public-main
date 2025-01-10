@@ -1,0 +1,430 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// Reused some functions from (I believe made by @kingthies,  ©paaax, @QuantNomad)
+// ©paaax: The table position function (https://www.tradingview.com/script/Jp37jHwT-PX-MTF-Overview/).
+// @kingthies: The RSI divergence function (https://www.tradingview.com/script/CaMohiJM-RSI-Divergence-Pine-v4/).
+// @QuantNomad: The function calculated value and array screener for 40+ instruments (https://www.tradingview.com/script/zN8rwPFF-Screener-for-40-instruments/).
+
+// © vn-5ema
+
+//@version=5
+indicator("RSI Screener Multi Timeframe [5ema]", overlay = true, shorttitle = "RSI Screener [5ema]")
+// RSI 1
+lenRSI = input.int(defval = 14, title = "Length of RSI ", minval = 1, tooltip = "By defaul, 14")
+rsiUpper = input.int(defval = 70, title = "RSI Upper", tooltip = "Use to compare overbought.")
+rsiLower = input.int(defval = 30, title = "RSI Lower", tooltip = "Use to compare oversold.")
+
+// Input divergence
+righBar = input.int(defval = 5, minval = 2, title = "Number righbar", tooltip = "Recommend 5, use to returns price of the pivot low & high point.")
+leftBar = input.int(defval = 5, minval = 2,  title = "Number leftbar", tooltip = "Recommend 5, use to returns price of the pivot low & high point.")
+rangeUpper = input.int(defval = 60, minval = 2, title = "Number range upper", tooltip = "Recommend 60, use to compare the low & high point.")
+rangeLower = input.int(defval = 5, minval = 2, title = "Number range lower", tooltip = "Recommend 5, use to compare the low & high point.")
+
+/////// This bool symbool refer from @QuantNomad /////
+// Bool Symbols
+u01 = input.bool(true,  title = "Time frame 1     ", group = "Time frame following", inline = "s01")
+u02 = input.bool(true,  title = "Time frame 2     ", group = "Time frame following", inline = "s02")
+u03 = input.bool(true,  title = "Time frame 3     ", group = "Time frame following", inline = "s03")
+u04 = input.bool(true,  title = "Time frame 4     ", group = "Time frame following", inline = "s04")
+u05 = input.bool(true,  title = "Time frame 5     ", group = "Time frame following", inline = "s05")
+u06 = input.bool(true,  title = "Time frame 6     ", group = "Time frame following", inline = "s06")
+
+// Input Symbols
+s01 = input.timeframe("", title = "",  group = "Time frame following", inline = "s01")
+s02 = input.timeframe("5", title = "",  group = "Time frame following", inline = "s02")
+s03 = input.timeframe("15", title = "", group = "Time frame following", inline = "s03")
+s04 = input.timeframe("60", title = "",  group = "Time frame following", inline = "s04")
+s05 = input.timeframe("240", title = "",  group = "Time frame following", inline = "s05")
+s06 = input.timeframe("D", title = "",  group = "Time frame following", inline = "s06")
+//////////
+
+plotBull = input.bool(title="Regular Bullish ", defval=true, group = "Show divergence on chart", tooltip = "Show regular Bullish divergence on chart. The table will display >>.")
+plotBear = input.bool(title="Regular Bearish", defval=true, group = "Show divergence on chart", tooltip = "Show regular Bearish divergence on chart. The table will display <<.")
+plotHiddenBull = input.bool(title="Hidden Bullish  ", defval=false, group = "Show divergence on chart", tooltip = "Show hidden Bullish divergence on chart. The table will display >.")
+plotHiddenBear = input.bool(title="Hidden Bearish ", defval=false, group = "Show divergence on chart", tooltip = "Show hidden Bearish divergence on chart. The table will display <.")
+
+
+// Set up table
+boolTable = input.bool(defval = true,  title = "Show table         ", group = "Set up table", inline ="tb")
+pTable = input.string("Bottom Right", title="", inline ="tb", options=["Top Left", "Top Center", "Top Right", "Middle Left", "Middle Center", "Middle Right", "Bottom Left", "Bottom Center", "Bottom Right"], group="Set up table", tooltip = "On table will appear the shapes: divergence (>, <), strong signal ⦿, review signal (〇) with the color green (bull) or bear (red).")
+/////// This function reused from ©paaax /////
+getPosition(pTable) =>
+    ret = position.top_left
+    if pTable == "Top Center"
+        ret := position.top_center
+    if pTable == "Top Right"
+        ret := position.top_right
+    if pTable == "Middle Left"
+        ret := position.middle_left
+    if pTable == "Middle Center"
+        ret := position.middle_center
+    if pTable == "Middle Right"
+        ret := position.middle_right
+    if pTable == "Bottom Left"
+        ret := position.bottom_left
+    if pTable == "Bottom Center"
+        ret := position.bottom_center
+    if pTable == "Bottom Right"
+        ret := position.bottom_right
+    ret
+//////////
+// Set up color of table
+table_boder = input(color.new(color.white, 100), group = "Set up table", title = "Border Color ")
+table_frame = input(#151715, group = "Set up table", title ="Frame Color ")
+table_bg = input(color.black, group = "Set up table", title ="Back Color ")
+table_text = input(color.white, group = "Set up table", title ="Text Color ")
+
+// Alert
+onlyStrongAlert = input.bool(title="Only strong Signal", defval=false, group = "Set up Alert", tooltip = "Select this if want to alert only strong signal.")
+onlyRegularDivergenceAlert = input.bool(title="Only regular divergence Signal", defval=false, group = "Set up Alert", tooltip = "Select this if want to alert only regular divergence Signal.")
+
+/////// This divergence function refer from @kingthies/////
+// Calculate RSi
+RSI()=> 
+    rsi = ta.rsi(close, lenRSI)
+
+Orsi()=> 
+    Orsi = RSI()
+plFind()=> 
+    plFind = na(ta.pivotlow(Orsi(), leftBar, righBar)) ? false : true
+phFind()=> 
+    phFind = na(ta.pivothigh(Orsi(), leftBar, righBar)) ? false : true
+    
+// RSI divergence
+inRange(Cdt) =>
+    bars = ta.barssince(Cdt == true)
+    rangeLower <= bars and bars <= rangeUpper
+// Regular bullish rsi
+OrsiHL() =>
+    OrsiHL = Orsi()[righBar] > ta.valuewhen(plFind(), Orsi()[righBar], 1) and inRange(plFind()[1])
+// Hidden bullish rsi
+OrsiLL() =>
+    OrsiLL = Orsi()[righBar] < ta.valuewhen(plFind(), Orsi()[righBar], 1) and inRange(plFind()[1])
+//Hidden bearish
+OrsiHH () =>
+    OrsiHH = Orsi()[righBar] > ta.valuewhen(phFind(), Orsi()[righBar], 1) and inRange(phFind()[1])
+// Regular bearish rsi
+OrsiLH() =>
+    OrsiLH = Orsi()[righBar] < ta.valuewhen(phFind(), RSI()[righBar], 1) and inRange(phFind()[1])
+
+// Regular bullish price
+priceLL() =>
+    priceLL = low[righBar] < ta.valuewhen(plFind(), low[righBar], 1)
+// Hidden bullish price
+priceHL() =>
+    priceHL = low[righBar] > ta.valuewhen(plFind(), low[righBar], 1)
+//Regular bearish price
+priceHH() =>
+    priceHH = high[righBar] > ta.valuewhen(phFind(), high[righBar], 1)
+//Hidden bearish price
+priceLH() =>
+    priceLH = high[righBar] < ta.valuewhen(phFind(), high[righBar], 1)
+
+//////////
+// Screener function
+scr_RSI() =>
+    RSI = RSI()
+    Orsi = RSI()
+    plFind = plFind()
+    phFind = phFind()
+    OrsiHL = OrsiHL()
+    OrsiLL = OrsiLL()
+    OrsiHH = OrsiHH()
+    OrsiLH = OrsiLH()
+    priceLL = priceLL()
+    priceHH = priceHH()
+    priceLH = priceLH()
+    priceHL = priceHL()
+    BullCdt = plotBull and priceLL and OrsiHL
+    hiddenBullCdt = plotHiddenBull and priceHL and OrsiLL
+    BearCdt = plotBear and priceHH and OrsiLH
+    hiddenBearCdt = plotHiddenBear and priceLH and OrsiHH
+
+    [RSI, Orsi, plFind, phFind, OrsiHL, OrsiLL, OrsiHH, OrsiLH, priceLL,  priceHH, priceLH, priceHL, BullCdt, hiddenBullCdt, BearCdt, hiddenBearCdt]
+
+
+/////// This function refer from @QuantNomad /////
+// Security call
+[RSI, Orsi, plFind, phFind, OrsiHL, OrsiLL, OrsiHH, OrsiLH, priceLL,  priceHH, priceLH, priceHL, BullCdt, hiddenBullCdt, BearCdt, hiddenBearCdt] = request.security(timeframe = timeframe.period, symbol = syminfo.tickerid, expression =  scr_RSI())
+[RSI01, Orsi01, plFind01, phFind01, OrsiHL01, OrsiLL01, OrsiHH01, OrsiLH01, priceLL01,  priceHH01, priceLH01, priceHL01, BullCdt01, hiddenBullCdt01, BearCdt01, hiddenBearCdt01] = request.security(timeframe = s01, symbol = syminfo.tickerid, expression =  scr_RSI())
+[RSI02, Orsi02, plFind02, phFind02, OrsiHL02, OrsiLL02, OrsiHH02, OrsiLH02, priceLL02,  priceHH02, priceLH02, priceHL02, BullCdt02, hiddenBullCdt02, BearCdt02, hiddenBearCdt02] = request.security(timeframe = s02, symbol = syminfo.tickerid, expression =  scr_RSI())
+[RSI03, Orsi03, plFind03, phFind03, OrsiHL03, OrsiLL03, OrsiHH03, OrsiLH03, priceLL03,  priceHH03, priceLH03, priceHL03, BullCdt03, hiddenBullCdt03, BearCdt03, hiddenBearCdt03] = request.security(timeframe = s03, symbol = syminfo.tickerid, expression =  scr_RSI())
+[RSI04, Orsi04, plFind04, phFind04, OrsiHL04, OrsiLL04, OrsiHH04, OrsiLH04, priceLL04,  priceHH04, priceLH04, priceHL04, BullCdt04, hiddenBullCdt04, BearCdt04, hiddenBearCdt04] = request.security(timeframe = s04, symbol = syminfo.tickerid, expression =  scr_RSI())
+[RSI05, Orsi05, plFind05, phFind05, OrsiHL05, OrsiLL05, OrsiHH05, OrsiLH05, priceLL05,  priceHH05, priceLH05, priceHL05, BullCdt05, hiddenBullCdt05, BearCdt05, hiddenBearCdt05] = request.security(timeframe = s05, symbol = syminfo.tickerid, expression =  scr_RSI())
+[RSI06, Orsi06, plFind06, phFind06, OrsiHL06, OrsiLL06, OrsiHH06, OrsiLH06, priceLL06,  priceHH06, priceLH06, priceHL06, BullCdt06, hiddenBullCdt06, BearCdt06, hiddenBearCdt06] = request.security(timeframe = s06, symbol = syminfo.tickerid, expression =  scr_RSI())
+
+// Arrays //
+s_arr   = array.new_string(0)
+u_arr   = array.new_bool(0)
+rsi_arr  = array.new_float(0)
+Orsi_arr  = array.new_float(0)
+plFind_arr = array.new_bool(0)
+phFind_arr = array.new_bool(0)
+OrsiHL_arr = array.new_bool(0)
+OrsiLL_arr = array.new_bool(0)
+OrsiHH_arr = array.new_bool(0)
+OrsiLH_arr = array.new_bool(0)
+priceLL_arr = array.new_bool(0)
+priceHH_arr = array.new_bool(0)
+priceLH_arr = array.new_bool(0)
+priceHL_arr = array.new_bool(0)
+BullCdt_arr = array.new_bool(0)
+hiddenBullCdt_arr = array.new_bool(0)
+BearCdt_arr = array.new_bool(0)
+hiddenBearCdt_arr = array.new_bool(0)
+
+
+// Add Symbols 
+array.push(s_arr, s01)
+array.push(s_arr, s02)
+array.push(s_arr, s03)
+array.push(s_arr, s04)
+array.push(s_arr, s05)
+array.push(s_arr, s06)
+
+
+// Flags //
+array.push(u_arr, u01)
+array.push(u_arr, u02)
+array.push(u_arr, u03)
+array.push(u_arr, u04)
+array.push(u_arr, u05)
+array.push(u_arr, u06)
+
+
+
+array.push(rsi_arr, RSI01)
+array.push(rsi_arr, RSI02)
+array.push(rsi_arr, RSI03)
+array.push(rsi_arr, RSI04)
+array.push(rsi_arr, RSI05)
+array.push(rsi_arr, RSI06)
+
+
+array.push(Orsi_arr, Orsi01)
+array.push(Orsi_arr, Orsi02)
+array.push(Orsi_arr, Orsi03)
+array.push(Orsi_arr, Orsi04)
+array.push(Orsi_arr, Orsi05)
+array.push(Orsi_arr, Orsi06)
+
+
+array.push(plFind_arr, plFind01)
+array.push(plFind_arr, plFind02)
+array.push(plFind_arr, plFind03)
+array.push(plFind_arr, plFind04)
+array.push(plFind_arr, plFind05)
+array.push(plFind_arr, plFind06)
+
+
+array.push(phFind_arr, phFind01)
+array.push(phFind_arr, phFind02)
+array.push(phFind_arr, phFind03)
+array.push(phFind_arr, phFind04)
+array.push(phFind_arr, phFind05)
+array.push(phFind_arr, phFind06)
+
+
+array.push(hiddenBearCdt_arr, hiddenBearCdt01)
+array.push(hiddenBearCdt_arr, hiddenBearCdt02)
+array.push(hiddenBearCdt_arr, hiddenBearCdt03)
+array.push(hiddenBearCdt_arr, hiddenBearCdt04)
+array.push(hiddenBearCdt_arr, hiddenBearCdt05)
+array.push(hiddenBearCdt_arr, hiddenBearCdt06)
+
+
+array.push(BearCdt_arr, BearCdt01)
+array.push(BearCdt_arr, BearCdt02)
+array.push(BearCdt_arr, BearCdt03)
+array.push(BearCdt_arr, BearCdt04)
+array.push(BearCdt_arr, BearCdt05)
+array.push(BearCdt_arr, BearCdt06)
+
+
+array.push(hiddenBullCdt_arr, hiddenBullCdt01)
+array.push(hiddenBullCdt_arr, hiddenBullCdt02)
+array.push(hiddenBullCdt_arr, hiddenBullCdt03)
+array.push(hiddenBullCdt_arr, hiddenBullCdt04)
+array.push(hiddenBullCdt_arr, hiddenBullCdt05)
+array.push(hiddenBullCdt_arr, hiddenBullCdt06)
+
+array.push(BullCdt_arr, BullCdt01)
+array.push(BullCdt_arr, BullCdt02)
+array.push(BullCdt_arr, BullCdt03)
+array.push(BullCdt_arr, BullCdt04)
+array.push(BullCdt_arr, BullCdt05)
+array.push(BullCdt_arr, BullCdt06)
+
+
+array.push(priceHL_arr, priceHL01)
+array.push(priceHL_arr, priceHL02)
+array.push(priceHL_arr, priceHL03)
+array.push(priceHL_arr, priceHL04)
+array.push(priceHL_arr, priceHL05)
+array.push(priceHL_arr, priceHL06)
+
+
+array.push(priceLH_arr, priceLH01)
+array.push(priceLH_arr, priceLH02)
+array.push(priceLH_arr, priceLH03)
+array.push(priceLH_arr, priceLH04)
+array.push(priceLH_arr, priceLH05)
+array.push(priceLH_arr, priceLH06)
+
+array.push(priceHH_arr, priceHH01)
+array.push(priceHH_arr, priceHH02)
+array.push(priceHH_arr, priceHH03)
+array.push(priceHH_arr, priceHH04)
+array.push(priceHH_arr, priceHH05)
+array.push(priceHH_arr, priceHH06)
+
+
+
+array.push(priceLL_arr, priceLL01)
+array.push(priceLL_arr, priceLL02)
+array.push(priceLL_arr, priceLL03)
+array.push(priceLL_arr, priceLL04)
+array.push(priceLL_arr, priceLL05)
+array.push(priceLL_arr, priceLL06)
+
+
+array.push(OrsiLH_arr, OrsiLH01)
+array.push(OrsiLH_arr, OrsiLH02)
+array.push(OrsiLH_arr, OrsiLH03)
+array.push(OrsiLH_arr, OrsiLH04)
+array.push(OrsiLH_arr, OrsiLH05)
+array.push(OrsiLH_arr, OrsiLH06)
+
+
+array.push(OrsiHH_arr, OrsiHH01)
+array.push(OrsiHH_arr, OrsiHH02)
+array.push(OrsiHH_arr, OrsiHH03)
+array.push(OrsiHH_arr, OrsiHH04)
+array.push(OrsiHH_arr, OrsiHH05)
+array.push(OrsiHH_arr, OrsiHH06)
+
+
+array.push(OrsiLL_arr, OrsiLL01)
+array.push(OrsiLL_arr, OrsiLL02)
+array.push(OrsiLL_arr, OrsiLL03)
+array.push(OrsiLL_arr, OrsiLL04)
+array.push(OrsiLL_arr, OrsiLL05)
+array.push(OrsiLL_arr, OrsiLL06)
+
+
+array.push(OrsiHL_arr, OrsiHL01)
+array.push(OrsiHL_arr, OrsiHL02)
+array.push(OrsiHL_arr, OrsiHL03)
+array.push(OrsiHL_arr, OrsiHL04)
+array.push(OrsiHL_arr, OrsiHL05)
+array.push(OrsiHL_arr, OrsiHL06)
+
+
+/////// /////
+//plot
+var tbl = table.new(getPosition(pTable), 4, 7, frame_color=table_frame, frame_width=1, border_width=1, border_color= table_boder)
+if barstate.islast and boolTable
+    table.cell(tbl, 0, 0, "Tfr.", text_halign = text.align_center, bgcolor = table_bg, text_color = table_text, text_size = size.small)
+    table.cell(tbl, 1, 0, "RSI", text_halign = text.align_center, bgcolor = table_bg, text_color = table_text, text_size = size.small)
+    table.cell(tbl, 2, 0, "Div.", text_halign = text.align_center, bgcolor = table_bg, text_color = table_text, text_size = size.small)
+    table.cell(tbl, 3, 0, "Signal", text_halign = text.align_center, bgcolor = table_bg, text_color = table_text, text_size = size.small)
+
+       
+    for i = 0 to 5
+        if array.get(u_arr, i)
+            checkOverbought = array.get(rsi_arr, i) > rsiUpper
+            checkOversold = array.get(rsi_arr, i) < rsiLower
+
+            checkBull = array.get(plFind_arr, i) and  array.get(BullCdt_arr,i)
+            checkhdBull = array.get(plFind_arr, i) and array.get(hiddenBullCdt_arr, i)
+            checkBear = array.get(phFind_arr, i) and array.get(BearCdt_arr, i)
+            checkhdBear = array.get(phFind_arr, i) and array.get(hiddenBearCdt_arr, i)
+
+            plBull_sha   =  checkBull ? ">>" : na
+            plhdBull_sha   =  checkhdBull ? ">"  : na
+            phBear_sha   = checkBear ? "<<"  : na
+            phhdBear_sha   =  checkhdBear ? "<" : na
+
+            sgStrongBuy = (checkBull and checkOversold) or (checkhdBull and checkOversold)
+            sgStrongSell = (checkBear and checkOverbought) or (checkhdBear and checkOverbought)
+
+            sgBuy_1 = checkhdBull and not checkOverbought
+            sgBuy_2 = checkBull and not checkOverbought
+            sgBuy =    checkOversold or sgBuy_1 or sgBuy_2
+
+            sgSell_1 = checkhdBear and not checkOversold
+            sgSell_2 = checkBear and not checkOversold
+            sgSell = checkOverbought or sgSell_1 or sgSell_2
+
+            table.cell(tbl, 0, i + 1, array.get(s_arr, i), text_halign = text.align_center,   bgcolor = table_bg, text_color = table_text, text_size = size.small)
+            table.cell(tbl, 1, i + 1, str.tostring(array.get(rsi_arr, i), "#.#"), text_halign = text.align_center,   bgcolor = table_bg, text_color = checkOverbought ? color.new(color.red, 0) : checkOversold ? color.new(color.green, 0) : table_text, text_size = size.small)
+            table.cell(tbl, 2, i + 1, checkBull ? plBull_sha : checkBear ? phBear_sha : checkhdBull ? plhdBull_sha : checkhdBear ? phhdBear_sha : "", text_halign = text.align_center, bgcolor = table_bg, text_color = checkBull or checkhdBull ? color.new(color.green, 0) : checkBear or checkhdBear ? color.new(color.red, 0) : table_text , text_size = size.small)
+            table.cell(tbl, 3, i + 1, sgStrongBuy or sgStrongSell ? "⦿" : sgBuy or sgSell ? "〇" : "", text_color = sgBuy or sgStrongBuy ? color.new(color.green, 0) :  sgSell or sgStrongSell ? color.new(color.red, 0) : table_text , text_halign = text.align_center, bgcolor = table_bg, text_size = size.small)
+            
+
+// For Alert
+crh_alert = ""
+//Signal Review BUY
+crh_alert := (u01 != false  and (plFind01 and (BullCdt01 or hiddenBullCdt01)) or RSI01 < rsiLower) ? crh_alert + syminfo.ticker +  "\n" + "Time frame: " + s01 + "\n" + "Signal: BUY"  + "\n" : crh_alert
+crh_alert := (u02 != false  and (plFind02 and (BullCdt02 or hiddenBullCdt02)) or RSI02 < rsiLower) ? crh_alert + syminfo.ticker +  "\n" + "Time frame: " + s02 + "\n" + "Signal: BUY"  + "\n" : crh_alert
+crh_alert := (u03 != false  and (plFind03 and (BullCdt03 or hiddenBullCdt03)) or RSI03 < rsiLower) ? crh_alert + syminfo.ticker +  "\n" + "Time frame: " + s03 + "\n" + "Signal: BUY"  + "\n" : crh_alert
+crh_alert := (u04 != false  and (plFind04 and (BullCdt04 or hiddenBullCdt04)) or RSI04 < rsiLower) ? crh_alert + syminfo.ticker +  "\n" + "Time frame: " + s04 + "\n" + "Signal: BUY"  + "\n" : crh_alert
+crh_alert := (u05 != false  and (plFind05 and (BullCdt05 or hiddenBullCdt05)) or RSI05 < rsiLower) ? crh_alert + syminfo.ticker +  "\n" + "Time frame: " + s05 + "\n" + "Signal: BUY"  + "\n" : crh_alert
+crh_alert := (u06 != false  and (plFind06 and (BullCdt06 or hiddenBullCdt06)) or RSI06 < rsiLower) ? crh_alert + syminfo.ticker +  "\n" + "Time frame: " + s06 + "\n" + "Signal: BUY"  + "\n" : crh_alert
+
+//Signal Review SELL
+crh_alert := (u01 != false  and (phFind01 and (BearCdt01 or hiddenBearCdt01)) or RSI01 > rsiUpper) ? crh_alert + syminfo.ticker +  "\n" + "Time frame: " + s01 + "\n" + "Signal: SELL"  + "\n" : crh_alert
+crh_alert := (u02 != false  and (phFind02 and (BearCdt02 or hiddenBearCdt02)) or RSI02 > rsiUpper) ? crh_alert + syminfo.ticker +  "\n" + "Time frame: " + s02 + "\n" + "Signal: SELL"  + "\n" : crh_alert
+crh_alert := (u03 != false  and (phFind03 and (BearCdt03 or hiddenBearCdt03)) or RSI03 > rsiUpper) ? crh_alert + syminfo.ticker +  "\n" + "Time frame: " + s03 + "\n" + "Signal: SELL"  + "\n" : crh_alert
+crh_alert := (u04 != false  and (phFind04 and (BearCdt04 or hiddenBearCdt04)) or RSI04 > rsiUpper) ? crh_alert + syminfo.ticker +  "\n" + "Time frame: " + s04 + "\n" + "Signal: SELL"  + "\n" : crh_alert
+crh_alert := (u05 != false  and (phFind05 and (BearCdt05 or hiddenBearCdt05)) or RSI05 > rsiUpper) ? crh_alert + syminfo.ticker +  "\n" + "Time frame: " + s05 + "\n" + "Signal: SELL"  + "\n" : crh_alert
+crh_alert := (u06 != false  and (phFind06 and (BearCdt06 or hiddenBearCdt06)) or RSI06 > rsiUpper) ? crh_alert + syminfo.ticker +  "\n" + "Time frame: " + s06 + "\n" + "Signal: SELL"  + "\n" : crh_alert
+
+// Send alert only if screener is not empty
+if (crh_alert != "") and not onlyStrongAlert and not onlyRegularDivergenceAlert
+    alert(crh_alert + "\n(RSI Screener - 5ema.vn)", freq = alert.freq_once_per_bar_close)
+
+crh_alert_sg = ""
+//Signal strong BUY
+crh_alert_sg := (u01 != false   and (plFind01 and BullCdt01 and  RSI01 < rsiLower)) ? crh_alert_sg + syminfo.ticker +  "\n" + "Time frame: " + s01 + "\n" + "Signal: BUY"  + "\n" : crh_alert_sg
+crh_alert_sg := (u02 != false   and (plFind02 and BullCdt02 and  RSI02 < rsiLower)) ? crh_alert_sg + syminfo.ticker +  "\n" + "Time frame: " + s02 + "\n" + "Signal: BUY"  + "\n" : crh_alert_sg
+crh_alert_sg := (u03 != false   and (plFind03 and BullCdt03 and  RSI03 < rsiLower)) ? crh_alert_sg + syminfo.ticker +  "\n" + "Time frame: " + s03 + "\n" + "Signal: BUY"  + "\n" : crh_alert_sg
+crh_alert_sg := (u04 != false   and (plFind04 and BullCdt04 and  RSI04 < rsiLower)) ? crh_alert_sg + syminfo.ticker +  "\n" + "Time frame: " + s04 + "\n" + "Signal: BUY"  + "\n" : crh_alert_sg
+crh_alert_sg := (u05 != false   and (plFind05 and BullCdt05 and  RSI05 < rsiLower)) ? crh_alert_sg + syminfo.ticker +  "\n" + "Time frame: " + s05 + "\n" + "Signal: BUY"  + "\n" : crh_alert_sg
+crh_alert_sg := (u06 != false   and (plFind06 and BullCdt06 and  RSI06 < rsiLower)) ? crh_alert_sg + syminfo.ticker +  "\n" + "Time frame: " + s06 + "\n" + "Signal: BUY"  + "\n" : crh_alert_sg
+
+//Signal strong SELL
+crh_alert_sg := (u01 != false   and (phFind01 and BearCdt01 and  RSI01 > rsiUpper)) ? crh_alert_sg + syminfo.ticker +  "\n" + "Time frame: " + s01 + "\n" + "Signal: SELL"  + "\n" : crh_alert_sg
+crh_alert_sg := (u02 != false   and (phFind02 and BearCdt02 and  RSI02 > rsiUpper)) ? crh_alert_sg + syminfo.ticker +  "\n" + "Time frame: " + s02 + "\n" + "Signal: SELL"  + "\n" : crh_alert_sg
+crh_alert_sg := (u03 != false   and (phFind03 and BearCdt03 and  RSI03 > rsiUpper)) ? crh_alert_sg + syminfo.ticker +  "\n" + "Time frame: " + s03 + "\n" + "Signal: SELL"  + "\n" : crh_alert_sg
+crh_alert_sg := (u04 != false   and (phFind04 and BearCdt04 and  RSI04 > rsiUpper)) ? crh_alert_sg + syminfo.ticker +  "\n" + "Time frame: " + s04 + "\n" + "Signal: SELL"  + "\n" : crh_alert_sg
+crh_alert_sg := (u05 != false   and (phFind05 and BearCdt05 and  RSI05 > rsiUpper)) ? crh_alert_sg + syminfo.ticker +  "\n" + "Time frame: " + s05 + "\n" + "Signal: SELL"  + "\n" : crh_alert_sg
+crh_alert_sg := (u06 != false   and (phFind06 and BearCdt06 and  RSI06 > rsiUpper)) ? crh_alert_sg + syminfo.ticker +  "\n" + "Time frame: " + s06 + "\n" + "Signal: SELL"  + "\n" : crh_alert_sg
+
+// Send alert only if screener is not empty
+if (crh_alert_sg != "") and onlyStrongAlert
+    alert(crh_alert_sg + "\n(RSI Screener - 5ema.vn)", freq = alert.freq_once_per_bar_close)
+
+
+crh_alert_rd = ""
+//Signal Regular divergence BUY
+crh_alert_rd := (u01 != false   and (plFind01 and BullCdt01)) ? crh_alert_rd + syminfo.ticker +  "\n" + "Time frame: " + s01 + "\n" + "Signal: Review BUY" + "\n" : crh_alert_rd
+crh_alert_rd := (u02 != false   and (plFind02 and BullCdt02)) ? crh_alert_rd + syminfo.ticker +  "\n" + "Time frame: " + s02 + "\n" + "Signal: Review BUY" + "\n" : crh_alert_rd
+crh_alert_rd := (u03 != false   and (plFind03 and BullCdt03)) ? crh_alert_rd + syminfo.ticker +  "\n" + "Time frame: " + s03 + "\n" + "Signal: Review BUY" + "\n" : crh_alert_rd
+crh_alert_rd := (u04 != false   and (plFind04 and BullCdt04)) ? crh_alert_rd + syminfo.ticker +  "\n" + "Time frame: " + s04 + "\n" + "Signal: Review BUY" + "\n" : crh_alert_rd
+crh_alert_rd := (u05 != false   and (plFind05 and BullCdt05)) ? crh_alert_rd + syminfo.ticker +  "\n" + "Time frame: " + s05 + "\n" + "Signal: Review BUY" + "\n" : crh_alert_rd
+crh_alert_rd := (u06 != false   and (plFind06 and BullCdt06)) ? crh_alert_rd + syminfo.ticker +  "\n" + "Time frame: " + s06 + "\n" + "Signal: Review BUY" + "\n" : crh_alert_rd
+
+//Signal Regular divergence SELL
+crh_alert_rd := (u01 != false   and (phFind01 and BearCdt01)) ? crh_alert_rd + syminfo.ticker +  "\n" + "Time frame: " + s01 + "\n" + "Signal: Review SELL" + "\n" : crh_alert_rd
+crh_alert_rd := (u02 != false   and (phFind02 and BearCdt02)) ? crh_alert_rd + syminfo.ticker +  "\n" + "Time frame: " + s02 + "\n" + "Signal: Review SELL" + "\n" : crh_alert_rd
+crh_alert_rd := (u03 != false   and (phFind03 and BearCdt03)) ? crh_alert_rd + syminfo.ticker +  "\n" + "Time frame: " + s03 + "\n" + "Signal: Review SELL" + "\n" : crh_alert_rd
+crh_alert_rd := (u04 != false   and (phFind04 and BearCdt04)) ? crh_alert_rd + syminfo.ticker +  "\n" + "Time frame: " + s04 + "\n" + "Signal: Review SELL" + "\n" : crh_alert_rd
+crh_alert_rd := (u05 != false   and (phFind05 and BearCdt05)) ? crh_alert_rd + syminfo.ticker +  "\n" + "Time frame: " + s05 + "\n" + "Signal: Review SELL" + "\n" : crh_alert_rd
+crh_alert_rd := (u06 != false   and (phFind06 and BearCdt06)) ? crh_alert_rd + syminfo.ticker +  "\n" + "Time frame: " + s06 + "\n" + "Signal: Review SELL" + "\n" : crh_alert_rd
+
+// Send alert only if screener is not empty
+if (crh_alert_rd != "") and onlyRegularDivergenceAlert
+    alert(crh_alert_rd + "\n(RSI Screener - 5ema.vn)", freq = alert.freq_once_per_bar_close)
+
+
+

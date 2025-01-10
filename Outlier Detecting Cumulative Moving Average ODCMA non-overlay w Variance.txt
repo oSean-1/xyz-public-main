@@ -1,0 +1,72 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © The_Peaceful_Lizard
+
+//@version=5
+indicator("ODCMA", overlay = false)
+outlier(series float source, int periods = 30) =>
+    float out = math.abs(((source - source[1])/math.sqrt((math.sum(math.pow(source - source[1], 2), periods) - math.pow(source - source[1], 2))/(periods - 2))))
+    out
+
+odma(float src = close, int len = 20, float max = 2, string swch = "Price") => // TODO: You will need an input string forisNewPeriod.
+	var float rolling_length = na
+	var float swma = na
+    var bool  outlier = na
+	var bool  outlier_vol = na
+    outlier := outlier(src, len) >= max ? true : false
+    outlier_vol := outlier(volume, len) >= max ? true : false
+    outlier := outlier(src, len) >= max ? true : false
+
+	outlier_swch = swch == "Price" ? outlier : swch == "Volume" ? outlier_vol : swch == "Price or Volume" ? outlier or outlier_vol : outlier and outlier_vol
+
+	rolling_length := outlier_swch ? 1 : 1 + rolling_length[1]
+	swma := outlier_swch ? math.avg(src, src[1]) : src + swma[1]
+	result = ta.wma(ta.sma(swma / rolling_length, 2), 3)
+	result
+
+odvwap(float src = close, int len = 200, float max = 3, string swch = "Volume") => // TODO: You will need an input string forisNewPeriod.
+	var float sumSrcVol = na
+	var float sumVol = na
+    var bool  outlier = na
+    var bool  outlier_vol = na
+    outlier_vol := outlier(volume, len) >= max ? true : false
+    outlier := outlier(src, len) >= max ? true : false
+	outlier_swch = swch == "Price" ? outlier : swch == "Volume" ? outlier_vol : swch == "Price or Volume" ? outlier or outlier_vol : outlier and outlier_vol
+	sumSrcVol := outlier_swch ? math.avg(src * volume, src[1] * volume[1]) : src * volume + sumSrcVol[1]
+	sumVol := outlier_swch  ? math.avg(volume, volume[1]) : volume + sumVol[1]
+	result = sumSrcVol / sumVol
+	result
+
+src = input.source(close, "Source")
+len = input.int(52, "Length", 2)
+max = input.float(4, "Outlier Detection", 0)
+weight = input.bool(true, "Volume Weighting")
+swch = input.string("Price and Volume", "Outlier Detection", ["Price","Volume","Price or Volume","Price and Volume"])
+
+ma() =>
+	switch weight
+		true => odvwap(src, len, max, swch)
+		false => odma(src, len, max, swch)
+
+
+//plot(ma())
+
+variance = ta.variance(ma(), input(21)) 
+variance1 = (variance - 1000 ) / 1000
+
+normalize(_src, _min, _max) =>
+// Normalizes series with unknown min/max using historical min/max.
+// _src      : series to rescale.
+// _min, _min: min/max values of rescaled series.
+    var _historicMin = +10e10
+    var _historicMax = -10e10
+    _historicMin := math.min(nz(_src, _historicMin), _historicMin)
+    _historicMax := math.max(nz(_src, _historicMax), _historicMax)
+    _min + (_max - _min) * (_src - _historicMin) / math.max(_historicMax - _historicMin, 10e-10)
+
+plot(normalize(variance1, 0, 100))
+
+avg_len = input(21)
+
+plot(math.avg(normalize(variance1, 0, 100), avg_len), color = color.red)
+
+bgcolor(normalize(variance1, 0, 100) >= math.avg(normalize(variance1, 0, 100), avg_len) ? color.yellow : na)
