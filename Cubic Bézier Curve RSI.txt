@@ -1,0 +1,65 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Kazo_
+//@version=5
+indicator("Cubic Bézier Curve RSI [CBCR]", overlay=false, shorttitle="ℂ𝔹ℂℝ")
+
+
+len = input.int(20, title="Bézier Curve Length", minval=2)
+impact_factor = input.float(0.5, title="Bézier Impact Factor", minval=0.0, maxval=1.0, step=0.1)
+
+rsi_len = input.int(14, title="RSI Length")
+show_hline_OB = input.bool(true, title="Show oversold Line")
+
+show_hline_OS = input.bool(true, title="Show overbought Line")
+
+hline_OB_val = input.int(30, title="OverBought line ")
+hline_OS_val = input.int(70, title="OverSold line")
+
+color_mode = input.string("Trend Following", title="Color Mode", options=["Trend Following", "OB/OS"])
+
+bezier_cubic(point1, point2, point3, point4, t) =>
+    (1 - t) * (1 - t) * (1 - t) * point1 + 3 * (1 - t) * (1 - t) * t * point2 + 3 * (1 - t) * t * t * point3 + t * t * t * point4
+
+rsi = ta.rsi(close, rsi_len)
+
+steps = 20
+
+var float rsi_pointA = na
+var float rsi_pointB = na
+var float rsi_pointC = na
+var float rsi_pointD = na
+
+if bar_index % len == 0
+    rsi_pointA := rsi[len]
+    rsi_pointB := rsi[len * 2 / 3]
+    rsi_pointC := rsi[len / 3]
+    rsi_pointD := rsi
+
+var float smoothed_rsi = na
+if not na(rsi_pointA) and not na(rsi_pointB) and not na(rsi_pointC) and not na(rsi_pointD)
+    bezier_rsi_vals = array.new_float(steps + 1, na)
+    for i = 0 to steps
+        t = i / steps
+        bezier_rsi_value = bezier_cubic(rsi_pointA, rsi_pointB, rsi_pointC, rsi_pointD, t)
+        array.set(bezier_rsi_vals, i, bezier_rsi_value)
+    smoothed_rsi := impact_factor * array.get(bezier_rsi_vals, steps) + (1 - impact_factor) * rsi
+
+// Plot Smoothed RSI
+bullColor = input.color(color.rgb(0, 255, 187), "Bullish Color", group="Display Settings")
+bearColor = input.color(color.rgb(255, 0, 0), "Bearish Color", group="Display Settings")
+
+col = color_mode == "Trend Following" ? (smoothed_rsi > 50 ? bullColor : bearColor) : (smoothed_rsi < hline_OB_val ? bullColor : smoothed_rsi > hline_OS_val ? bearColor : color.gray)
+plot(smoothed_rsi, color=col, title="Smoothed RSI")
+
+// Plot HLines
+hline(show_hline_OB ? hline_OB_val : na, "HLine OS", color=color.gray, linestyle=hline.style_dotted)
+hline(show_hline_OS ? hline_OS_val : na, "HLine OB", color=color.gray, linestyle=hline.style_dotted)
+hline(50, "HLine", color=color.gray, linestyle=hline.style_dotted)
+
+
+
+// Alerts
+alertcondition(smoothed_rsi > 50 and color_mode == "Trend Following", title="Bullish Trend", message="Bullish trend ")
+alertcondition(smoothed_rsi <= 50 and color_mode == "Trend Following", title="Bearish Trend", message="Bearish trend ")
+alertcondition(smoothed_rsi < hline_OB_val and color_mode == "OB/OS", title="Oversold Condition", message="Oversold condition")
+alertcondition(smoothed_rsi > hline_OS_val and color_mode == "OB/OS", title="Overbought Condition", message="Overbought condition")

@@ -1,0 +1,162 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © peacefulLizard50262
+
+//@version=5
+indicator("BOFDW", overlay = true)
+
+style = input.string("Bottom Right", "Position", 
+ ["Bottom Left","Bottom Middle","Bottom Right","Middle Left","Middle Center","Middle Right",
+ "Top Left","Top Middle","Top Right"])
+
+txt_col  = input.color(color.new(#c8d7ff, 0), "Title Color", inline = "bull", group = "Settings")
+box_col  = input.color(color.new(#202236, 10), "", inline = "bull", group = "Settings")
+box_hi   = input.color(color.new(#602236, 10), "", inline = "bull", group = "Settings")
+box_min  = input.color(color.new(#202276, 10), "", inline = "bull", group = "Settings")
+
+location() => 
+    switch style
+        "Bottom Left" => position.bottom_left
+        "Bottom Middle" => position.bottom_center
+        "Bottom Right" => position.bottom_right
+        "Middle Left" => position.middle_left
+        "Middle Center" => position.middle_center
+        "Middle Right" => position.middle_right
+        "Top Left" => position.top_left
+        "Top Middle" => position.top_center
+        "Top Right" => position.top_right
+
+simple_moving_average(source)=>
+    var float sum = na
+    var int count = na
+    if close == close
+        count := nz(count[1]) + 1
+        sum := nz(sum[1]) + source 
+    sum/count
+
+bes(float source = close, float length = 9)=>
+    alpha = 2 / (length + 1)
+    var float smoothed = na
+    smoothed := alpha * (source) + (1 - alpha) * nz(smoothed[1])
+
+pof(input_day)=>
+    var int   count = na
+    var float deviation = na
+    var int   count_bearish = na
+    var int   count_bullish = na
+    var float bearish = na
+    var float bullish = na
+
+    if open > close and input_day
+        bearish := nz(bearish[1]) + math.abs(open - close) 
+        count_bearish := nz(count_bearish[1]) + 1
+    if close > open and input_day
+        bullish := nz(bullish[1]) + math.abs(close - open) 
+        count_bullish := nz(count_bullish[1]) + 1
+
+    bearish_true_range = (bearish)/(count_bearish)
+    bullish_true_range = (bullish)/(count_bullish)
+    bof                = math.log(bullish_true_range/bearish_true_range)
+
+    if 1 == 1 and input_day
+        count := nz(count[1]) + 1
+        deviation := nz(deviation[1]) + math.pow(bof - math.log(1), 2)
+
+    square_diff = math.sqrt(deviation/(count-1))
+    [bof, square_diff]
+
+monday    = dayofweek == dayofweek.monday
+tuesday   = dayofweek == dayofweek.tuesday
+wednesday = dayofweek == dayofweek.wednesday
+thursday  = dayofweek == dayofweek.thursday
+friday    = dayofweek == dayofweek.friday
+saturday  = dayofweek == dayofweek.saturday
+sunday    = dayofweek == dayofweek.sunday
+
+[monday_pof, monday_square_diff]       = pof(monday)
+[tuesday_pof, tuesday_square_diff]     = pof(tuesday)
+[wednesday_pof, wednesday_square_diff] = pof(wednesday)
+[thursday_pof, thursday_square_diff]   = pof(thursday)
+[friday_pof, friday_square_diff]       = pof(friday)
+[saturday_pof, saturday_square_diff]   = pof(saturday)
+[sunday_pof, sunday_square_diff]       = pof(sunday)
+
+monday_pof_average    = simple_moving_average(monday_pof)
+tuesday_pof_average   = simple_moving_average(tuesday_pof)
+wednesday_pof_average = simple_moving_average(wednesday_pof)
+thursday_pof_average  = simple_moving_average(thursday_pof)
+friday_pof_average    = simple_moving_average(friday_pof)
+saturday_pof_average  = simple_moving_average(saturday_pof)
+sunday_pof_average    = simple_moving_average(sunday_pof)
+
+max_pof(input_day)=>
+    largest = math.max(na(monday_pof) ? -10 : monday_pof, na(tuesday_pof) ? -10 : tuesday_pof, na(wednesday_pof) ? -10 : wednesday_pof, na(thursday_pof) ? -10 : thursday_pof, na(friday_pof) ? -10 : friday_pof, na(saturday_pof) ? -10 : saturday_pof, na(sunday_pof) ? -10 : sunday_pof)
+    out = input_day == largest ? true : false
+
+max_pof_average(input_day)=>
+    largest = math.max(na(monday_pof_average) ? -10 : monday_pof_average, na(tuesday_pof_average) ? -10 : tuesday_pof_average, na(wednesday_pof_average) ? -10 : wednesday_pof_average, na(thursday_pof_average) ? -10 : thursday_pof_average, na(friday_pof_average) ? -10 : friday_pof_average, na(saturday_pof_average) ? -10 : saturday_pof_average, na(sunday_pof_average) ? -10 : sunday_pof_average)
+    out = input_day == largest ? true : false
+
+min_pof(input_day)=>
+    lowest = math.min(na(monday_pof) ? 10 : monday_pof, na(tuesday_pof) ? 10 : tuesday_pof, na(wednesday_pof) ? 10 : wednesday_pof, na(thursday_pof) ? 10 : thursday_pof, na(friday_pof) ? 10 : friday_pof, na(saturday_pof) ? 10 : saturday_pof, na(sunday_pof) ? 10 : sunday_pof)
+    out = input_day == lowest ? true : false
+
+min_pof_average(input_day)=>
+    lowest = math.min(na(monday_pof_average) ? 10 : monday_pof_average, na(tuesday_pof_average) ? 10 : tuesday_pof_average, na(wednesday_pof_average) ? 10 : wednesday_pof_average, na(thursday_pof_average) ? 10 : thursday_pof_average, na(friday_pof_average) ? 10 : friday_pof_average, na(saturday_pof_average) ? 10 : saturday_pof_average, na(sunday_pof_average) ? 10 : sunday_pof_average)
+    out = input_day == lowest ? true : false
+
+monday_pof_average_colour = max_pof_average(monday_pof_average) ? box_hi : min_pof_average(monday_pof_average) ? box_min : box_col
+monday_pof_colour = max_pof(monday_pof) ? box_hi : min_pof(monday_pof) ? box_min : box_col
+tuesday_pof_average_colour = max_pof_average(tuesday_pof_average) ? box_hi : min_pof_average(tuesday_pof_average) ? box_min : box_col
+tuesday_pof_colour = max_pof(tuesday_pof) ? box_hi : min_pof(tuesday_pof) ? box_min : box_col
+wednesday_pof_average_colour = max_pof_average(wednesday_pof_average) ? box_hi : min_pof_average(wednesday_pof_average) ? box_min : box_col
+wednesday_pof_colour = max_pof(wednesday_pof) ? box_hi : min_pof(wednesday_pof) ? box_min : box_col
+thursday_pof_average_colour = max_pof_average(thursday_pof_average) ? box_hi : min_pof_average(thursday_pof_average) ? box_min : box_col
+thursday_pof_colour = max_pof(thursday_pof) ? box_hi : min_pof(thursday_pof) ? box_min : box_col
+friday_pof_average_colour = max_pof_average(friday_pof_average) ? box_hi : min_pof_average(friday_pof_average) ? box_min : box_col
+friday_pof_colour = max_pof(friday_pof) ? box_hi : min_pof(friday_pof) ? box_min : box_col
+saturday_pof_average_colour = max_pof_average(saturday_pof_average) ? box_hi : min_pof_average(saturday_pof_average) ? box_min : box_col
+saturday_pof_colour = max_pof(saturday_pof) ? box_hi : min_pof(saturday_pof) ? box_min : box_col
+sunday_pof_average_colour = max_pof_average(sunday_pof_average) ? box_hi : min_pof_average(sunday_pof_average) ? box_min : box_col
+sunday_pof_colour = max_pof(sunday_pof) ? box_hi : min_pof(sunday_pof) ? box_min : box_col
+
+var tbl = table.new(location(), 2, 14)
+
+if barstate.islast
+    table.cell(tbl, 0, 0, "Monday POF Average", text_color = txt_col, bgcolor = box_col)
+    table.cell(tbl, 0, 1, "Monday POF", text_color = txt_col, bgcolor = box_col)
+    table.cell(tbl, 0, 2, "Tuesday POF Average", text_color = txt_col, bgcolor = box_col)
+    table.cell(tbl, 0, 3, "Tuesday POF", text_color = txt_col, bgcolor = box_col)
+    table.cell(tbl, 0, 4, "Wednesday POF Average", text_color = txt_col, bgcolor = box_col)
+    table.cell(tbl, 0, 5, "Wednesday POF", text_color = txt_col, bgcolor = box_col)
+    table.cell(tbl, 0, 6, "Thursday POF Average", text_color = txt_col, bgcolor = box_col)
+    table.cell(tbl, 0, 7, "Thursday POF", text_color = txt_col, bgcolor = box_col)
+    table.cell(tbl, 0, 8, "Friday POF Average", text_color = txt_col, bgcolor = box_col)
+    table.cell(tbl, 0, 9, "Friday POF", text_color = txt_col, bgcolor = box_col)
+    table.cell(tbl, 0, 10, "Saturday POF Average", text_color = txt_col, bgcolor = box_col)
+    table.cell(tbl, 0, 11, "Saturday POF", text_color = txt_col, bgcolor = box_col)
+    table.cell(tbl, 0, 12, "Sunday POF Average", text_color = txt_col, bgcolor = box_col)
+    table.cell(tbl, 0, 13, "Sunday POF", text_color = txt_col, bgcolor = box_col)
+
+    table.cell(tbl, 1, 0, str.tostring(math.round(monday_pof_average, 4)), text_color = txt_col, bgcolor = monday_pof_average_colour)
+    table.cell(tbl, 1, 1, str.tostring(math.round(monday_pof, 4)), text_color = txt_col, bgcolor = monday_pof_colour)
+    table.cell(tbl, 1, 2, str.tostring(math.round(tuesday_pof_average, 4)), text_color = txt_col, bgcolor = tuesday_pof_average_colour)
+    table.cell(tbl, 1, 3, str.tostring(math.round(tuesday_pof, 4)), text_color = txt_col, bgcolor = tuesday_pof_colour)
+    table.cell(tbl, 1, 4, str.tostring(math.round(wednesday_pof_average, 4)), text_color = txt_col, bgcolor = wednesday_pof_average_colour)
+    table.cell(tbl, 1, 5, str.tostring(math.round(wednesday_pof, 4)), text_color = txt_col, bgcolor = wednesday_pof_colour)
+    table.cell(tbl, 1, 6, str.tostring(math.round(thursday_pof_average, 4)), text_color = txt_col, bgcolor = thursday_pof_average_colour)
+    table.cell(tbl, 1, 7, str.tostring(math.round(thursday_pof, 4)), text_color = txt_col, bgcolor = thursday_pof_colour)
+    table.cell(tbl, 1, 8, str.tostring(math.round(friday_pof_average, 4)), text_color = txt_col, bgcolor = friday_pof_average_colour)
+    table.cell(tbl, 1, 9, str.tostring(math.round(friday_pof, 4)), text_color = txt_col, bgcolor = friday_pof_colour)
+    table.cell(tbl, 1, 10,str.tostring(math.round(saturday_pof_average, 4)) , text_color = txt_col, bgcolor = saturday_pof_average_colour)
+    table.cell(tbl, 1, 11,str.tostring(math.round(saturday_pof, 4)) , text_color = txt_col, bgcolor = saturday_pof_colour)
+    table.cell(tbl, 1, 12,str.tostring(math.round(sunday_pof_average, 4)) , text_color = txt_col, bgcolor = sunday_pof_average_colour)
+    table.cell(tbl, 1, 13,str.tostring(math.round(sunday_pof, 4)) , text_color = txt_col, bgcolor = sunday_pof_colour)
+
+
+plot(monday_pof, "Monday POF")
+plot(tuesday_pof, "Tuesday POF")
+plot(wednesday_pof, "Wednesday POF")
+plot(thursday_pof, "Thursday POF")
+plot(friday_pof, "Friday POF")
+plot(saturday_pof, "Saturday POF")
+plot(sunday_pof, "Sunday POF")

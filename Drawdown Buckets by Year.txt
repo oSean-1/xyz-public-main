@@ -1,0 +1,95 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © ILuvMarkets
+
+
+//@version=5
+//Author @ILuvMarkets
+indicator("Seasonality Big Moves", "Seasonality Big Moves", precision = 4)
+
+if not timeframe.isdaily
+    runtime.error("Please switch timeframe to Daily")
+
+i_calc = input.string("Daily Close", "Calculation Method",["Daily Close", "Intraday High-Low"])
+i_year_start = input(2000, "Start Year")
+i_text_size = input.string(size.auto, "Text Size", [size.auto, size.tiny, size.small, size.normal, size.large, size.huge])
+
+var year_start_ = math.max(year, i_year_start)
+var no_years_ = year(timenow) - year_start_ + 1
+
+var matrix<float> data_  =  matrix.new<float>(no_years_,7,0.0)
+var table table_ = na
+var text_color_ = color.white
+var bg_color_ = color.gray
+
+chg_pct_ = 0.0
+switch i_calc
+    "Daily Close" => 
+        chg_pct_ := math.abs(nz(close/close[1]-1))
+    "Intraday High-Low" => 
+        chg_pct_ := math.abs((high-low)/close)
+
+one_pct_ = 0
+two_pct_ = 0
+three_pct_ = 0
+switch 
+    chg_pct_ >= 0.03 => three_pct_ := 1
+    chg_pct_ >= 0.02 => two_pct_ := 1
+    chg_pct_ >= 0.01 => one_pct_ := 1
+
+//Debug
+// plotchar(chg_pct_,"chg_pct_","", location.top)
+// plotchar(one_pct_,"one_pct_","", location.top)
+// plotchar(two_pct_,"two_pct_","", location.top)
+// plotchar(three_pct_,"three_pct_","", location.top)
+
+var min_close_ = close
+var max_close_ = close
+var max_dd_ = 0.0
+var dd_ = 0.0
+
+if ta.change(year)
+    max_close_ := close
+    max_dd_ := 0.0
+
+if year >= year_start_
+    cur_val_ = matrix.get(data_, year-year_start_, 0)
+    matrix.set(data_, year-year_start_, 0, cur_val_ + one_pct_)
+
+    cur_val_ := matrix.get(data_, year-year_start_, 1)
+    matrix.set(data_, year-year_start_, 1, cur_val_ + two_pct_)
+
+    cur_val_ := matrix.get(data_, year-year_start_, 2)
+    matrix.set(data_, year-year_start_, 2, cur_val_ + three_pct_)
+
+    max_close_ := math.max(close, max_close_)
+    dd_ := close/max_close_ - 1
+    max_dd_ := math.min(max_dd_,dd_)
+    matrix.set(data_, year-year_start_, 3, max_dd_)
+
+// plotchar(max_close_,"max_close_","", location.top)
+// plotchar(dd_,"dd_","", location.top)
+// plotchar(max_dd_,"max_dd_","", location.top)
+
+if barstate.islast
+    table_ := table.new(position.middle_center, 13, year - year_start_ + 3, border_width = 1)
+    table.cell(table_, 1, 0, "1% Move", text_color = text_color_, bgcolor = bg_color_, text_size = i_text_size)
+    table.cell(table_, 2, 0, "2% Move", text_color = text_color_, bgcolor = bg_color_, text_size = i_text_size)
+    table.cell(table_, 3, 0, "3% Move", text_color = text_color_, bgcolor = bg_color_, text_size = i_text_size)
+    table.cell(table_, 4, 0, "Max DD", text_color = text_color_, bgcolor = bg_color_, text_size = i_text_size)
+
+
+    for row_ = 0 to no_years_ - 1
+        table.cell(table_, 0, 1+row_, str.tostring(row_ + year_start_), text_color = text_color_, bgcolor = bg_color_, text_size = i_text_size)
+        for col_ = 0 to 2
+            val_ = matrix.get(data_, row_, col_) 
+            val_color_ =  color.gray 
+            table.cell(table_, 1+col_, 1+row_, str.format("{0,number,#,###}", val_), bgcolor = color.new(color.black,80), text_color = val_color_, text_size = i_text_size)
+            true
+        val_ = matrix.get(data_, row_, 3) 
+        bg_color_trasnp_ = switch 
+            math.abs(val_) > .40 => 50
+            math.abs(val_) > .30 => 60
+            math.abs(val_) > .20 => 70
+            math.abs(val_) > .10 => 80
+            => 90
+        table.cell(table_, 4, 1+row_, str.format("{0,number,0.00%}", val_), bgcolor = color.new(color.red,bg_color_trasnp_), text_color = color.red, text_size = i_text_size)

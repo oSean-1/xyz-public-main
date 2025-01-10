@@ -1,0 +1,142 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © TZack88
+
+//@version=5
+indicator("Consolidation Score",explicit_plot_zorder = true)
+string SettingsG = "Settings"
+bool ChartTime   = time > chart.left_visible_bar_time and time <= chart.right_visible_bar_time
+string TIME      = input.timeframe("1D",title = "TimeFrame",group =SettingsG )
+int RNGLen       = input.int(20, title="Range Length",group =SettingsG )
+
+
+// Symbols
+string s01       = input.symbol('BTCUSDT'  , group = 'Symbols' , title = "Symbol 1")
+string s02       = input.symbol('HOOKUSDT' , group = 'Symbols' , title = "Symbol 2")
+string s03       = input.symbol('DOGEUSDT' , group = 'Symbols' , title = "Symbol 3")
+string s04       = input.symbol('BNBUSDT'  , group = 'Symbols' , title = "Symbol 4")
+string s05       = input.symbol('ETHUSDT'  , group = 'Symbols' , title = "Symbol 5")
+string s06       = input.symbol('ADAUSDT'  , group = 'Symbols' , title = "Symbol 6")
+string s07       = input.symbol('SOLUSDT'  , group = 'Symbols' , title = "Symbol 7")
+string s08       = input.symbol('AXSUSDT'  , group = 'Symbols' , title = "Symbol 8")
+string s09       = input.symbol('TRXUSDT'  , group = 'Symbols' , title = "Symbol 9")
+string s10       = input.symbol('MASKUSDT' , group = 'Symbols' , title = "Symbol 10")
+string s11       = input.symbol('SANDUSDT' , group = 'Symbols' , title = "Symbol 11")
+string s12       = input.symbol('ATOMUSDT' , group = 'Symbols' , title = "Symbol 12")
+string s13       = input.symbol('VETUSDT'  , group = 'Symbols' , title = "Symbol 13")
+string s14       = input.symbol('OPUSDT'   , group = 'Symbols' , title = "Symbol 14")
+string s15       = input.symbol('LDOUSDT'  , group = 'Symbols' , title = "Symbol 15")
+string s16       = input.symbol('EOSUSDT'  , group = 'Symbols' , title = "Symbol 16")
+string s17       = input.symbol('XLMUSDT'  , group = 'Symbols' , title = "Symbol 17")
+string s18       = input.symbol('LTCUSDT'  , group = 'Symbols' , title = "Symbol 18")
+string s19       = input.symbol('AVAXUSDT' , group = 'Symbols' , title = "Symbol 19")
+string s20       = input.symbol('STGUSDT'  , group = 'Symbols' , title = "Symbol 20")
+
+// visable range 
+var float [] Xbars  = array.new_float()
+var int [] score  = array.new_int()
+if ChartTime
+    array.push(Xbars,time)
+
+Mid                 = int(array.size(Xbars) / 2 )
+END                 = bar_index[Mid] + 104
+Start               = bar_index[Mid] - 100
+
+GenCol(i)=>
+    ColGen = color.new(color.rgb((23 * (i + 4)) % 255, (79 * (i + 4)) % 255, (127 * (i + 4)) % 255), 30)
+    ColGen
+
+method Consolidation(string pair,x1)=>
+    var label Name  = na , Name.delete()
+    var label Data  = na , Data.delete()
+
+    ATR = ta.atr(RNGLen)
+    TradingRange = ta.highest(high, RNGLen) - ta.lowest(low, RNGLen)
+    Cons = int((100 - ta.percentrank(TradingRange / ATR, 100)) / 10 )
+
+    CS    = request.security(pair,TIME,Cons)
+    score.push(CS)
+
+
+ 
+     
+    Name:= label.new(
+        //
+                 Start+2+x1,CS,syminfo.ticker(pair),
+                 color      = color.new(GenCol(x1),50),
+                 textalign  =  text.align_center,
+                 textcolor  = color.white,
+                 size       = size.small,
+                 style = label.style_circle
+                 
+                 )
+    Data:= label.new(
+                 Start+2+x1,CS,str.tostring(CS),
+                 color      = color.new(color.black,100),
+                 textalign  =  text.align_center,
+                 textcolor  = color.white,
+                 size       = size.small,
+                 style = label.style_label_center
+                 
+                 )
+    
+
+BoxDrawing()=>
+    var box Big         = na , Big.delete()
+    var box left        = na , left.delete()
+    var box TOP         = na , TOP.delete()
+    var box right       = na , right.delete()
+    var label Numbers  = na , Numbers.delete()
+    var line NumbersLines  = na , NumbersLines.delete()
+
+    Big:= box.new(
+
+                     Start,11,END,-1,
+                     bgcolor        = color.rgb(136, 137, 141, 85),
+                     border_color   = color.rgb(136, 137, 141, 50),
+                     border_style   = line.style_dashed,
+                     text           = str.tostring(score.range()),
+                     text_halign    = text.align_center,
+                     text_color     = color.new(color.white,70)
+
+                     )
+
+    for i = 0 to 10
+
+        Numbers     :=label.new(Start-2,i,str.tostring(i),
+         color      = color.new(color.black,100),
+         textcolor  = color.new(color.white,40),
+         style      = label.style_label_center)
+
+
+        NumbersLines   := line.new(Start,i,END,i,
+         color         = color.from_gradient(i,0,10,color.rgb(171, 43, 221, 60), color.rgb(23, 110, 211, 60)),
+         style         = line.style_dashed )
+        
+
+    TOP:=box.new(
+
+                     Start,12,END,11,
+                     bgcolor        = color.rgb(92, 91, 96, 50),
+                     border_color   = color.new(color.gray,100),
+                     border_style   = line.style_dashed,
+                     text           = " ♨ Consolidation Score ♨ ",
+                     text_halign    = text.align_center,
+                     text_color     = color.white
+
+                     )
+                                            
+
+Run()=>
+    s01.Consolidation(5)   , s02.Consolidation(15) , s03.Consolidation(25)  , s04.Consolidation(35)
+    s05.Consolidation(45)  , s06.Consolidation(55) , s07.Consolidation(65)  , s08.Consolidation(75)
+    s09.Consolidation(85)  , s10.Consolidation(95) , s11.Consolidation(105) , s12.Consolidation(115)
+    s13.Consolidation(125) , s14.Consolidation(135), s15.Consolidation(145) , s16.Consolidation(155)
+    s17.Consolidation(165) , s18.Consolidation(175), s19.Consolidation(185) , s20.Consolidation(195)
+    BoxDrawing()  
+
+
+
+
+if barstate.islast
+    Run()
+    

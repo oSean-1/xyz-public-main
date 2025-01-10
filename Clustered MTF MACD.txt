@@ -1,0 +1,116 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © BlackCode_trader
+
+// This indicator aggregates MACD values across multiple timeframes to provide a comprehensive view of market momentum.
+// It calculates and averages the MACD and signal lines from selected timeframes, displaying a single histogram 
+// to help traders identify overall trend direction and strength.
+
+//@version=5
+indicator("Clustered MTF MACD", overlay = false)
+import TradingView/ta/7
+
+// ————— Inputs ———————————————————————————————————————————————————————————————
+int     fastLength      =       input.int(defval = 12, title = 'Fast length')
+int     slowLength      =       input.int(defval = 26, title = 'Slow length')
+int     signalLength    =       input.int(defval = 9, title = 'Signal length')
+bool    isMacd1         =       input.bool(defval = true, title = "MACD - 1m") 
+bool    isMacd2         =       input.bool(defval = true, title = "MACD - 3m") 
+bool    isMacd3         =       input.bool(defval = true, title = "MACD - 5m") 
+bool    isMacd4         =       input.bool(defval = true, title = "MACD - 15m") 
+bool    isMacd5         =       input.bool(defval = true, title = "MACD - 30m") 
+bool    isMacd6         =       input.bool(defval = true, title = "MACD - 1h") 
+bool    isMacd7         =       input.bool(defval = false, title = "MACD - 2h") 
+bool    isMacd8         =       input.bool(defval = true, title = "MACD - 4h") 
+bool    isMacd9         =       input.bool(defval = false, title = "MACD - 6h") 
+bool    isMacd10        =       input.bool(defval = false, title = "MACD - 8h") 
+bool    isMacd11        =       input.bool(defval = false, title = "MACD - 12h") 
+bool    isMacd12        =       input.bool(defval = true, title = "MACD - 1D") 
+bool    isMacd13        =       input.bool(defval = false, title = "MACD - 3D") 
+bool    isMacd14        =       input.bool(defval = false, title = "MACD - 1W") 
+bool    isMacd15        =       input.bool(defval = false, title = "MACD - 1M") 
+
+// ————— MACDs ———————————————————————————————————————————————————————————————
+[macd1, signal1, hist1] = request.security(syminfo.tickerid, '1', ta.macd(close, fastLength, slowLength, signalLength))
+[macd2, signal2, hist2] = request.security(syminfo.tickerid, '3', ta.macd(close, fastLength, slowLength, signalLength))
+[macd3, signal3, hist3] = request.security(syminfo.tickerid, '5', ta.macd(close, fastLength, slowLength, signalLength))
+[macd4, signal4, hist4] = request.security(syminfo.tickerid, '15', ta.macd(close, fastLength, slowLength, signalLength))
+[macd5, signal5, hist5] = request.security(syminfo.tickerid, '30', ta.macd(close, fastLength, slowLength, signalLength))
+[macd6, signal6, hist6] = request.security(syminfo.tickerid, '60', ta.macd(close, fastLength, slowLength, signalLength))
+[macd7, signal7, hist7] = request.security(syminfo.tickerid, '120', ta.macd(close, fastLength, slowLength, signalLength))
+[macd8, signal8, hist8] = request.security(syminfo.tickerid, '240', ta.macd(close, fastLength, slowLength, signalLength))
+[macd9, signal9, hist9] = request.security(syminfo.tickerid, '360', ta.macd(close, fastLength, slowLength, signalLength))
+[macd10, signal10, hist10] = request.security(syminfo.tickerid, '480', ta.macd(close, fastLength, slowLength, signalLength))
+[macd11, signal11, hist11] = request.security(syminfo.tickerid, '720', ta.macd(close, fastLength, slowLength, signalLength))
+[macd12, signal12, hist12] = request.security(syminfo.tickerid, '1D', ta.macd(close, fastLength, slowLength, signalLength))
+[macd13, signal13, hist13] = request.security(syminfo.tickerid, '3D', ta.macd(close, fastLength, slowLength, signalLength))
+[macd14, signal14, hist14] = request.security(syminfo.tickerid, '1W', ta.macd(close, fastLength, slowLength, signalLength))
+[macd15, signal15, hist15] = request.security(syminfo.tickerid, '1M', ta.macd(close, fastLength, slowLength, signalLength))
+
+var isMACDs = array.new<bool>(15)
+isMACDs.set(0, isMacd1)
+isMACDs.set(1, isMacd2)
+isMACDs.set(2, isMacd3)
+isMACDs.set(3, isMacd4)
+isMACDs.set(4, isMacd5)
+isMACDs.set(5, isMacd6)
+isMACDs.set(6, isMacd7)
+isMACDs.set(7, isMacd8)
+isMACDs.set(8, isMacd9)
+isMACDs.set(9, isMacd10)
+isMACDs.set(10, isMacd11)
+isMACDs.set(11, isMacd12)
+isMACDs.set(12, isMacd13)
+isMACDs.set(13, isMacd14)
+isMACDs.set(14, isMacd15)
+
+var MACDs = matrix.new<float>(15, 2, 0.0)
+MACDs.set(0, 0, macd1)
+MACDs.set(1, 0, macd2)
+MACDs.set(2, 0, macd3)
+MACDs.set(3, 0, macd4)
+MACDs.set(4, 0, macd5)
+MACDs.set(5, 0, macd6)
+MACDs.set(6, 0, macd7)
+MACDs.set(7, 0, macd8)
+MACDs.set(8, 0, macd9)
+MACDs.set(9, 0, macd10)
+MACDs.set(10, 0, macd11)
+MACDs.set(11, 0, macd12)
+MACDs.set(12, 0, macd13)
+MACDs.set(13, 0, macd14)
+MACDs.set(14, 0, macd15)
+
+MACDs.set(0, 1, signal1)
+MACDs.set(1, 1, signal2)
+MACDs.set(2, 1, signal3)
+MACDs.set(3, 1, signal4)
+MACDs.set(4, 1, signal5)
+MACDs.set(5, 1, signal6)
+MACDs.set(6, 1, signal7)
+MACDs.set(7, 1, signal8)
+MACDs.set(8, 1, signal9)
+MACDs.set(9, 1, signal10)
+MACDs.set(10, 1, signal11)
+MACDs.set(11, 1, signal12)
+MACDs.set(12, 1, signal13)
+MACDs.set(13, 1, signal14)
+MACDs.set(14, 1, signal15)
+
+float sumMACD = 0
+float sumSignal = 0
+var int macdCount = 0
+for i = 0 to 14
+    isMACDSelected = isMACDs.get(i)
+    if isMACDSelected
+        sumMACD := sumMACD + MACDs.get(i, 0)
+        sumSignal := sumSignal + MACDs.get(i, 1)
+        macdCount := macdCount + 1
+
+macd = sumMACD/macdCount
+signal = sumSignal/macdCount
+hist = macd - signal
+
+// ————— Plots ———————————————————————————————————————————————————————————————
+plot(hist, title="SMA Histogram", style=plot.style_columns, color=(hist >= 0 ? (hist[1] < hist ? #26A69A : #b2dfdb79) : (hist[1] < hist ? #ffcdd275 : #ff525275)))
+plot(macd, title="MACD", color=#0004ff, linewidth=2, display = display.none)
+plot(signal, title="Signal", color=#ff9900, linewidth=2, display = display.none)

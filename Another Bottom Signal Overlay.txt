@@ -1,0 +1,29 @@
+    // ____  __    ___   ________ ___________  ___________ __  ____ ___ 
+   // / __ )/ /   /   | / ____/ //_/ ____/   |/_  __<  / // / / __ |__ \
+  // / __  / /   / /| |/ /   / ,< / /   / /| | / /  / / // /_/ / / __/ /
+ // / /_/ / /___/ ___ / /___/ /| / /___/ ___ |/ /  / /__  __/ /_/ / __/ 
+// /_____/_____/_/  |_\____/_/ |_\____/_/  |_/_/  /_/  /_/  \____/____/                                              
+
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © blackcat1402
+//@version=4
+
+study("[blackcat] L1 Simple Buy Back","SBB", overlay=true, max_bars_back=5000, max_labels_count =500)
+
+xsa(src, len, wei) =>
+    sum = 0.0
+    ma = 0.0
+    out = 0.0
+    sum := nz(sum[1]) - nz(src[len]) + src
+    ma := na(src[len]) ? na : sum / len
+    out := na(out[1]) ? ma : (src * wei + out[1] * (len - wei)) / len
+    out
+
+//algo
+x_37 = 3*xsa((close-lowest(low,18))/(highest(high,18)-lowest(low,18))*100,21,1)-2*xsa(xsa((close-lowest(low,18))/(highest(high,18)-lowest(low,18))*100,20,1),8,1)
+x_38 = input(20)
+buy_back = crossover(x_37,x_38)
+
+buy_back_label = buy_back ?
+           label.new (bar_index, low, "+", color=color.new(color.lime, 60), textcolor=color.white, style=label.style_label_up, yloc=yloc.price, size=size.small) :
+           na

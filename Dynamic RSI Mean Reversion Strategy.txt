@@ -1,0 +1,108 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// ©nathanfarmer
+
+//@version=5
+strategy("Dynamic RSI Mean Reversion Strategy", overlay=false, initial_capital=10000, commission_type=strategy.commission.percent, commission_value = 1, slippage=10, default_qty_type=strategy.percent_of_equity, default_qty_value=100, pyramiding=0)
+
+// Import necessary libraries
+import TradingView/ta/7 as ta
+
+// User Inputs
+rsiPeriod       = input.int(14, "RSI Period", minval=1, group="RSI Settings")
+atrPeriod       = input.int(50, "ATR Period", minval=1, group="ATR Settings")
+baseOBLevel     = input.float(70, "Base Overbought Level", minval=50, maxval=100, group="RSI Settings")
+baseOSLevel     = input.float(30, "Base Oversold Level", minval=0, maxval=50, group="RSI Settings")
+atrScaling      = input.float(0.2, "ATR Scaling Factor", step=0.1, group="ATR Settings")
+dynamicStopDistance    = input.float(1.0, "ATR Stop Loss Distance", minval=0.1, maxval=100, step=0.1, group="Strategy Settings", tooltip="The number of ATRs away to place your stop")
+meanLevel       = input.float(50, "RSI Mean (Exit) Level", minval=0, maxval=100, group="Strategy Settings")
+trendFiltering = input.bool(true, "Use Trend Filtering")
+
+ma1Length = input.int(21, "EMA 1 Length", group="EMA Settings")
+ma1Type = input.string("SMMA (RMA)", title="MA 1 Type", options=["EMA", "SMA", "WMA", "HMA", "DEMA", "TEMA", "VWMA", "LSMA", "TMA", "FRAMA", "SMMA (RMA)"], group="EMA Settings")
+ma2Length = input.int(50, "MA 2 Length", group="EMA Settings")
+ma2Type = input.string("SMMA (RMA)", title="MA 2 Type", options=["EMA", "SMA", "WMA", "HMA", "DEMA", "TEMA", "VWMA", "LSMA", "TMA", "FRAMA", "SMMA (RMA)"], group="EMA Settings")
+
+ma1 = switch ma1Type
+    "SMA"         => ta.sma(close, ma1Length)
+    "EMA"         => ta.ema(close, ma1Length)
+    "WMA"         => ta.wma(close, ma1Length)
+    "HMA"         => ta.hma(close, ma1Length)
+    "DEMA"        => ta.dema(close, ma1Length)
+    "TEMA"        => ta.tema(close, ma1Length)
+    "VWMA"        => ta.vwma(close, ma1Length)
+    "LSMA"        => ta.linreg(close, ma1Length, 0)
+    "TMA"         => ta.trima(close, ma1Length)
+    "FRAMA"       => ta.frama(close, ma1Length)
+    "SMMA (RMA)"  => ta.rma(close, ma1Length)
+    => ta.sma(close, ma1Length)  // Default to SMA
+
+// Choose MA type for RSI MA
+ma2 = switch ma2Type
+    "SMA"         => ta.sma(close, ma2Length)
+    "EMA"         => ta.ema(close, ma2Length)
+    "WMA"         => ta.wma(close, ma2Length)
+    "HMA"         => ta.hma(close, ma2Length)
+    "DEMA"        => ta.dema(close, ma2Length)
+    "TEMA"        => ta.tema(close, ma2Length)
+    "VWMA"        => ta.vwma(close, ma2Length)
+    "LSMA"        => ta.linreg(close, ma2Length, 0)
+    "TMA"         => ta.trima(close, ma2Length)
+    "FRAMA"       => ta.frama(close, ma2Length)
+    "SMMA (RMA)"  => ta.rma(close, ma2Length)
+    => ta.sma(close, ma2Length)  // Default to SMA
+
+// Calculate RSI
+rsiSignal = ta.rsi(close, rsiPeriod)
+
+// Calculate ATR
+atrValue = ta.atr(atrPeriod)
+
+// Adjust OB/OS Levels Based on ATR
+maxATR = ta.highest(atrValue, atrPeriod)
+minATR = ta.lowest(atrValue, atrPeriod)
+normalizedATR = (atrValue - minATR) / (maxATR - minATR)
+
+dynamicOB = baseOBLevel + (normalizedATR * (100 - baseOBLevel) * atrScaling)
+dynamicOS = baseOSLevel - (normalizedATR * baseOSLevel * atrScaling)
+
+// Ensure OB/OS levels are within bounds
+dynamicOB := math.min(dynamicOB, 100)
+dynamicOS := math.max(dynamicOS, 0)
+
+// Plot RSI and Dynamic Levels
+plot(rsiSignal, color=ma1 >= ma2 ? color.aqua : color.fuchsia, title="RSI Signal")
+plot(dynamicOB, color=color.red, title="Dynamic Overbought Level")
+plot(dynamicOS, color=color.green, title="Dynamic Oversold Level")
+hline(meanLevel, title="Mean Level", color=color.gray)
+
+// Entry Conditions
+longEntry  = trendFiltering ? ta.crossunder(rsiSignal, dynamicOS) and ma1 >= ma2 : ta.crossunder(rsiSignal, dynamicOS)
+shortEntry = trendFiltering ? ta.crossover(rsiSignal, dynamicOB) and ma1 <= ma2 : ta.crossover(rsiSignal, dynamicOB)
+
+// Exit Conditions
+exitLong  = ta.crossover(rsiSignal, meanLevel)
+exitShort = ta.crossunder(rsiSignal, meanLevel)
+
+// Calculate Stop Distance
+stopATR      = atrValue * dynamicStopDistance  
+
+var longSLPrice  = 0.0
+var shortSLPrice = 0.0
+
+if (longEntry or shortEntry or exitLong or exitShort)
+    longSLPrice  := close - stopATR
+    shortSLPrice := close + stopATR
+
+if (strategy.equity > 0)
+    // Entry and Exit Execution
+    if (longEntry)
+        strategy.entry("Long", strategy.long, stop=longSLPrice)
+
+    if (shortEntry)
+        strategy.entry("Short", strategy.short, stop=shortSLPrice)
+
+if (exitLong)
+    strategy.close("Long")
+
+if (exitShort)
+    strategy.close("Short")

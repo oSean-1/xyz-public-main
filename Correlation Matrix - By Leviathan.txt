@@ -1,0 +1,178 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © LeviathanCapital
+
+//@version=5
+indicator("Correlation Matrix - By Leviathan")
+
+length   = input.int(50, 'Correlation Length', tooltip='The number of bars back used to calculate correlation')
+change   = input.int(20, 'Price Change Length', tooltip = 'The number of bars back used to calculate the price change. Eg. If the Price Change Length number is 10, the script will calculate the price increase/decrease from 10 bars ago.')
+tf       = input.timeframe('', 'Timeframe')
+hmct     = input.string('Custom', 'Heatmap Colors', options = ['Custom', 'Gradient'])
+showchg  = input.bool(false, 'Price Change', inline='1')
+heatmap  = input.bool(true, 'Heatmap', inline='1')
+
+// Symbol inputs
+a  = input.symbol('BINANCE:BTCUSDT',   'Asset 1',  group = 'SYMBOLS')
+b  = input.symbol('BINANCE:ETHUSDT',   'Asset 2',  group = 'SYMBOLS')
+c  = input.symbol('AMEX:SPY',   'Asset 3',  group = 'SYMBOLS')
+d  = input.symbol('CME_MINI:ES1!',  'Asset 4',  group = 'SYMBOLS')
+e  = input.symbol('CBOE:VIX',   'Asset 5',  group = 'SYMBOLS')
+f  = input.symbol('CBOE:VX1!', 'Asset 6',  group = 'SYMBOLS')
+g  = input.symbol('NASDAQ:TDEX',   'Asset 7',  group = 'SYMBOLS')
+h  = input.symbol('CBOE:VVIX',   'Asset 8',  group = 'SYMBOLS')
+i  = input.symbol('AMEX:SPY/CBOE:VIX',   'Asset 9',  group = 'SYMBOLS')
+j  = input.symbol('CME_MINI:ES1!/CBOE:VX1!',            'Asset 10', group = 'SYMBOLS')
+
+// Appearance
+cellh    = input.int(8, 'Cell Height',                         group = 'APPEARANCE')
+cellw    = input.int(8, 'Cell Width',                          group = 'APPEARANCE')
+valuecol = input.color(color.white, 'Value Color',           group = 'APPEARANCE')
+textcol  = input.color(color.white, 'Label Color',           group = 'APPEARANCE')
+tablecol = input.color(color.rgb(25, 24, 24), 'Table Color', group = 'APPEARANCE')
+fullsym  = input.bool(false, 'Full Pair Label')
+
+// Defining colors for the heatmap
+gr1    = input.color(#3179f5, 'Gradient', group = 'HEATMAP COLORS', inline='gr')
+gr2    = input.color(color.rgb(25, 24, 24), '', group = 'HEATMAP COLORS', inline='gr')
+corr1  = input.color(color.rgb(179, 14, 29)  , '', inline='1', group = 'HEATMAP COLORS')
+corr2  = input.color(color.rgb(201, 46, 44)  , '', inline='1', group = 'HEATMAP COLORS')
+corr3  = input.color(color.rgb(223, 78, 59)  , '', inline='1', group = 'HEATMAP COLORS')
+corr4  = input.color(color.rgb(235, 108, 77) , '', inline='1', group = 'HEATMAP COLORS')
+corr5  = input.color(color.rgb(247, 139, 96) , '', inline='1', group = 'HEATMAP COLORS')
+corr6  = input.color(color.rgb(252, 169, 115), '', inline='2', group = 'HEATMAP COLORS')
+corr7  = input.color(color.rgb(253, 188, 129), '', inline='2', group = 'HEATMAP COLORS')
+corr8  = input.color(color.rgb(253, 207, 143), '', inline='2', group = 'HEATMAP COLORS')
+corr9  = input.color(color.rgb(255, 215, 154), '', inline='2', group = 'HEATMAP COLORS')
+corr10 = input.color(color.rgb(220, 169, 129), '', inline='2', group = 'HEATMAP COLORS')
+corr11 = input.color(color.rgb(168, 198, 218), '', inline='3', group = 'HEATMAP COLORS') 
+corr12 = input.color(color.rgb(135, 168, 189), '', inline='3', group = 'HEATMAP COLORS')
+corr13 = input.color(color.rgb(101, 139, 159), '', inline='3', group = 'HEATMAP COLORS')
+corr14 = input.color(color.rgb(68, 110, 129) , '', inline='3', group = 'HEATMAP COLORS')
+corr15 = input.color(color.rgb(60, 98, 115)  , '', inline='3', group = 'HEATMAP COLORS')
+corr16 = input.color(color.rgb(53, 87, 101)  , '', inline='4', group = 'HEATMAP COLORS')
+corr17 = input.color(color.rgb(47, 75, 88)   , '', inline='4', group = 'HEATMAP COLORS')
+corr18 = input.color(color.rgb(40, 64, 74)   , '', inline='4', group = 'HEATMAP COLORS')
+corr19 = input.color(color.rgb(34, 53, 61)   , '', inline='4', group = 'HEATMAP COLORS')
+corr20 = input.color(color.rgb(68, 92, 220)  , '', inline='4', group = 'HEATMAP COLORS')
+
+// Getting data 
+[asset1c,  base1,  ticker1]  = request.security(a, tf, [close, syminfo.basecurrency, syminfo.ticker])
+[asset2c,  base2,  ticker2]  = request.security(b, tf, [close, syminfo.basecurrency, syminfo.ticker])
+[asset3c,  base3,  ticker3]  = request.security(c, tf, [close, syminfo.basecurrency, syminfo.ticker])
+[asset4c,  base4,  ticker4]  = request.security(d, tf, [close, syminfo.basecurrency, syminfo.ticker])
+[asset5c,  base5,  ticker5]  = request.security(e, tf, [close, syminfo.basecurrency, syminfo.ticker])
+[asset6c,  base6,  ticker6]  = request.security(f, tf, [close, syminfo.basecurrency, syminfo.ticker])
+[asset7c,  base7,  ticker7]  = request.security(g, tf, [close, syminfo.basecurrency, syminfo.ticker])
+[asset8c,  base8,  ticker8]  = request.security(h, tf, [close, syminfo.basecurrency, syminfo.ticker])
+[asset9c,  base9,  ticker9]  = request.security(i, tf, [close, syminfo.basecurrency, syminfo.ticker])
+[asset10c, base10, ticker10] = request.security(j, tf, [close, syminfo.basecurrency, syminfo.ticker])
+
+// Getting ticker names
+tickera  = fullsym or base1  =='' ? ticker1  : base1
+tickerb  = fullsym or base2  =='' ? ticker2  : base2
+tickerc  = fullsym or base3  =='' ? ticker3  : base3
+tickerd  = fullsym or base4  =='' ? ticker4  : base4
+tickere  = fullsym or base5  =='' ? ticker5  : base5
+tickerf  = fullsym or base6  =='' ? ticker6  : base6
+tickerg  = fullsym or base7  =='' ? ticker7  : base7
+tickerh  = fullsym or base8  =='' ? ticker8  : base8
+tickeri  = fullsym or base9  =='' ? ticker9  : base9
+tickerj  = fullsym or base10 =='' ? ticker10 : base10
+
+// Calculating price change
+f_calc_change(asset) =>
+    ((asset - asset[change]) / asset[change]) * 100
+
+asset1_chg  = f_calc_change(asset1c)
+asset2_chg  = f_calc_change(asset2c)
+asset3_chg  = f_calc_change(asset3c)
+asset4_chg  = f_calc_change(asset4c)
+asset5_chg  = f_calc_change(asset5c)
+asset6_chg  = f_calc_change(asset6c)
+asset7_chg  = f_calc_change(asset7c)
+asset8_chg  = f_calc_change(asset8c)
+asset9_chg  = f_calc_change(asset9c)
+asset10_chg = f_calc_change(asset10c)
+
+// Calculating correlation
+f_calc_corr(a1, a2) =>
+    ta.correlation(a1, a2, length)
+
+float aa = f_calc_corr(asset1c, asset1c),  float ab = f_calc_corr(asset1c, asset2c),  float ac = f_calc_corr(asset1c, asset3c),  float ad = f_calc_corr(asset1c, asset4c),  float ae = f_calc_corr(asset1c, asset5c),  float ch = f_calc_corr(asset3c, asset8c)
+float bb = f_calc_corr(asset2c, asset2c),  float bc = f_calc_corr(asset2c, asset3c),  float bd = f_calc_corr(asset2c, asset4c),  float be = f_calc_corr(asset2c, asset5c),  float bf = f_calc_corr(asset2c, asset6c),  float dj = f_calc_corr(asset4c, asset10c)
+float cc = f_calc_corr(asset3c, asset3c),  float cd = f_calc_corr(asset3c, asset4c),  float ce = f_calc_corr(asset3c, asset5c),  float cf = f_calc_corr(asset3c, asset6c),  float cg = f_calc_corr(asset3c, asset7c),  float ci = f_calc_corr(asset3c, asset9c)
+float dd = f_calc_corr(asset4c, asset4c),  float de = f_calc_corr(asset4c, asset5c),  float df = f_calc_corr(asset4c, asset6c),  float dg = f_calc_corr(asset4c, asset7c),  float dh = f_calc_corr(asset4c, asset8c),  float di = f_calc_corr(asset4c, asset9c)
+float ee = f_calc_corr(asset5c, asset5c),  float ef = f_calc_corr(asset5c, asset6c),  float eg = f_calc_corr(asset5c, asset7c),  float eh = f_calc_corr(asset5c, asset8c),  float ei = f_calc_corr(asset5c, asset9c),  float cj = f_calc_corr(asset3c, asset10c)
+float ff = f_calc_corr(asset6c, asset6c),  float fg = f_calc_corr(asset6c, asset7c),  float fh = f_calc_corr(asset6c, asset8c),  float fi = f_calc_corr(asset6c, asset9c),  float fj = f_calc_corr(asset6c, asset10c)
+float gg = f_calc_corr(asset7c, asset7c),  float gh = f_calc_corr(asset7c, asset8c),  float gi = f_calc_corr(asset7c, asset9c),  float gj = f_calc_corr(asset7c, asset10c), float bi = f_calc_corr(asset2c, asset9c)
+float hh = f_calc_corr(asset8c, asset8c),  float hi = f_calc_corr(asset8c, asset9c),  float hj = f_calc_corr(asset8c, asset10c), float bj = f_calc_corr(asset2c, asset10c), float aj = f_calc_corr(asset1c, asset10c)
+float ii = f_calc_corr(asset9c, asset9c),  float ij = f_calc_corr(asset9c, asset10c), float bg = f_calc_corr(asset2c, asset7c),  float bh = f_calc_corr(asset2c, asset8c),  float ej = f_calc_corr(asset5c, asset10c)
+float jj = f_calc_corr(asset10c, asset10c),float af = f_calc_corr(asset1c, asset6c),  float ag = f_calc_corr(asset1c, asset7c),  float ah = f_calc_corr(asset1c, asset8c),  float ai = f_calc_corr(asset1c, asset9c)
+
+
+// Setting ticker label text
+f_set_text(txt1, txt2) =>
+    showchg ? str.tostring(txt1) + '  (' +  str.tostring(txt2, format.percent) + ')' : str.tostring(txt1)
+
+// Creating a table
+table = table.new(position.middle_center,14, 14, bgcolor=tablecol)
+
+// Horizontal ticker labels
+table.cell(table, 2, 1,  text=f_set_text(tickera, asset1_chg),  text_halign = text.align_center, text_color = textcol, height = cellh, width = cellw)
+table.cell(table, 3, 1,  text=f_set_text(tickerb, asset2_chg),  text_halign = text.align_center, text_color = textcol, height = cellh, width = cellw)
+table.cell(table, 4, 1,  text=f_set_text(tickerc, asset3_chg),  text_halign = text.align_center, text_color = textcol, height = cellh, width = cellw)
+table.cell(table, 5, 1,  text=f_set_text(tickerd, asset4_chg),  text_halign = text.align_center, text_color = textcol, height = cellh, width = cellw)
+table.cell(table, 6, 1,  text=f_set_text(tickere, asset5_chg),  text_halign = text.align_center, text_color = textcol, height = cellh, width = cellw)
+table.cell(table, 7, 1,  text=f_set_text(tickerf, asset6_chg),  text_halign = text.align_center, text_color = textcol, height = cellh, width = cellw)
+table.cell(table, 8, 1,  text=f_set_text(tickerg, asset7_chg),  text_halign = text.align_center, text_color = textcol, height = cellh, width = cellw)
+table.cell(table, 9, 1,  text=f_set_text(tickerh, asset8_chg),  text_halign = text.align_center, text_color = textcol, height = cellh, width = cellw)
+table.cell(table, 10, 1, text=f_set_text(tickeri, asset9_chg),  text_halign = text.align_center, text_color = textcol, height = cellh, width = cellw)
+table.cell(table, 11, 1, text=f_set_text(tickerj, asset10_chg), text_halign = text.align_center, text_color = textcol, height = cellh, width = cellw)
+
+// Vertical ticker labels
+table.cell(table, 1, 2,  text=f_set_text(tickera, asset1_chg),  text_halign = text.align_center, text_color = textcol, height = cellh, width = cellw)
+table.cell(table, 1, 3,  text=f_set_text(tickerb, asset2_chg),  text_halign = text.align_center, text_color = textcol, height = cellh, width = cellw)
+table.cell(table, 1, 4,  text=f_set_text(tickerc, asset3_chg),  text_halign = text.align_center, text_color = textcol, height = cellh, width = cellw)
+table.cell(table, 1, 5,  text=f_set_text(tickerd, asset4_chg),  text_halign = text.align_center, text_color = textcol, height = cellh, width = cellw)
+table.cell(table, 1, 6,  text=f_set_text(tickere, asset5_chg),  text_halign = text.align_center, text_color = textcol, height = cellh, width = cellw)
+table.cell(table, 1, 7,  text=f_set_text(tickerf, asset6_chg),  text_halign = text.align_center, text_color = textcol, height = cellh, width = cellw)
+table.cell(table, 1, 8,  text=f_set_text(tickerg, asset7_chg),  text_halign = text.align_center, text_color = textcol, height = cellh, width = cellw)
+table.cell(table, 1, 9,  text=f_set_text(tickerh, asset8_chg),  text_halign = text.align_center, text_color = textcol, height = cellh, width = cellw)
+table.cell(table, 1, 10, text=f_set_text(tickeri, asset9_chg),  text_halign = text.align_center, text_color = textcol, height = cellh, width = cellw)
+table.cell(table, 1, 11, text=f_set_text(tickerj, asset10_chg), text_halign = text.align_center, text_color = textcol, height = cellh, width = cellw)
+
+// Setting heatmap color conditions
+f_set_col(corrval) =>
+    if heatmap and hmct=='Custom'
+        ((corrval==1) ? corr1 : (corrval>0.90) ? corr2 : (corrval>0.8 and corrval<0.90) ? corr3 : (corrval>0.70 and corrval<0.80) ? corr4 : (corrval>0.60 and corrval<0.70) ? corr5 : (corrval>0.50 and corrval<0.60) ? corr6 : (corrval>0.40 and corrval<0.50) ? corr7 : (corrval>0.30 and corrval<0.40) ? corr8 : (corrval>0.20 and corrval<0.30) ? corr9 : (corrval>0.10 and corrval<0.20) ? corr10 : (corrval>0 and corrval<0.10) ? corr11 : (corrval>-0.1 and corrval<0) ? corr12 : (corrval>-0.2 and corrval<-0.1) ? corr13 : (corrval>-0.3 and corrval<-0.2) ? corr14 : (corrval>-0.4 and corrval<-0.3) ? corr15 : (corrval>-0.5 and corrval<-0.4) ? corr16 : (corrval>-0.6 and corrval<-0.5) ? corr17 : (corrval>-0.7 and corrval<-0.6) ? corr18 : (corrval>-0.8 and corrval<-0.7) ? corr19 : (corrval<-0.9) ? corr20 : na)
+    else if heatmap and hmct=='Gradient'
+        color.from_gradient(corrval, -1, 1, gr2, gr1)
+    else 
+        tablecol
+
+// Rounding the correlation coefficient
+f_round_val(roundval) =>
+    str.tostring(math.round(roundval, 3))
+
+// Setting correlation values in the table
+f_set_values(r, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9)=>
+    table.cell(table_id=table, column=2,  row=r, text=f_round_val(_0), text_halign = text.align_center,text_color = textcol, width=cellw, height=cellh, bgcolor = f_set_col(_0))
+    table.cell(table_id=table, column=3,  row=r, text=f_round_val(_1), text_halign = text.align_center,text_color = textcol, width=cellw, height=cellh, bgcolor = f_set_col(_1))
+    table.cell(table_id=table, column=4,  row=r, text=f_round_val(_2), text_halign = text.align_center,text_color = textcol, width=cellw, height=cellh, bgcolor = f_set_col(_2))
+    table.cell(table_id=table, column=5,  row=r, text=f_round_val(_3), text_halign = text.align_center,text_color = textcol, width=cellw, height=cellh, bgcolor = f_set_col(_3))
+    table.cell(table_id=table, column=6,  row=r, text=f_round_val(_4), text_halign = text.align_center,text_color = textcol, width=cellw, height=cellh, bgcolor = f_set_col(_4))
+    table.cell(table_id=table, column=7,  row=r, text=f_round_val(_5), text_halign = text.align_center,text_color = textcol, width=cellw, height=cellh, bgcolor = f_set_col(_5))
+    table.cell(table_id=table, column=8,  row=r, text=f_round_val(_6), text_halign = text.align_center,text_color = textcol, width=cellw, height=cellh, bgcolor = f_set_col(_6))
+    table.cell(table_id=table, column=9,  row=r, text=f_round_val(_7), text_halign = text.align_center,text_color = textcol, width=cellw, height=cellh, bgcolor = f_set_col(_7))
+    table.cell(table_id=table, column=10, row=r, text=f_round_val(_8), text_halign = text.align_center,text_color = textcol, width=cellw, height=cellh, bgcolor = f_set_col(_8))
+    table.cell(table_id=table, column=11, row=r, text=f_round_val(_9), text_halign = text.align_center,text_color = textcol, width=cellw, height=cellh, bgcolor = f_set_col(_9))
+f_set_values(2,   aa, ab, ac, ad, ae, af, ag, ah, ai, aj)
+f_set_values(3,   ab, bb, bc, bd, be, bf, bg, bh, bi, bj)
+f_set_values(4,   ac, bc, cc, cd, ce, cf, cg, ch, ci, cj)
+f_set_values(5,   ad, bd, cd, dd, de, df, dg, dh, di, dj)
+f_set_values(6,   ae, be, ce, de, ee, ef, eg, eh, ei, ej)
+f_set_values(7,   af, bf, cf, df, ef, ff, fg, fh, fi, fj)
+f_set_values(8,   ag, bg, cg, dg, eg, fg, gg, gh, gi, gj)
+f_set_values(9,   ah, bh, ch, dh, eh, fh, gh, hh, hi, hj)
+f_set_values(10,  ai, bi, ci, di, ei, fi, gi, hi, ii, ij)
+f_set_values(11,  aj, bj, cj, dj, ej, fj, gj, hj, ij, jj)

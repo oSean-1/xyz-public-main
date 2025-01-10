@@ -1,0 +1,102 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Threshold
+//@version=5
+indicator(title = 'BTC ETF volume', shorttitle = 'ETF volume', overlay = false, format = format.volume)
+//
+// Inputs
+InputPlot = input.string(title = 'Plot style', defval = 'Columns', options = ['Columns', 'Histogram', 'Area', 'line', 'Step line', 'Circles'])
+InputThickness = input.string(title = 'Plot thickness', defval = '1', options = ['1', '2', '3', '4'])
+
+InputBITB = input(true, title = 'BITB')
+InputIBIT = input(true, title = 'IBIT')
+InputFBTC = input(true, title = 'FBTC')
+InputHODL = input(true, title = 'HODL')
+InputBRRR = input(true, title = 'BRRR')
+InputEZBC = input(true, title = 'EZBC')
+InputARKB = input(true, title = 'ARKB')
+InputBTCO = input(true, title = 'BTCO')
+InputBTCW = input(true, title = 'BTCW')
+
+DST = bool(na)
+UTCcheck = bool(na)
+NYcheck = bool(na)
+HourNY = hour(time, "America/New_York")
+HourUTC = hour(time, "UTC")
+DST := HourUTC - HourNY == 5 or HourUTC - HourNY == -19 ? false : HourUTC - HourNY == 4 or HourUTC - HourNY == -20 ? true : na
+UTCcheck := hour(time, syminfo.timezone) - HourUTC == 0 ? true : false 
+NYcheck := hour(time, syminfo.timezone) - HourNY == 0 ? true : false 
+wkendCheck = (dayofweek(time) != 1 or dayofweek(time) != 7) ? true : false
+
+// InSession() determines if a price bar falls inside the specified session
+InSession(sessionTimes, sessionTimeZone=syminfo.timezone) => 
+    not na(time(timeframe.period, sessionTimes, sessionTimeZone))
+// === INPUTS ===
+sessionHours = NYcheck and timeframe.isintraday? "0930-1600" : UTCcheck and DST and timeframe.isintraday ? "1430-2100" : UTCcheck and (not DST) and timeframe.isintraday ? "1330-2000" : "0000-0000"
+weekendsStr = "23456"
+// Create the session string
+tradingSession = sessionHours + ":" + weekendsStr
+
+VolumeBITB = float(na)
+VolumeIBIT = float(na)
+VolumeFBTC = float(na)
+VolumeHODL = float(na)
+VolumeBRRR = float(na)
+VolumeEZBC = float(na)
+VolumeARKB = float(na)
+VolumeBTCO = float(na)
+VolumeBTCW = float(na)
+
+// Volume
+VolumeBITB := InputBITB ? nz(request.security('BITB', timeframe.period, volume)) : 0
+VolumeIBIT := InputIBIT ? nz(request.security('IBIT', timeframe.period, volume)) : 0
+VolumeFBTC := InputFBTC ? nz(request.security('FBTC', timeframe.period, volume)) : 0
+VolumeHODL := InputHODL ? nz(request.security('HODL', timeframe.period, volume)) : 0
+VolumeBRRR := InputBRRR ? nz(request.security('BRRR', timeframe.period, volume)) : 0
+VolumeEZBC := InputEZBC ? nz(request.security('EZBC', timeframe.period, volume)) : 0
+VolumeARKB := InputARKB ? nz(request.security('ARKB', timeframe.period, volume)) : 0
+VolumeBTCO := InputBTCO ? nz(request.security('BTCO', timeframe.period, volume)) : 0
+VolumeBTCW := InputBTCW ? nz(request.security('BTCW', timeframe.period, volume)) : 0
+
+
+StackedBITB = float(na)
+StackedIBIT = float(na)
+StackedFBTC = float(na)
+StackedHODL = float(na)
+StackedBRRR = float(na)
+StackedEZBC = float(na)
+StackedARKB = float(na)
+StackedBTCO = float(na)
+StackedBTCW = float(na)
+// Stacked
+StackedBITB := InSession(tradingSession) ? VolumeBITB : 0
+StackedIBIT := InSession(tradingSession) ? VolumeIBIT + StackedBITB : 0
+StackedFBTC := InSession(tradingSession) ? VolumeFBTC + StackedIBIT : 0
+StackedHODL := InSession(tradingSession) ? VolumeHODL + StackedFBTC : 0
+StackedBRRR := InSession(tradingSession) ? VolumeBRRR + StackedHODL : 0
+StackedEZBC := InSession(tradingSession) ? VolumeEZBC + StackedBRRR : 0
+StackedARKB := InSession(tradingSession) ? VolumeARKB + StackedEZBC : 0
+StackedBTCO := InSession(tradingSession) ? VolumeBTCO + StackedARKB : 0
+StackedBTCW := InSession(tradingSession) ? VolumeBTCW + StackedBTCO : 0
+
+// Plot theme
+PlotLayout = InputPlot == 'Columns' ? plot.style_columns : 
+             InputPlot == 'Histogram' ? plot.style_histogram : 
+             InputPlot == 'Area' ? plot.style_area : 
+             InputPlot == 'Line' ? plot.style_line : 
+             InputPlot == 'Step line' ? plot.style_stepline : 
+             InputPlot == 'Circles' ? plot.style_circles : na
+//
+
+PlotThickness = InputThickness == '1' ? 1 : InputThickness == '2' ? 2 : InputThickness == '3' ? 3 : InputThickness == '4' ? 4 : na
+
+
+// Plots
+plot(InputBTCW ? StackedBTCW : 0, style = PlotLayout, linewidth = PlotThickness, color = color.new(#d1d4dc, 0), title = 'BTCW')
+plot(InputBTCO ? StackedBTCO : 0, style = PlotLayout, linewidth = PlotThickness, color = color.new(#bbd9fb, 0), title = 'BTCO')
+plot(InputARKB ? StackedARKB : 0, style = PlotLayout, linewidth = PlotThickness, color = color.new(#7ab5ff, 0), title = 'ARKB')
+plot(InputEZBC ? StackedEZBC : 0, style = PlotLayout, linewidth = PlotThickness, color = color.new(#3179f5, 0), title = 'EZBC')
+plot(InputBRRR ? StackedBRRR : 0, style = PlotLayout, linewidth = PlotThickness, color = color.new(#1848cc, 0), title = 'BRRR')
+plot(InputHODL ? StackedHODL : 0, style = PlotLayout, linewidth = PlotThickness, color = color.new(#88ffd8, 0), title = 'HODL')
+plot(InputFBTC ? StackedFBTC : 0, style = PlotLayout, linewidth = PlotThickness, color = color.new(#00dd94, 0), title = 'FBTC')
+plot(InputIBIT ? StackedIBIT : 0, style = PlotLayout, linewidth = PlotThickness, color = color.new(#008d5f, 0), title = 'IBIT')
+plot(InputBITB ? StackedBITB : 0, style = PlotLayout, linewidth = PlotThickness, color =color.new(#006242, 0), title = 'BITB')

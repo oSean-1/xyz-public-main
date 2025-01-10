@@ -1,0 +1,36 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © RicardoSantos
+//@version=2
+study(title='BETA', overlay=false)
+//  ||------------------------------------------------------------------------------------------------------||
+//  ||---   BETA as described here:                                                                         ||
+//  ||---   http://www.investopedia.com/articles/financial-theory/09/calculating-beta.asp                   ||
+//  ||------------------------------------------------------------------------------------------------------||
+
+length = input(52)
+smooth = input(1)
+
+//  ||------------------------------------------------------------------------------------------------------||
+//  ||---   Covariance Function as described here:                                                          ||
+//  ||---   http://www.investopedia.com/articles/financial-theory/11/calculating-covariance.asp             ||
+f_return_percent(_src)=>change(_src) / _src[1] * 100
+//  ||------------------------------------------------------------------------------------------------------||
+f_covariance(_src_a, _src_b, _length)=>
+    _a = f_return_percent(_src_a)
+    _b = f_return_percent(_src_b)
+    _a_avg_return = sma(_a, _length)
+    _b_avg_return = sma(_b, _length)
+    _sum = 0
+    if (_length >= 0 and _length <= 250)
+        for _i = _length to 0
+            _sum := _sum + ((_a[_i] - _a_avg_return) * (_b[_i] - _b_avg_return))
+    _return_covariance = _sum / (_length - 1)
+//  ||------------------------------------------------------------------------------------------------------||
+//  ||------------------------------------------------------------------------------------------------------||
+
+instrument = ema(close, smooth)
+benchmark = security(input('VIX'), period, ema(close, smooth))
+beta = f_covariance(instrument, benchmark, length) / variance(benchmark, length)
+
+plot(series=beta, title='β', color=blue, transp=0)
+hline(0)

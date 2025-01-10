@@ -1,0 +1,322 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © LonesomeTheBlue
+//
+//@version=4
+study("Divs", overlay=false, resolution="", max_bars_back=5000)
+//res = input("D", type=input.resolution, title="Timeframe")
+lrb = input(1, title="Pivot Point Period", minval = 1)
+mindiv = input(1, title="Minimum #Num of Divergence for Alert", minval = 1)
+chcut = input(false, title = "Check Cut-Through in indicators")
+
+_src = input(title="Source", type=input.source, defval=close)
+
+//
+
+//••   Fisher Functions    ••
+fisher(_src, _window) =>
+    _h = highest(_src, _window)
+    _l = lowest(_src, _window)
+    _value0 = 0.0
+    _value0 := 0.33 * 2 * ((_src - _l) / (_h - _l) - 0.5) + 0.67 * nz(_value0[1])
+    _value1 = iff(_value0 > .99, .999, iff(_value0 < -.99, -.999, _value0))
+    _fisher = 0.0
+    _fisher := 0.5 * log((1 + _value1) / (1 - _value1)) + .5 * nz(_fisher[1])
+    _fisher
+
+//
+
+//Fisher
+Fish1 = fisher(_src, 5)
+Fish11 = fisher(_src, 6)
+Fish111 = fisher(_src, 10)
+Fish1111 = fisher(_src, 14)
+Fish2 = fisher(_src, 55)
+Fish3 = fisher(_src, 155)
+
+//
+ 
+// RSI
+rsi = rsi(close, 14)
+// MACD
+[macd, signal, deltamacd] = macd(close, 12, 26, 9)
+// Momentum
+moment = mom(close, 10)
+// CCI
+cci = cci(close, 10)
+// OBV
+Obv = obv // cum(change(close) > 0 ? volume : change(close) < 0 ? -volume : 0 * volume)
+// Stoch
+stk = sma(stoch(close, high, low, 14), 3)
+// DIOSC
+DI = change(high) - (-change(low))
+trur = rma(tr, 14)
+diosc = fixnan(100 * rma(DI, 14) / trur)
+// volume weighted macd
+maFast = vwma(close, 12)
+maSlow = vwma(close, 26)
+vwmacd = maFast - maSlow
+// Chaikin money flow
+Cmfm = ((close-low) - (high-close)) / (high - low)
+Cmfv = Cmfm * volume
+cmf = sma(Cmfv, 21) / sma(volume,21)
+// Moneyt Flow Index
+Mfi = mfi(close, 14)
+
+//Fish1 = fisher(_src, 5)
+//Fish11 = fisher(_src, 6)
+//Fish111 = fisher(_src, 10)
+//Fish1111 = fisher(_src, 14)
+//Fish2 = fisher(_src, 55)
+//Fish3 = fisher(_src, 155)
+
+
+float top = na
+float bot = na
+top := pivothigh(lrb, lrb)
+bot := pivotlow(lrb, lrb)
+
+topc = 0, botc = 0
+topc := top ? lrb : nz(topc[1]) + 1
+botc := bot ? lrb : nz(botc[1]) + 1
+
+// Negative Divergence (checking possible higher highs(lb=0))
+newtop = pivothigh(lrb, 0) // check only left side
+emptyh = true
+if not na(newtop) and newtop > high[topc]   // there must not close price higher than the line between last PH and current high
+    diff = (newtop - high[topc]) / topc
+    hline = newtop - diff                   // virtual line to check there is no close price higher than it
+    for x = 1 to topc -1
+        if close[x] > hline
+            emptyh := false
+            break
+        hline := hline - diff
+else
+    emptyh := false
+
+// check cut-through in indicators
+nocut1(indi, len)=>
+    _ret = true
+    diff = (indi - nz(indi[len])) / len
+    ln = indi - diff
+    for x = 1 to len -1
+        if nz(indi[x]) > ln
+            _ret := false
+            break
+        ln := ln - diff
+    _ret
+
+rsiokn = nocut1(rsi, topc)
+macdokn = nocut1(macd, topc)
+deltamacdokn = nocut1(deltamacd, topc)
+momentokn = nocut1(moment, topc)
+cciokn = nocut1(cci, topc)
+obvokn = nocut1(obv, topc)
+stkokn = nocut1(stk, topc)
+dioscokn = nocut1(diosc, topc)
+vwmacdokn = nocut1(vwmacd, topc)
+cmfokn = nocut1(cmf, topc)
+mfiokn = nocut1(Mfi, topc)
+
+fisher1okn = nocut1(Fish1, topc)
+fisher2okn = nocut1(Fish11, topc)
+fisher3okn = nocut1(Fish111, topc)
+fisher4okn = nocut1(Fish1111, topc)
+fisher5okn = nocut1(Fish2, topc)
+fisher6okn = nocut1(Fish3, topc)
+
+
+negadiv(indi, isok)=>
+    _ret = (emptyh and not na(newtop) and indi[topc] > indi and (not chcut or isok))
+
+// Positive Divergence (checking possible Lower lows(lb=0))
+newbot = pivotlow(lrb, 0) // check only left side
+emptyl = true
+if not na(newbot) and newbot < low[botc]    // there must not close price lower than the line between last PL and current low
+    diff = (newbot - low[botc]) / botc
+    lline = newbot - diff                   // virtual line to check there is no close price lower than it
+    for x = 1 to botc -1
+        if close[x] < lline
+            emptyl := false
+            break
+        lline := lline - diff
+else
+    emptyl := false
+
+// check cut-through in indicators
+nocut2(indi, len)=>
+    _ret = true
+    diff = (indi - nz(indi[len])) / len
+    ln = indi - diff
+    for x = 1 to len -1
+        if nz(indi[x]) < ln
+            _ret := false
+            break
+        ln := ln - diff
+    _ret
+
+rsiokp = nocut2(rsi, botc)
+macdokp = nocut2(macd, botc)
+deltamacdokp = nocut2(deltamacd, botc)
+momentokp = nocut2(moment, botc)
+cciokp = nocut2(cci, botc)
+obvokp = nocut2(obv, botc)
+stkokp = nocut2(stk, botc)
+dioscokp = nocut2(diosc, botc)
+vwmacdokp = nocut2(vwmacd, botc)
+cmfokp = nocut2(cmf, botc)
+mfiokp = nocut2(Mfi, botc)
+fisher1okp =nocut2(Fish1, botc)
+fisher2okp =nocut2(Fish11, botc)
+fisher3okp =nocut2(Fish111, botc)
+fisher4okp =nocut2(Fish1111, botc)
+fisher5okp =nocut2(Fish2, botc)
+fisher6okp =nocut2(Fish3, botc)
+
+
+posidiv(indi, isok)=>
+    _ret = (emptyl and not na(newbot) and indi[botc] < indi and (not chcut or isok))
+    
+//All Divs Display Alignment
+
+indi1 = iff(posidiv(rsi, rsiokp), 1, iff(negadiv(rsi, rsiokn), -1, 0))
+indi2 = iff(posidiv(macd, macdokp), 1, iff(negadiv(macd, macdokn), -1, 0))
+indi3 = iff(posidiv(deltamacd, deltamacdokp), 1, iff(negadiv(deltamacd, deltamacdokn), -1, 0))
+indi4 = iff(posidiv(moment, momentokp), 1, iff(negadiv(moment, momentokn), -1, 0))
+indi5 = iff(posidiv(cci, cciokp), 1, iff(negadiv(cci, cciokn), -1, 0))
+indi6 = iff(posidiv(Obv, obvokp), 1, iff(negadiv(Obv, obvokn), -1, 0))
+indi7 = iff(posidiv(stk, stkokp), 1, iff(negadiv(stk, stkokn), -1, 0))
+indi8 = iff(posidiv(diosc, dioscokp), 1, iff(negadiv(diosc, dioscokn), -1, 0))
+indi9 = iff(posidiv(vwmacd, vwmacdokp), 1, iff(negadiv(vwmacd, vwmacdokn), -1, 0))
+indi10 = iff(posidiv(cmf, cmfokp), 1, iff(negadiv(cmf, cmfokn), -1, 0))
+indi11 = iff(posidiv(Mfi, mfiokp), 1, iff(negadiv(Mfi, mfiokn), -1, 0))
+
+indi12 = iff(posidiv(Fish1, fisher1okp), 1, iff(negadiv(Fish1, fisher1okn), -1, 0))
+indi13 = iff(posidiv(Fish11, fisher2okp), 1, iff(negadiv(Fish11, fisher2okn), -1, 0))
+indi14 = iff(posidiv(Fish111, fisher3okp), 1, iff(negadiv(Fish111, fisher3okn), -1, 0))
+indi15 = iff(posidiv(Fish1111, fisher4okp), 1, iff(negadiv(Fish1111, fisher4okn), -1, 0))
+indi16 = iff(posidiv(Fish2, fisher5okp), 1, iff(negadiv(Fish2, fisher5okn), -1, 0))
+indi17 = iff(posidiv(Fish3, fisher6okp), 1, iff(negadiv(Fish3, fisher6okn), -1, 0))
+
+
+totaldiv = indi1 + indi2 + indi3 + indi4 + indi5 + indi6 + indi7 + indi8 + indi9 + indi10 + indi11 + indi12 + indi13 + indi14 
+
+//plot(totaldiv, "Source all", color = totaldiv > 0 ? color.new(#ffffff, 50) :totaldiv < 0 ? color.new(#ff0000, 50) : na, style = plot.style_histogram, linewidth = 1)
+//plot(totaldiv, "Source pos", color = totaldiv > 5 ? color.new(#ffffff, 0) :totaldiv < 0 ? color.new(#ff0000, 100) : na, style = plot.style_histogram, linewidth = 1)
+//plot(totaldiv, "Source neg", color = totaldiv > -5 ? color.new(#ffffff, 100) :totaldiv < 0 ? color.new(#ff0000, 0) : na, style = plot.style_histogram, linewidth = 1)
+//plot(totaldiv, "4D", color = totaldiv > 0 ? color.new(#00ffcb, 0) :totaldiv < 0 ? color.new(#f44336, 0) : na, style = plot.style_histogram, linewidth = 1)
+//plot(totaldiv, "3D", color = totaldiv > 0 ? color.new(#00ffcb, 0) :totaldiv < 0 ? color.new(#f44336, 0) : na, style = plot.style_histogram, linewidth = 1)
+//plot(totaldiv, "2D", color = totaldiv > 0 ? color.new(#00ffcb, 0) :totaldiv < 0 ? color.new(#f44336, 0) : na, style = plot.style_histogram, linewidth = 1)
+//plot(totaldiv, "1D", color = totaldiv > 0 ? color.new(#00ffcb, 0) :totaldiv < 0 ? color.new(#f44336, 0) : na, style = plot.style_histogram, linewidth = 1)
+//plot(totaldiv, "720", color = totaldiv > 0 ? color.new(#00ffcb, 0) :totaldiv < 0 ? color.new(#f44336, 0) : na, style = plot.style_histogram, linewidth = 1)
+//plot(totaldiv, "480", color = totaldiv > 0 ? color.new(#00ffcb, 0) :totaldiv < 0 ? color.new(#f44336, 0) : na, style = plot.style_histogram, linewidth = 1)
+//plot(totaldiv, "240", color = totaldiv > 0 ? color.new(#00ffcb, 0) :totaldiv < 0 ? color.new(#f44336, 0) : na, style = plot.style_histogram, linewidth = 1)
+//plot(totaldiv, "120", color = totaldiv > 0 ? color.new(#00ffcb, 0) :totaldiv < 0 ? color.new(#f44336, 0) : na, style = plot.style_histogram, linewidth = 1)
+//plot(totaldiv, "60", color = totaldiv > 0 ? color.new(#00ffcb, 0) :totaldiv < 0 ? color.new(#f44336, 0) : na, style = plot.style_histogram, linewidth = 1)
+//plot(totaldiv, "30", color = totaldiv > 0 ? color.new(#00ffcb, 0) :totaldiv < 0 ? color.new(#f44336, 0) : na, style = plot.style_histogram, linewidth = 1)
+
+
+//Top Divs Display Only Alignment
+
+indix = iff(posidiv(rsi, rsiokp), 1, iff(negadiv(rsi, rsiokn), 0, 0))
+indi22 = iff(posidiv(macd, macdokp), 1, iff(negadiv(macd, macdokn), 0, 0))
+indi33 = iff(posidiv(deltamacd, deltamacdokp), 1, iff(negadiv(deltamacd, deltamacdokn), 0, 0))
+indi44 = iff(posidiv(moment, momentokp), 1, iff(negadiv(moment, momentokn), 0, 0))
+indi55 = iff(posidiv(cci, cciokp), 1, iff(negadiv(cci, cciokn), 0, 0))
+indi66 = iff(posidiv(Obv, obvokp), 1, iff(negadiv(Obv, obvokn), 0, 0))
+indi77 = iff(posidiv(stk, stkokp), 1, iff(negadiv(stk, stkokn), 0, 0))
+indi88 = iff(posidiv(diosc, dioscokp), 1, iff(negadiv(diosc, dioscokn), 0, 0))
+indi99 = iff(posidiv(vwmacd, vwmacdokp), 1, iff(negadiv(vwmacd, vwmacdokn), 0, 0))
+indi100 = iff(posidiv(cmf, cmfokp), 1, iff(negadiv(cmf, cmfokn), 0, 0))
+indi111 = iff(posidiv(Mfi, mfiokp), 1, iff(negadiv(Mfi, mfiokn), 0, 0))
+
+//indi122 = iff(posidiv(Fish1, fisher1okp), 1, iff(negadiv(Fish1, fisher1okn), 0, 0))
+//indi133 = iff(posidiv(Fish11, fisher2okp), 1, iff(negadiv(Fish11, fisher2okn), 0, 0))
+//indi144 = iff(posidiv(Fish111, fisher3okp), 1, iff(negadiv(Fish111, fisher3okn), 0, 0))
+
+//indi155= iff(posidiv(Fish1111, fisher4okp), 1, iff(negadiv(Fish1111, fisher4okn), 0, 0))
+//indi166 = iff(posidiv(Fish2, fisher5okp), 1, iff(negadiv(Fish2, fisher5okn), 0, 0))
+//indi177 = iff(posidiv(Fish3, fisher6okp), 1, iff(negadiv(Fish3, fisher6okn), 0, 0))
+
+totaldivsup = indix + indi22 + indi33 + indi44 + indi55 + indi66 + indi77 + indi88 + indi99 + indi100 + indi111
+
+plot(totaldivsup, color = totaldivsup > 0 ? color.new(#00ffcb, 0) :totaldivsup < 0 ? color.new(#f44336, 0) : na, style = plot.style_histogram, linewidth = 1)
+plot(totaldivsup, color = totaldivsup > 5 ? color.new(#00ffcb, 0) :totaldivsup < 0 ? color.new(#f44336, 0) : na, style = plot.style_histogram, linewidth = 1)
+
+//Down Divs Display Only Alignment
+indiy = iff(posidiv(rsi, rsiokp), 0, iff(negadiv(rsi, rsiokn), -1, 0))
+indi222 = iff(posidiv(macd, macdokp), 0, iff(negadiv(macd, macdokn), -1, 0))
+indi333 = iff(posidiv(deltamacd, deltamacdokp), 0, iff(negadiv(deltamacd, deltamacdokn), -1, 0))
+indi444 = iff(posidiv(moment, momentokp), 0, iff(negadiv(moment, momentokn), -1, 0))
+indi555 = iff(posidiv(cci, cciokp), 0, iff(negadiv(cci, cciokn), -1, 0))
+indi666 = iff(posidiv(Obv, obvokp), 0, iff(negadiv(Obv, obvokn), -1, 0))
+indi777 = iff(posidiv(stk, stkokp), 0, iff(negadiv(stk, stkokn), -1, 0))
+indi888 = iff(posidiv(diosc, dioscokp), 0, iff(negadiv(diosc, dioscokn), -1, 0))
+indi999 = iff(posidiv(vwmacd, vwmacdokp), 0, iff(negadiv(vwmacd, vwmacdokn), -1, 0))
+indi1000 = iff(posidiv(cmf, cmfokp), 0, iff(negadiv(cmf, cmfokn), -1, 0))
+indi1111 = iff(posidiv(Mfi, mfiokp), 0, iff(negadiv(Mfi, mfiokn), -1, 0))
+indi1222 = iff(posidiv(Fish1, fisher1okp), 0, iff(negadiv(Fish1, fisher1okn), -1, 0))
+indi1333 = iff(posidiv(Fish11, fisher2okp), 0, iff(negadiv(Fish111, fisher2okn), -1, 0))
+indi1444 = iff(posidiv(Fish111, fisher3okp), 0, iff(negadiv(Fish111, fisher3okn), -1, 0))
+
+//indi1555 = iff(posidiv(Fish1111, fisher5okp), 0, iff(negadiv(Fish1111, fisher5okn), -1, 0))
+//indi1666 = iff(posidiv(Fish2, fisher5okp), 0, iff(negadiv(Fish2, fisher5okn), -1, 0))
+//indi1777 = iff(posidiv(Fish3, fisher6okp), 0, iff(negadiv(Fish3, fisher6okn), -1, 0))
+
+
+//totaldivsdwn = indiy + indi222 + indi333 + indi444 + indi555 + indi666 + indi777 + indi888 + indi999 + indi1000 + indi1111 + indi1222 + indi1333 + indi1444
+
+//plot(totaldivsdwn, color = totaldivsdwn > 0 ? color.new(#00ffcb, 0) :totaldivsdwn < 0 ? color.new(#f44336, 0) : na, style = plot.style_histogram, linewidth = 1)
+//plot(totaldivsdwn, color = totaldivsdwn > -5 ? color.new(#00ffcb, 0) :totaldivsdwn < 0 ? color.new(#f44336, 0) : na, style = plot.style_histogram, linewidth = 1)
+
+
+//ADX
+hline(0, color = color.gray, linestyle = hline.style_dotted)
+
+len = input(14, minval=1, title="DI Length")
+lensig = input(14, title="ADX Smoothing", minval=1, maxval=50)
+
+up = change(high)
+down = -change(low)
+plusDM = na(up) ? na : (up > down and up > 0 ? up : 0)
+minusDM = na(down) ? na : (down > up and down > 0 ? down : 0)
+trur2 = rma(tr, len)
+plus = fixnan(100 * rma(plusDM, len) / trur2)
+minus = fixnan(100 * rma(minusDM, len) / trur2)
+sum = plus + minus
+adx = 100 * rma(abs(plus - minus) / (sum == 0 ? 1 : sum), lensig)
+
+adx1 = input(15, title="Weak Trend")
+adx2 = input(25, title="Medium Trend")
+adx3 = input(35, title="Strong Trend")
+adx4 = input(45, title="Stronger Trend")
+
+ADXcolor= if adx < adx1
+    ADXcolor = color.new(#000000, 100)
+if adx >= adx1 and adx < adx2
+    ADXcolor := color.new(#000000, 100)
+if adx >= adx2 and adx < adx3
+    ADXcolor := color.gray
+if adx >= adx3
+    ADXcolor := color.white
+if adx >= adx4
+    ADXcolor := #ff0000
+
+
+plot(0.0, color=ADXcolor, title="ADX",style=plot.style_circles, linewidth=1)
+
+//upperTop=input(5)
+//upperBottom=input(4)
+//lowerTop=input(-5)
+//lowerBottom=input(-4)
+
+//plot(1, style=3, color=gray), plot(-1, style=3, color=gray)
+//ul1=plot(upperTop, "OB High")
+//ul2=plot(upperBottom, "OB Low")
+//fill(ul1,ul2, color=color.red)
+//ll1=plot(lowerTop, "OS High")
+//ll2=plot(lowerBottom, "OS Low")
+//fill(ll1,ll2, color=color.red)
+
+
+//alertcondition(totaldiv >=  mindiv, title='Positive Divergence', message='Positive Divergence')
+//alertcondition(totaldiv <= -mindiv, title='Negative Divergence', message='Negative Divergence')

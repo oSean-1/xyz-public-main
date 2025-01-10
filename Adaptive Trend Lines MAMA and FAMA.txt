@@ -1,0 +1,137 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © IkkeOmar
+
+//@version=5
+indicator("Adaptive Trend Lines [MAMA and FAMA]", overlay = false, timeframe = "", timeframe_gaps = true)
+fastLimit = input.float(title='Fast Limit', step=0.01, defval=0.01, group = "Indicator Settings")
+slowLimit = input.float(title='Slow Limit', step=0.01, defval=0.08, group = "Indicator Settings")
+
+
+norm_period = input.int(3, 'Normalization Period', 1, group = "Normalized Settings")  // Period for normalization
+
+
+src = input(title='Source', defval=close, group = "Indicator Settings")
+norm = input.bool(defval = true, title = "Use normalization", group = "Normalized Settings")
+
+col_up = input.color(#22ab94, group = "Color Settings")
+col_dn = input.color(#f7525f, group = "Color Settings")
+
+// ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------}
+
+
+
+// CALCULATIONS ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+var float PI = math.pi
+
+// CREDIT TO everget and Chartprime for the following functions
+
+
+// Truncated Hilbert transform{
+laplace(src) =>
+    (0.5) * math.exp(-math.abs(src))
+
+_computeComponent(src, mesaPeriodMult) =>
+    out = laplace(src) * mesaPeriodMult
+    out
+
+_smoothComponent(src) =>
+    out = 0.2 * src + 0.8 * nz(src[1])
+    out
+
+_computeAlpha(src, fastLimit, slowLimit) =>
+    mesaPeriod = 0.0
+    mesaPeriodMult = 0.075 * nz(mesaPeriod[1]) + 0.54
+
+    smooth = (4 * src + 3 * nz(src[1]) + 2 * nz(src[2]) + nz(src[3])) / 10
+    detrender = _computeComponent(smooth, mesaPeriodMult)
+
+    // Compute InPhase and Quadrature components
+    I1 = nz(detrender[3])
+    Q1 = _computeComponent(detrender, mesaPeriodMult)
+
+    // Advance the phase of I1 and Q1 by 90 degrees
+    jI = _computeComponent(I1, mesaPeriodMult)
+    jQ = _computeComponent(Q1, mesaPeriodMult)
+
+    // Phasor addition for 3 bar averaging
+    I2 = I1 - jQ
+    Q2 = Q1 + jI
+
+    // Smooth the I and Q components before applying the discriminator
+    I2 := _smoothComponent(I2)
+    Q2 := _smoothComponent(Q2)
+
+    // Homodyne Discriminator
+    Re = I2 * nz(I2[1], I2) + Q2 * nz(Q2[1], Q2)
+    Im = I2 * nz(Q2[1], Q2) - Q2 * nz(I2[1], I2)
+
+    Re := _smoothComponent(Re)
+    Im := _smoothComponent(Im)
+
+    if Re != 0 and Im != 0
+        mesaPeriod := 2 * PI / math.atan(Im / Re)
+        mesaPeriod
+
+    mesaPeriod := math.min(mesaPeriod, 1.5 * nz(mesaPeriod[1], mesaPeriod))
+    mesaPeriod := math.max(mesaPeriod, 0.67 * nz(mesaPeriod[1], mesaPeriod))
+    mesaPeriod := math.min(math.max(mesaPeriod, 6), 50)
+    mesaPeriod := _smoothComponent(mesaPeriod)
+
+    phase = 0.0
+
+    if I1 != 0
+        phase := 180 / PI * math.atan(Q1 / I1)
+        phase
+
+    deltaPhase = nz(phase[1], phase) - phase
+    deltaPhase := math.max(deltaPhase, 1)
+
+    alpha = math.max(fastLimit / deltaPhase, slowLimit)
+
+    out = alpha
+    out
+
+alpha = _computeAlpha(src, fastLimit, slowLimit)
+alpha2 = alpha / 2
+
+mama = 0.0
+mama := alpha * src + (1 - alpha) * nz(mama[1])
+
+fama = 0.0
+fama := alpha2 * mama + (1 - alpha2) * nz(fama[1])
+
+mama_fama_diff = mama - fama
+
+
+// Normalize the oscillator
+lowest = ta.lowest(mama_fama_diff, norm_period)
+highest = ta.highest(mama_fama_diff, norm_period)
+normalized = (mama_fama_diff - lowest) / (highest - lowest) - 0.5
+
+
+
+// -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------}
+// PLOTTING (I'm scared of aussies because they're usually tall) { ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+// COLORING //----------------------------------------------------------------------------------------
+col_wn = normalized < 0 ? (normalized < normalized[1] ? color.new(col_dn,50) : color.new(col_dn,75)) : (normalized > normalized[1] ? color.new(col_up,50) : color.new(col_up,75))
+col_switch  = ta.crossover(normalized,0) ? col_up : ta.crossunder(normalized,0) ? col_dn : color.rgb(0,0,0,100)
+col_switch2 = ta.crossover(normalized,0) or ta.crossunder(normalized,0) ? color.black : color.rgb(0,0,0,100) 
+
+// No normalization plot
+col_wnS = mama_fama_diff < 0 ? (mama_fama_diff < mama_fama_diff[1] ? color.new(col_dn,50) : color.new(col_dn,75)) : (mama_fama_diff > mama_fama_diff[1] ? color.new(col_up,50) : color.new(col_up,75))
+col_switchS  = ta.crossover(mama_fama_diff,0) ? col_up : ta.crossunder(mama_fama_diff,0) ? col_dn : color.rgb(0,0,0,100)
+col_switch2S = ta.crossover(mama_fama_diff,0) or ta.crossunder(mama_fama_diff,0) ? color.black : color.rgb(0,0,0,100) 
+
+
+// Plot the oscillator and add the table values
+plot(norm == true ? normalized : na     ,style=plot.style_columns,color=col_wn, title = "mama_fama_diff Oscillator Normalized")
+plot(norm == false ? mama_fama_diff : na     ,style=plot.style_columns,color=col_wnS, title = "mama_fama_diff Oscillator")
+
+
+// Add a horizontal line at zero to indicate the neutral point
+hline(0, "Zero Line", color=color.gray)
+
+
+barcolor(norm == true ? col_wn : col_wnS)
+

@@ -1,0 +1,289 @@
+// This work is licensed under a Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0) https://creativecommons.org/licenses/by-nc-sa/4.0/
+// © quantifytools
+
+//@version=5
+indicator("Consecutive count backtester / quantifytools", overlay = true, max_labels_count = 500)
+
+
+//                      Inputs
+
+
+groupGeneral = "■ ══ Counts"
+
+i_refSrc = input.source(close, "Count from", group = groupGeneral, inline="lb")
+i_refCount = input.int(4, "ago", group = groupGeneral, inline="lb")
+i_endCount = input.int(9, "up to", group = groupGeneral, inline="lb")
+
+i_btPeriod = input.int(2, "Backtest period", group = groupGeneral)
+i_decimal = input.int(2, "Decimals", group = groupGeneral)
+
+groupFilters = "■ ══ Filter configuration"
+
+i_smoothingType = input.string("SMA", "MA", options=["SMA", "EMA", "HMA", "RMA", "WMA"], group=groupFilters, inline="ma")
+i_smaLength = input.int(20, "", group=groupFilters, inline="ma")
+i_rsiLength = input.int(14, "RSI length", minval= 1, maxval=100, group=groupFilters)
+
+i_volMultiplier = input.float(1, "Relative volume", 0.05, 100, step=0.05, group=groupFilters)
+
+groupFiltersUp = "■ ══ ▲ Count filters "
+
+i_upCountRsi1 = input.string("None", "RSI filter", options=["None","Above", "Below"], group=groupFiltersUp , inline="rsiup")
+i_upCountRsi2 = input.int(70, "", minval= 1, maxval=100, inline="rsiup", group=groupFiltersUp)
+i_upCountSma = input.string("None", "MA filter", options=["None", "Above", "Below", "At mean"], group=groupFiltersUp, inline="maup")
+i_upCountVol = input.string("None", "Volume filter", options=["None", "Above", "Below"], group=groupFiltersUp, inline="volup")
+
+groupFiltersDn = "■ ══ ▼ Count filters"
+
+i_dnCountRsi1 = input.string("None", "RSI filter", options=["None","Above", "Below"], group=groupFiltersDn, inline="rsidn")
+i_dnCountRsi2 = input.int(30, "", minval= 1, maxval=100, inline="rsidn", group=groupFiltersDn)
+i_dnCountSma = input.string("None", "MA filter", options=["None", "Above", "Below", "At mean"], group=groupFiltersDn, inline="madn")
+i_dnCountVol = input.string("None", "Volume filter", options=["None", "Above", "Below"], group=groupFiltersDn, inline="voldn")
+
+groupVisuals = "■ ══ Visuals"
+
+i_tableSize = input.int(3, "Table size", step=1, maxval=5, minval=1, group=groupVisuals)
+i_labelSize = input.int(3, "Label size", step=1, maxval=5, minval=1, group=groupVisuals)
+
+i_genCol = input.color(#9598a1, "General", group=groupVisuals, inline="gain")
+i_upCol = input.color(color.green, "Gain +", group=groupVisuals, inline="gain")
+i_dnCol = input.color(color.red, "Gain -", group=groupVisuals, inline="gain")
+
+i_useGrad = input.bool(true, "Gradient color",  group=groupVisuals, inline="col")
+i_candleCol = input.bool(false, "Candle color",  group=groupVisuals, inline="col")
+i_showPrice = input.bool(true, "Gain on labels", group=groupVisuals, inline="show")
+i_showBasis = input.bool(false, "Count basis",  group=groupVisuals, inline="show")
+
+
+//                      Consecutive counts
+
+//Consecutive counts down
+downCount = 0
+downCount := close < i_refSrc[i_refCount] and barstate.isconfirmed ? downCount[1] == i_endCount ? 1 : downCount[1] + 1 : 0
+
+//Consecutive counts up
+upCount = 0
+upCount := close > i_refSrc[i_refCount] and barstate.isconfirmed ? upCount[1] == i_endCount ? 1 : upCount[1] + 1 : 0
+
+
+//                      Filters
+
+
+//Smoothing function
+smoothedValue(source, length) =>
+    i_smoothingType == "SMA" ? ta.sma(source, length) :
+     i_smoothingType == "EMA" ? ta.ema(source, length) :
+      i_smoothingType == "HMA" ? ta.hma(source, length) :
+       i_smoothingType == "RMA" ? ta.rma(source, length) : ta.wma(source, length)
+
+//MA
+sma = smoothedValue(close, i_smaLength)
+
+//RSI
+rsi = ta.rsi(close, i_rsiLength)
+
+//Relative volume
+rVol = volume / ta.sma(volume, 20)
+
+//MA filters
+aboveMa = close > sma
+belowMa = close < sma
+atMa = high > sma and low < sma
+
+//Up/down filters
+upRsiCond = i_upCountRsi1 == "Above" ? rsi > i_upCountRsi2 : i_upCountRsi1 == "Below" ? rsi < i_upCountRsi2 : true
+dnRsiCond = i_dnCountRsi1 == "Above" ? rsi > i_dnCountRsi2 : i_dnCountRsi1 == "Below" ? rsi < i_dnCountRsi2 : true
+
+upMaCond = i_upCountSma == "Above" ? aboveMa : i_upCountSma == "Below" ? belowMa : i_upCountSma == "At mean" ? atMa : true
+dnMaCond = i_dnCountSma == "Above" ? aboveMa : i_dnCountSma == "Below" ? belowMa : i_dnCountSma == "At mean" ? atMa : true
+
+upVolCond = i_upCountVol == "Above" ? rVol > i_volMultiplier : i_upCountVol == "Below" ? rVol < i_volMultiplier : true
+dnVolCond = i_dnCountVol == "Above" ? rVol > i_volMultiplier : i_dnCountVol == "Below" ? rVol < i_volMultiplier : true
+
+//Filters aggregated
+upFilterCond = upRsiCond and upMaCond and upVolCond
+dnFilterCond = dnRsiCond and dnMaCond and dnVolCond
+
+
+//                      Backtest
+
+
+//Price change within BT period
+priceChange = ((close / close[i_btPeriod]) - 1) * 100
+
+//Arrays
+var dnReturnArr = array.new_float(i_endCount + 1, 0)
+var upReturnArr = array.new_float(i_endCount + 1, 0)
+
+var dnCountArr = array.new_float(i_endCount + 1, 0)
+var upCountArr = array.new_float(i_endCount + 1, 0)
+
+//Recent array elements
+dnReturnEl = array.size(dnReturnArr) > downCount[i_btPeriod]  ? array.get(dnReturnArr, downCount[i_btPeriod] ) : 0
+upReturnEl = array.size(upReturnArr) > upCount[i_btPeriod]  ? array.get(upReturnArr, upCount[i_btPeriod] ) : 0
+
+dnCountEl = array.size(dnCountArr) > downCount[i_btPeriod]  ? array.get(dnCountArr, downCount[i_btPeriod] ) : 0
+upCountEl = array.size(upCountArr) > upCount[i_btPeriod]  ? array.get(upCountArr, upCount[i_btPeriod] ) : 0
+
+//Set BT array elements
+if downCount[i_btPeriod] > 0 and dnFilterCond[i_btPeriod]
+    array.set(dnReturnArr, downCount[i_btPeriod] , dnReturnEl + priceChange)
+    array.set(dnCountArr, downCount[i_btPeriod] , dnCountEl + 1)
+
+if upCount[i_btPeriod] > 0 and upFilterCond[i_btPeriod]
+    array.set(upReturnArr, upCount[i_btPeriod] , upReturnEl + priceChange)
+    array.set(upCountArr, upCount[i_btPeriod] , upCountEl + 1)
+
+//Maximum/minimum/sum values 
+highestDnSample = array.max(dnCountArr)
+highestUpSample = array.max(upCountArr)
+
+
+//                 Plots
+
+
+//Table position
+tablePos = position.top_right
+tablePos2 = position.bottom_center
+
+//User defined table size
+tableSize = i_tableSize == 1 ? size.tiny : i_tableSize == 2 ? size.small : i_tableSize == 3 ? size.normal : i_tableSize == 4 ? size.large : size.huge
+
+//User defined label size
+labelSize = i_labelSize == 1 ? size.tiny : i_labelSize == 2 ? size.small : i_labelSize == 3 ? size.normal : i_labelSize == 4 ? size.large : size.huge
+
+//Initializing tables
+var btTable = table.new(position = tablePos, columns = 50, rows = 50, bgcolor = color.new(color.gray, 100), border_width = 1)
+var filterTable = table.new(position = tablePos2, columns = 50, rows = 50, bgcolor = color.new(color.gray, 100), border_width = 1)
+
+//BT table cells
+table.cell(table_id = btTable, column = 0, row = 1, text = "▲ Counts", text_color=color.white, bgcolor = #000000, text_size = tableSize, text_halign = text.align_left, tooltip="", text_font_family = font.family_monospace)
+table.cell(table_id = btTable, column = 0, row = 2, text = "% Return (" + str.tostring(i_btPeriod) + ")", text_color=color.white, bgcolor = #3e3e3e, text_size = tableSize, text_halign = text.align_left, tooltip="", text_font_family = font.family_monospace)
+table.cell(table_id = btTable, column = 0, row = 3, text = "Sample", text_color=color.white, bgcolor = #3e3e3e, text_size = tableSize, text_halign = text.align_left, tooltip="", text_font_family = font.family_monospace)
+
+table.cell(table_id = btTable, column = 0, row = 4, text = "", text_color=color.white, bgcolor = color.rgb(62, 62, 62, 100), text_size = tableSize, text_halign = text.align_left, tooltip="", text_font_family = font.family_monospace)
+
+table.cell(table_id = btTable, column = 0, row = 5, text = "▼ Counts", text_color=color.white, bgcolor = #000000, text_size = tableSize, text_halign = text.align_left, tooltip="", text_font_family = font.family_monospace)
+table.cell(table_id = btTable, column = 0, row = 6, text = "% Return (" + str.tostring(i_btPeriod) + ")", text_color=color.white, bgcolor = #3e3e3e, text_size = tableSize, text_halign = text.align_left, tooltip="", text_font_family = font.family_monospace)
+table.cell(table_id = btTable, column = 0, row = 7, text = "Sample", text_color=color.white, bgcolor = #3e3e3e, text_size = tableSize, text_halign = text.align_left, tooltip="", text_font_family = font.family_monospace)
+
+//Filter table strings
+upRsiCondT = i_upCountRsi1 == "Above" ? "▲ RSI > " + str.tostring(i_upCountRsi2) : i_upCountRsi1 == "Above" ? "▲ RSI < " + str.tostring(i_upCountRsi2) : ""
+dnRsiCondT = i_dnCountRsi1 == "Above" ? "▼ RSI > " + str.tostring(i_dnCountRsi2) : i_dnCountRsi1 == "Below" ? "▼ RSI < " + str.tostring(i_dnCountRsi2) : ""
+
+upMaCondT = i_upCountSma == "Above" ? "▲ Close > " + i_smoothingType + str.tostring(i_smaLength) : i_upCountSma == "Below" ? "▲ Close < " + i_smoothingType + str.tostring(i_smaLength) : i_upCountSma == "At mean" ? "▲ Close = " + i_smoothingType + str.tostring(i_smaLength) : ""
+dnMaCondT = i_dnCountSma == "Above" ? "▼ Close > " + i_smoothingType +  str.tostring(i_smaLength) : i_dnCountSma == "Below" ? "▼ Close < " + i_smoothingType + str.tostring(i_smaLength) : i_dnCountSma == "At mean" ? "▼ Close = " + i_smoothingType + str.tostring(i_smaLength) : ""
+
+upVolCondT = i_upCountVol == "Above" ? "▲ Relative volume > " + str.tostring(i_volMultiplier) + "x" : i_upCountVol == "Below" ? "▲ Relative volume < " + str.tostring(i_volMultiplier) + "x" : ""
+dnVolCondT = i_dnCountVol == "Above" ? "▼ Relative volume > " + str.tostring(i_volMultiplier) + "x" : i_dnCountVol == "Below" ? "▼ Relative volume < " + str.tostring(i_volMultiplier) + "x" : ""
+
+filtUp =  upRsiCondT + "    " + upMaCondT + "    " + upVolCondT
+filtDn =  dnRsiCondT + "    " + dnMaCondT + "    " + dnVolCondT
+
+//Filter table cells
+table.cell(table_id = filterTable, column = 0, row = 0, text = filtUp, text_color=i_genCol, bgcolor = color.rgb(62, 62, 62, 100), text_size = tableSize, text_halign = text.align_left, tooltip="", text_font_family = font.family_monospace)
+table.cell(table_id = filterTable, column = 0, row = 1, text = filtDn, text_color=i_genCol, bgcolor = color.rgb(62, 62, 62, 100), text_size = tableSize, text_halign = text.align_left, tooltip="", text_font_family = font.family_monospace)
+
+//Gradient color function
+gradCol(input, lowest, highest, lowColUp, highColUp, lowColDn, highColDn) =>
+
+    colUp = i_useGrad ? color.from_gradient(input, 0, highest, color.new(lowColUp, 65 ), color.new(highColUp, 10)) : highColUp
+    colDn = i_useGrad ? color.from_gradient(input, lowest, 0, color.new(lowColDn, 10 ), color.new(highColDn, 65)) : highColDn
+    col = input > 0 ? colUp : colDn
+
+//Highest lowest trackers for gradient
+float highestVal = 0
+float lowestVal = 0
+
+//Table values
+for i = 1 to i_endCount
+
+    //Return array elements
+    dnReturnEl =  array.size(dnReturnArr) > i ? array.get(dnReturnArr, i ) : na
+    upReturnEl = array.size(upReturnArr) > i ? array.get(upReturnArr, i ) : na
+
+    //Count array elements
+    dnCountEl =  array.size(dnCountArr) > i ? array.get(dnCountArr, i ) : na
+    upCountEl = array.size(upCountArr) > i ? array.get(upCountArr, i ) : na 
+
+    //Average values
+    dnAvg = dnReturnEl / dnCountEl
+    upAvg = upReturnEl / upCountEl
+
+    dnAvgRnd = math.round(dnAvg, i_decimal)
+    upAvgRnd = math.round(upAvg, i_decimal)
+
+    //Populate highest
+    if upAvg > highestVal and upAvg > dnAvg
+        highestVal := upAvg
+    else
+        if dnAvg > highestVal and dnAvg > upAvg
+            highestVal := dnAvg
+
+    //Populate lowest
+    if upAvg < lowestVal and upAvg < dnAvg
+        lowestVal := upAvg
+    else
+        if dnAvg < lowestVal and dnAvg < upAvg
+            lowestVal := dnAvg
+
+    //Table texts
+    dnAvgStr = "" + str.tostring(dnAvgRnd) + "%" 
+    upAvgStr = "" + str.tostring(upAvgRnd) + "%" 
+
+    dnSampleStr = "" + str.tostring(dnCountEl) 
+    upSampleStr = "" + str.tostring(upCountEl) 
+
+    dnCountStr = str.tostring(i) 
+    upCountStr = str.tostring(i) 
+
+    upCol = gradCol(upAvg, lowestVal[1], highestVal[1], i_upCol, i_upCol, i_dnCol, i_dnCol) 
+    dnCol = gradCol(dnAvg, lowestVal[1], highestVal[1], i_upCol, i_upCol, i_dnCol, i_dnCol) 
+
+    dnSampleCol = gradCol(dnCountEl, 0, highestDnSample, i_genCol, i_genCol, i_genCol, i_genCol)
+    upSampleCol = gradCol(upCountEl, 0, highestUpSample, i_genCol, i_genCol, i_genCol, i_genCol)
+
+    table.cell(table_id = btTable, column = i + 1, row = 1, text = upCountStr, text_color=color.white, bgcolor = #000000, text_size = tableSize, text_halign = text.align_center, tooltip="", text_font_family = font.family_monospace)
+    table.cell(table_id = btTable, column = i + 1, row = 2, text = upAvgStr, text_color=#ffffff, bgcolor = upCol, text_size = tableSize, text_halign = text.align_center, tooltip="", text_font_family = font.family_monospace)
+    table.cell(table_id = btTable, column = i + 1, row = 3, text = upSampleStr, text_color=#ffffff, bgcolor = dnSampleCol, text_size = tableSize, text_halign = text.align_center, tooltip="", text_font_family = font.family_monospace)
+
+    table.cell(table_id = btTable, column = i + 1, row = 5, text = dnCountStr, text_color=color.white, bgcolor = #000000, text_size = tableSize, text_halign = text.align_center, tooltip="", text_font_family = font.family_monospace)
+    table.cell(table_id = btTable, column = i + 1, row = 6, text = dnAvgStr, text_color=#ffffff, bgcolor = dnCol, text_size = tableSize, text_halign = text.align_center, tooltip="", text_font_family = font.family_monospace)
+    table.cell(table_id = btTable, column = i + 1, row = 7, text = dnSampleStr, text_color=#ffffff, bgcolor = upSampleCol, text_size = tableSize, text_halign = text.align_center, tooltip="", text_font_family = font.family_monospace)
+
+
+//                      Plots
+
+
+//Get returns for labels
+dnR = array.size(dnReturnArr) > downCount ? array.get(dnReturnArr, downCount ) : 0
+dnC = array.size(dnCountArr) > downCount ? array.get(dnCountArr, downCount ) : 0
+
+upR = array.size(upReturnArr) > upCount ? array.get(upReturnArr, upCount ) : 0
+upC = array.size(upCountArr) > upCount ? array.get(upCountArr, upCount ) : 0
+
+dnAvg = math.round(dnR / dnC, i_decimal)
+upAvg = math.round(upR / upC, i_decimal)
+
+//Label texts
+upTextReturn = i_showPrice ? str.tostring(upAvg) + "%" + "\n" + "\n"  : ""
+dnTextReturn = i_showPrice ? "\n" + "\n" + str.tostring(dnAvg) + "%" : ""
+upText =  upTextReturn + str.tostring(upCount) + "\n" + "▲"
+dnText =  "▼"+ "\n" + str.tostring(downCount) + dnTextReturn 
+
+//Label color
+upCol = gradCol(upAvg, lowestVal[1], highestVal[1], i_upCol, i_upCol, i_dnCol, i_dnCol) 
+dnCol = gradCol(dnAvg, lowestVal[1], highestVal[1], i_upCol, i_upCol, i_dnCol, i_dnCol) 
+
+//Visualize counts
+if downCount != 0 and dnFilterCond
+    label.new(x=bar_index, y=low, xloc=xloc.bar_index, text=str.tostring(dnText), style=label.style_label_up, textcolor=dnCol, color=color.new(color.aqua, 100), size=labelSize)
+
+if upCount != 0 and upFilterCond
+    label.new(x=bar_index, y=high, xloc=xloc.bar_index, text=str.tostring(upText), style=label.style_label_down, textcolor=upCol, color=color.new(color.aqua, 100), size=labelSize)
+
+//Candle color
+barcolor(i_candleCol ? downCount != 0 and dnFilterCond ? dnCol : upCount != 0 and upFilterCond ? upCol : na : na)
+
+//Count basis
+plot(i_showBasis ? i_refSrc[i_refCount] : na, color=color.gray, title="Reference source for counting")
+

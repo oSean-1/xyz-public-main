@@ -1,0 +1,112 @@
+// This work is licensed under a Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0) https://creativecommons.org/licenses/by-nc-sa/4.0/
+// © Zeiierman {
+
+//@version=5
+
+/// K-Nearest Neighbors (KNN) Trend Prediction Algorithm
+// This code consists of two main parts:
+// 1) KNN Moving Average (KNN MA): This part takes the k closest values from a window of the x most recent closes
+//    to calculate a weighted average, emphasizing similar recent values. It gives a smoother representation of
+//    the price trend and helps to filter out noise.
+// 2) KNN Classifier: This part predicts the future price direction (Positive, Negative, or Neutral) by classifying
+//    the price movement based on the properties of its k nearest neighbors. It considers recent price action
+//    and calculates Euclidean distances to classify the trend direction.
+// Together, these elements create a powerful tool for traders to predict price trends.
+
+indicator('AI Trend Navigator [K-Neighbor]', overlay=true)
+//~~}
+
+// ~~ Inputs {
+PriceValue   = input.string("hl2", options = ["hl2","VWAP"], group="", inline="Target")
+TargetValue  = input.string("Volatility", options = ["Price Action","VWAP", "Volatility"], group="", inline="Target")
+// Input parameters for the KNN Moving Average
+numberOfClosestValues = input.int(15, "Number of Closest Values", 2, 200) // User input to determine the number of closest values to consider.
+neighbors       = input.int(10, "Neighbors", 1, 200) // Sets the number of neighbors for the classifier.
+smoothingPeriod = input.int(50, "Smoothing Period", 2, 500) // User input to define the smoothing period for moving average.
+windowSize      = math.max(numberOfClosestValues, 30) // Ensures that windowSize is at least as large as the number of closest values.
+
+// knn Color
+Upknn_col   = input.color(color.lime, title="", group="KNN Color", inline="knn col")
+Dnknn_col   = input.color(color.red, title="", group="KNN Color", inline="knn col")
+Neuknn_col  = input.color(color.orange, title="", group="KNN Color", inline="knn col")
+// MA knn Color
+Maknn_col   = input.color(color.teal, title="", group="MA KNN Color", inline="MA knn col")
+// BG Color
+bgcolor = input.bool(true, title="Trend Prediction Color", group="BG Color", inline="bg")
+Up_col  = input.color(color.lime, title="", group="BG Color", inline="bg")
+Dn_col  = input.color(color.red, title="", group="BG Color", inline="bg")
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~}
+
+// ~~ kNN Classifier {
+// Function to calculate the mean of k closest values to the target within a window
+// Choose the value input based on user selection
+value_in = switch PriceValue
+    "hl2"  => hl2
+    "VWAP" => ta.vwap(close)
+meanOfKClosest(target) => // Declares a function named meanOfKClosest, which accepts a target value as an argument.
+    closestDistances = array.new_float(numberOfClosestValues, 1e10) // Initializes an array to store distances.
+    closestValues = array.new_float(numberOfClosestValues, 0.0) // Initializes an array to store closest values.
+    for i = 1 to windowSize // Loop through the window of size windowSize.
+        value = value_in[i] // Gets the value for the ith bar.
+        distance = math.abs(target - value) // Calculates the absolute difference between the target and value.
+        maxDistIndex = 0 // Initializes an index to store the maximum distance.
+        maxDistValue = array.get(closestDistances, 0) // Retrieves the maximum distance value from the closestDistances array.
+        for j = 1 to numberOfClosestValues - 1 // Loop to find the maximum distance among the closest ones found so far.
+            if array.get(closestDistances, j) > maxDistValue
+                maxDistIndex := j
+                maxDistValue := array.get(closestDistances, j)
+        if distance < maxDistValue // Replaces the maximum distance if a smaller one is found.
+            array.set(closestDistances, maxDistIndex, distance)
+            array.set(closestValues, maxDistIndex, value)
+    closestValues.sum() / numberOfClosestValues // Returns the mean of the k closest values.
+
+// Choose the target input based on user selection
+target_in = switch TargetValue
+    "Price Action"  => ta.rma(close, 2) 
+    "VWAP"          => ta.vwap(close)
+    "Volatility"    => ta.atr(14)
+
+// Initializes the KNN Moving Average.
+knnMA = meanOfKClosest(target_in)
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~}
+
+// ~~ kNN Prediction {
+// Function to calculate KNN Classifier
+price = math.avg(knnMA, close) // Calculates the average between knnMA and close price.
+c     = ta.rma(knnMA[1], smoothingPeriod) // Calculates the moving average of knnMA's previous value with smoothing period.
+o     = ta.rma(knnMA, smoothingPeriod) // Calculates the moving average of knnMA with smoothing period.
+
+// Defines KNN function to perform classification
+knn(price) => // Declares a function named knn, which accepts price and K as arguments.
+    Pos_count = 0 // Initializes a variable to count positive candles.
+    Neg_count = 0 // Initializes a variable to count negative candles.
+    min_distance = 10e10 // Initializes the minimum distance.
+    nearest_index = 0 // Initializes the index of the nearest neighbor.
+    for j = 1 to neighbors // Loop to search through the last 100 bars to find the closest neighbor.
+        distance = math.sqrt(math.pow(price[j] - price, 2)) // Calculates the Euclidean distance.
+        if distance < min_distance // If a smaller distance is found and it's not the same index, update the minimum distance.
+            min_distance := distance
+            nearest_index := j
+            Neg = c[nearest_index] > o[nearest_index] // Checks if the nearest neighbor is a positive ta.rma(knnMA[1], smoothingPeriod).
+            Pos = c[nearest_index] < o[nearest_index] // Checks if the nearest neighbor is a negative ta.rma(knnMA, smoothingPeriod).
+            if Pos // Increments the positive count if the condition is met.
+                Pos_count += 1
+            if Neg // Increments the negative count if the condition is met.
+                Neg_count += 1
+    output = Pos_count>Neg_count?1:-1 // Returns the prediction based on the count.
+
+// Calls KNN function and smooths the prediction
+knn_prediction_raw = knn(price) // Calls the knn function and stores the result in knn_prediction_raw.
+knn_prediction     = ta.wma(knn_prediction_raw, 3) // Smooths the prediction using a 3-period moving average.
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~}
+
+// ~~ Plots {
+// Plots for display on the chart
+knnMA_      = ta.wma(knnMA,5)
+knnMA_col   = knnMA_>knnMA_[1]?Upknn_col:knnMA_<knnMA_[1]?Dnknn_col:Neuknn_col
+mid_line    = plot(knnMA_,"Knn Classifier Line", knnMA_col)
+MAknn_       = ta.rma(knnMA, smoothingPeriod)
+plot(MAknn_,"Average Knn Classifier Line" ,Maknn_col) // Plots the moving average of knnMA with smoothing period.
+bgcolor(knn_prediction < 0.5 and bgcolor? color.new(Dn_col,80) : 
+ knn_prediction > -0.5 and bgcolor ? color.new(Up_col,80) : na) // Sets the background color based on the prediction.
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~}

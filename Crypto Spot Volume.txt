@@ -1,0 +1,129 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © ByzantiumScripts
+
+
+// @version=5
+
+// Indicator
+indicator(title = 'BTC spot volume', shorttitle = 'Spot volume', overlay = false, format = format.volume)
+
+
+// Inputs
+InputDenomination = input.string(title = 'Denomination', defval = 'Dollars', options = ['Dollars', 'Coins'])
+InputChart = input.string(title = 'Data layout', defval = 'Stacked', options = ['Stacked', 'Indexed'])
+InputPlot = input.string(title = 'Plot style', defval = 'Columns', options = ['Columns', 'Histogram', 'Area', 'line', 'Step line', 'Circles'])
+InputThickness = input.string(title = 'Plot thickness', defval = '1', options = ['1', '2', '3', '4'])
+
+InputBinanceUSDT = input(true, title = 'Binance USDT')
+InputBybitUSDT = input(true, title = 'Bybit USDT')
+InputOkxUSDT = input(true, title = 'OKX USDT')
+InputGateUSDT = input(true, title = 'Gate USDT')
+InputCoinbaseUSD = input(true, title = 'Coinbase USD')
+InputBitfinexUSD = input(true, title = 'Bitfinex USD')
+InputKrakenUSD = input(true, title = 'Kraken USD')
+InputBitstampUSD = input(true, title = 'Bitstamp USD')
+
+
+// Price
+Price = request.security('INDEX:BTCUSD', timeframe.period, close)
+
+
+// Coin denominated
+VolumeBinanceUSDT = InputBinanceUSDT ? nz(request.security('BINANCE:BTCUSDT', timeframe.period, volume)) : 0
+VolumeBybitUSDT = InputBybitUSDT ? nz(request.security('BYBIT:BTCUSDT', timeframe.period, volume)) : 0
+VolumeOkxUSDT = InputOkxUSDT ? nz(request.security('OKX:BTCUSDT', timeframe.period, volume)) : 0
+VolumeGateUSDT = InputGateUSDT ? nz(request.security('GATEIO:BTCUSDT', timeframe.period, volume)) : 0
+VolumeCoinbaseUSD = InputCoinbaseUSD ? nz(request.security('COINBASE:BTCUSD', timeframe.period, volume)) : 0
+VolumeBitfinexUSD = InputBitfinexUSD ? nz(request.security('BITFINEX:BTCUSD', timeframe.period, volume)) : 0
+VolumeKrakenUSD = InputKrakenUSD ? nz(request.security('KRAKEN:BTCUSD', timeframe.period, volume)) : 0
+VolumeBitstampUSD = InputBitstampUSD ? nz(request.security('BITSTAMP:BTCUSD', timeframe.period, volume)) : 0
+
+
+// Dollar denominated
+DollarBinanceUSDT = VolumeBinanceUSDT * Price
+DollarBybitUSDT = VolumeBybitUSDT * Price
+DollarOkxUSDT = VolumeOkxUSDT * Price
+DollarGateUSDT = VolumeGateUSDT * Price
+DollarCoinbaseUSD = VolumeCoinbaseUSD * Price
+DollarBitfinexUSD = VolumeBitfinexUSD * Price
+DollarKrakenUSD = VolumeKrakenUSD * Price
+DollarBitstampUSD = VolumeBitstampUSD * Price
+
+
+// Choose denomination
+DenominationBinanceUSDT = InputDenomination == 'Dollars' ? DollarBinanceUSDT : InputDenomination == 'Coins' ? VolumeBinanceUSDT : na
+DenominationBybitUSDT = InputDenomination == 'Dollars' ? DollarBybitUSDT : InputDenomination == 'Coins' ? VolumeBybitUSDT : na
+DenominationOkxUSDT = InputDenomination == 'Dollars' ? DollarOkxUSDT : InputDenomination == 'Coins' ? VolumeOkxUSDT : na
+DenominationGateUSDT = InputDenomination == 'Dollars' ? DollarGateUSDT : InputDenomination == 'Coins' ? VolumeGateUSDT : na
+DenominationCoinbaseUSD = InputDenomination == 'Dollars' ? DollarCoinbaseUSD : InputDenomination == 'Coins' ? VolumeCoinbaseUSD : na
+DenominationBitfinexUSD = InputDenomination == 'Dollars' ? DollarBitfinexUSD : InputDenomination == 'Coins' ? VolumeBitfinexUSD : na
+DenominationKrakenUSD = InputDenomination == 'Dollars' ? DollarKrakenUSD : InputDenomination == 'Coins' ? VolumeKrakenUSD : na
+DenominationBitstampUSD = InputDenomination == 'Dollars' ? DollarBitstampUSD : InputDenomination == 'Coins' ? VolumeBitstampUSD : na
+
+
+// Total
+Total = DenominationBinanceUSDT
+         + DenominationBybitUSDT
+         + DenominationOkxUSDT
+         + DenominationGateUSDT
+         + DenominationCoinbaseUSD
+         + DenominationBitfinexUSD
+         + DenominationKrakenUSD
+         + DenominationBitstampUSD
+//
+
+
+// Stacked
+StackedBinanceUSDT = DenominationBinanceUSDT
+StackedBybitUSDT = DenominationBybitUSDT + StackedBinanceUSDT
+StackedOkxUSDT = DenominationOkxUSDT + StackedBybitUSDT
+StackedGateUSDT = DenominationGateUSDT + StackedOkxUSDT
+StackedCoinbaseUSD = DenominationCoinbaseUSD + StackedGateUSDT
+StackedBitfinexUSD = DenominationBitfinexUSD + StackedCoinbaseUSD
+StackedKrakenUSD = DenominationKrakenUSD + StackedBitfinexUSD
+StackedBitstampUSD = DenominationBitstampUSD + StackedKrakenUSD
+
+
+// Indexed
+IndexedBinanceUSDT = DenominationBinanceUSDT / Total * 100
+IndexedBybitUSDT = DenominationBybitUSDT / Total * 100 + IndexedBinanceUSDT
+IndexedOkxUSDT = DenominationOkxUSDT / Total * 100 + IndexedBybitUSDT
+IndexedGateUSDT = DenominationGateUSDT / Total * 100 + IndexedOkxUSDT
+IndexedCoinbaseUSD = DenominationCoinbaseUSD / Total * 100 + IndexedGateUSDT
+IndexedBitfinexUSD = DenominationBitfinexUSD / Total * 100 + IndexedCoinbaseUSD
+IndexedKrakenUSD = DenominationKrakenUSD / Total * 100 + IndexedBitfinexUSD
+IndexBitstampUSD = DenominationBitstampUSD / Total * 100 + IndexedKrakenUSD
+
+
+// Chart
+ChartBinanceUSDT = InputChart == 'Stacked' ? StackedBinanceUSDT : InputChart == 'Indexed' ? IndexedBinanceUSDT : na
+ChartBybitUSDT = InputChart == 'Stacked' ? StackedBybitUSDT : InputChart == 'Indexed' ? IndexedBybitUSDT : na
+ChartOkxUSDT = InputChart == 'Stacked' ? StackedOkxUSDT : InputChart == 'Indexed' ? IndexedOkxUSDT : na
+ChartGateUSDT = InputChart == 'Stacked' ? StackedGateUSDT : InputChart == 'Indexed' ? IndexedGateUSDT : na
+ChartCoinbaseUSD = InputChart == 'Stacked' ? StackedCoinbaseUSD : InputChart == 'Indexed' ? IndexedCoinbaseUSD : na
+ChartBitfinexUSD = InputChart == 'Stacked' ? StackedBitfinexUSD : InputChart == 'Indexed' ? IndexedBitfinexUSD : na
+ChartKrakenUSD = InputChart == 'Stacked' ? StackedKrakenUSD : InputChart == 'Indexed' ? IndexedKrakenUSD : na
+ChartBitstampUSD = InputChart == 'Stacked' ? StackedBitstampUSD : InputChart == 'Indexed' ? IndexBitstampUSD : na
+
+
+// Plot theme
+PlotLayout = InputPlot == 'Columns' ? plot.style_columns :
+             InputPlot == 'Histogram' ? plot.style_histogram : 
+             InputPlot == 'Area' ? plot.style_area : 
+             InputPlot == 'Line' ? plot.style_line : 
+             InputPlot == 'Step line' ? plot.style_stepline : 
+             InputPlot == 'Circles' ? plot.style_circles : na
+//
+
+PlotThickness = InputThickness == '1' ? 1 : InputThickness == '2' ? 2 : InputThickness == '3' ? 3 : InputThickness == '4' ? 4 : na
+
+
+// Plots
+plot(InputBitstampUSD ? ChartBitstampUSD : na, style = PlotLayout, linewidth = PlotThickness, color = color.new(#bbd9fb, 0), title = 'Bitstamp USD')
+plot(InputKrakenUSD ? ChartKrakenUSD : na, style = PlotLayout, linewidth = PlotThickness, color = color.new(#7ab5ff, 0), title = 'Kraken USD')
+plot(InputBitfinexUSD ? ChartBitfinexUSD : na, style = PlotLayout, linewidth = PlotThickness, color = color.new(#3179f5, 0), title = 'Bitfinex USD')
+plot(InputCoinbaseUSD ? ChartCoinbaseUSD : na, style = PlotLayout, linewidth = PlotThickness, color = color.new(#1848cc, 0), title = 'Coinbase USD')
+plot(InputGateUSDT ? ChartGateUSDT : na, style = PlotLayout, linewidth = PlotThickness, color = color.new(#88ffd8, 0), title = 'Gate USDT')
+plot(InputOkxUSDT ? ChartOkxUSDT : na, style = PlotLayout, linewidth = PlotThickness, color = color.new(#00dd94, 0), title = 'OKX USDT')
+plot(InputBybitUSDT ? ChartBybitUSDT : na, style = PlotLayout, linewidth = PlotThickness, color = color.new(#008d5f, 0), title = 'Bybit USDT')
+plot(InputBinanceUSDT ? ChartBinanceUSDT : na, style = PlotLayout, linewidth = PlotThickness, color = color.new(#006242, 0), title = 'Binance USDT')

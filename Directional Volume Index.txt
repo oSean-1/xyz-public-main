@@ -1,0 +1,123 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © robbatt
+
+
+//@version=6
+import TradingView/ta/9
+import robbatt/lib_no_delay/15 as ND
+import robbatt/lib_divergence/2 as DIV
+
+indicator("Directional Volume Index", "DVI", format=format.price, precision=4, timeframe="", timeframe_gaps=true)
+
+var string g_di = "Directional Volume Index (DVI)"
+var bool             show_di        =             input.bool (false    , 'Show DVI±'                   , group = g_di, inline = 'show')
+var color            color_plus     = show_di   ? input.color(#2962FF, ''                            , group = g_di, inline = 'show') : na
+var color            color_minus    = show_di   ? input.color(#FF6D00, ''                            , group = g_di, inline = 'show') : na
+var int              di_length      =             input.int  (14       , "DI Length"      , minval = 1 , group = g_di)
+
+var string g_advx = "Average Directional Volume Index (ADVX)"
+var bool             show_advx      =             input.bool (false    , 'Show ADVX'                   , group = g_advx, inline = 'show')
+var color            color_advx     = show_advx ? input.color(#F50057, ''                            , group = g_advx, inline = 'show') : na
+var int              advx_smooth    =             input.int  (14       , "ADVX Smoothing" , minval = 1 , group = g_advx)
+
+var string g_ddvi = "Differential Directional Volume Index (DDVI)"
+var bool             show_ddvi      =             input.bool (true     , 'Show DDVI'                   , group = g_ddvi, inline = 'show')
+var color            color_ddvi     = show_ddvi ? input.color(#c1b330, ''                            , group = g_ddvi, inline = 'show') : na
+var ND.MovingAverage ddvi_ma_select = input.enum(ND.MovingAverage.SMA  , 'DDVI Moving Average'         , group = g_ddvi, inline = 'ddvi')
+var int              ddvi_ma_len    = input.int (5                     , 'Length'         , minval = 1 , group = g_ddvi, inline = 'ddvi')
+
+var string g_div = 'Differential Directional Volume Index (DDVI) Divergences'
+
+var bool show_strong_bull                = show_ddvi and input.bool  (true  , 'strong bull    '                                       , group = g_div, inline = 'strong' , tooltip = 'strong bull: higher lows on volume, lower lows on price\n\nstrong bear: lower highs on volume, higher highs on price')
+var bool show_strong_bear                = show_ddvi and input.bool  (true  , 'strong bear'                                          , group = g_div, inline = 'strong')
+var bool show_medium_bull                = show_ddvi and input.bool  (false , 'medium bull   '                                        , group = g_div, inline = 'medium'  , tooltip = 'medium bull: higher lows on volume, equal lows on price\n\nmedium bear: lower highs on volume, equal highs on price') 
+var bool show_medium_bear                = show_ddvi and input.bool  (false , 'medium bear'                                          , group = g_div, inline = 'medium')
+var bool show_weak_bull                  = show_ddvi and input.bool  (false , 'weak bull     '                                        , group = g_div, inline = 'weak'    , tooltip = 'weak bull: equal lows on volume, lower lows on price\n\nweak bear: equal highs on volume, higher highs on price')
+var bool show_weak_bear                  = show_ddvi and input.bool  (false , 'weak bear'                                            , group = g_div, inline = 'weak')
+var bool show_hbull                      = show_ddvi and input.bool  (true  , 'hidden bull   '                                        , group = g_div, inline = 'hidden' , tooltip = 'hidden bull: lower lows on volume, higher lows on price\n\nhidden bear: higher highs on volume, lower highs on price')
+var bool show_hbear                      = show_ddvi and input.bool  (true  , 'hidden bear'                                          , group = g_div, inline = 'hidden')
+
+color col_bull        = input.color(color.green   , 'bull     Line'  , group = g_div, inline = 'bull'  )
+color col_bull_label  = input.color(color.green   , 'Label'      , group = g_div, inline = 'bull'  )
+color col_hBull       = input.color(#217924       , '  hBull     Line' , group = g_div, inline = 'bull' )
+color col_hBull_label = input.color(#217924       , 'Label'      , group = g_div, inline = 'bull' )
+color col_bear        = input.color(color.red     , 'bear    Line'  , group = g_div, inline = 'bear'  )
+color col_bear_label  = input.color(color.red     , 'Label'      , group = g_div, inline = 'bear'  )
+color col_hBear       = input.color(#b32222       , '  hBear   Line' , group = g_div, inline = 'bear' )
+color col_hBear_label = input.color(#b32222       , 'Label'      , group = g_div, inline = 'bear' )
+color col_eqhl        = input.color(color.gray    , 'equal   Line' , group = g_div, inline = 'eqhl'  )
+color col_eqhl_label  = input.color(color.gray    , 'Label'      , group = g_div, inline = 'eqhl'  )
+
+var int pivot_confirmation_bars_left     = input.int   (5     , 'Confirmation bars     Left'                 , minval = 1             , group = g_div, inline = 'confirmation', tooltip = 'This relates to the confirmation of a pivot point.\n\n e.g. if a pivot point has this amount left and right to it that are lower, then it is a confirmed high.')
+var int pivot_confirmation_bars_right    = input.int   (3     ,                       'Right'                , minval = 1             , group = g_div, inline = 'confirmation')
+var int div_min_range                    = input.int   (5     , 'Divergence size (bars)  Min'                , minval = 1             , group = g_div, inline = 'div range', tooltip = 'Defines the minimum and maximum amount of bars that are allowed between (and including) two pivot points of the DDVI')
+var int div_max_range                    = input.int   (60    ,                        ' Max'                , minval = 1             , group = g_div, inline = 'div range')
+var int pivot_min_y_distance_len         = input.int   (14    , 'Equal H/L ±zone ATR/deviation length'      , minval = 1             , group = g_div, tooltip = 'since it is very unlikely to detect two pivots with the exact same level, this is adding a zone around the first pivot that counts as equal (both for price and DDVI).\n\nFor price the zone offset is defined as multiplicator of average true range (ATR)\n\nFor DDVI the zone offset is defined as multiplicator of the mean deviation.')
+var float pivot_min_y_distance_atr_mult  = input.float (0.2   , 'Equal H/L ±zone (x ATR price)'             , minval = 0, step = 0.1 , group = g_div)
+var float pivot_min_y_distance_dev_mult  = input.float (0.2   , 'Equal H/L ±zone (x Deviation DDVI)'  , minval = 0, step = 0.01, group = g_div)
+
+
+[plus, minus, advx] = ND.dmi(di_length, advx_smooth)
+ddvi                = ND.get_ma(ddvi_ma_select, plus - minus, ddvi_ma_len)
+
+hline(  0, '0')
+
+var string g_ddvi_bb = 'Differential Directional Volume Index Bands (DDVI BB)'
+var ND.MovingAverage ddvi_bb_ma     = input.enum                (ND.MovingAverage.SMA, 'DDVI BB Moving Average', group = g_ddvi_bb, inline = 'ddvi bb')
+var int              ddvi_bb_ma_len = input.int                 (100                 , 'Length'                , group = g_ddvi_bb, inline = 'ddvi bb')
+var float            ddvi_bb_ma_mul = input.float               (1.5                 , 'Stdev'                 , group = g_ddvi_bb, inline = 'ddvi bb')
+var bool             show_ddvi_bb   = show_ddvi and input.bool  (true                , 'Show DDVI BB'          , group = g_ddvi_bb, inline = 'show')
+var color            color_ddvi_bb  = show_ddvi_bb ? input.color(#c1b330, ''                                   , group = g_ddvi_bb, inline = 'show') : na
+[ddvi_bb, ddvi_bb_upper, ddvi_bb_lower] = ND.bb(ddvi, ddvi_bb_ma_len, ddvi_bb_ma_mul, ddvi_bb_ma)
+
+plot(ddvi_bb_upper , "DDVI BB upper" , color.new(color_ddvi_bb, 50))
+plot(ddvi_bb       , "DDVI BB"       , color.new(color_ddvi_bb, 50))
+plot(ddvi_bb_lower , "DDVI BB lower" , color.new(color_ddvi_bb, 50))
+
+plot(plus  , "+DVI (Directional Volume Idx)"                , color_plus  )
+plot(minus , "-DVI (Directional Volume Idx)"                , color_minus )
+plot(advx  , "ADVX (Avg Directional Volume Idx)"            , color_advx  )
+plot(ddvi  , "DDVI (Differential Directional Volume Index)" , color_ddvi  )
+
+
+[strong_bull, strong_bear, medium_bull, medium_bear, weak_bull, weak_bear, hidden_bull, hidden_bear, ddvi_pivot_h, ddvi_pivot_l] = DIV.divergence(ddvi, pivot_confirmation_bars_left, pivot_confirmation_bars_right, div_min_range, div_max_range, low, high, pivot_min_y_distance_len, pivot_min_y_distance_dev_mult, pivot_min_y_distance_atr_mult)
+bull = strong_bull or medium_bull or weak_bull
+bear = strong_bear or medium_bear or weak_bear
+bool _show_bull = show_strong_bull and strong_bull or show_medium_bull and medium_bull or show_weak_bull and weak_bull
+bool _show_bear = show_strong_bear and strong_bear or show_medium_bear and medium_bear or show_weak_bear and weak_bear
+bool _show_hbull = show_hbull and hidden_bull
+bool _show_hbear = show_hbear and hidden_bear
+
+//Plot the areas, terneary conditional operator
+price_div_line_color  = (show_strong_bull and strong_bull or show_weak_bull and weak_bull)     ? col_bear       : (show_medium_bull and medium_bull) ? col_eqhl       : (show_hbull and hidden_bull) ? col_hBull       : (show_strong_bear and strong_bear or show_weak_bear and weak_bear)     ? col_bull       : (show_medium_bear and medium_bear) ? col_eqhl       : (show_hbear and hidden_bear) ? col_hBear       : #00000000
+osc_div_line_color    = (show_strong_bull and strong_bull or show_medium_bull and medium_bull) ? col_bull       : (show_weak_bull and weak_bull)     ? col_eqhl       : (show_hbull and hidden_bull) ? col_hBear       : (show_strong_bear and strong_bear or show_medium_bear and medium_bear) ? col_bear       : (show_weak_bear and weak_bear)     ? col_eqhl       : (show_hbear and hidden_bear) ? col_hBull       : #00000000
+div_label_color       = (show_strong_bull and strong_bull or show_medium_bull and medium_bull or show_weak_bull and weak_bull) ? col_bull_label : (show_hbull and hidden_bull) ? col_hBull_label : (show_strong_bear and strong_bear or show_medium_bear and medium_bear or show_weak_bear and weak_bear) ? col_bear_label : (show_hbear and hidden_bear) ? col_hBear_label : #00000000 
+
+plot( ddvi_pivot_l ? low[pivot_confirmation_bars_right]  : na                             , "price at DDVI pivot l", offset = -pivot_confirmation_bars_right , linewidth = 2   , color = price_div_line_color, force_overlay = true)
+plot( ddvi_pivot_h ? high[pivot_confirmation_bars_right] : na                             , "price at DDVI pivot h", offset = -pivot_confirmation_bars_right , linewidth = 2   , color = price_div_line_color, force_overlay = true)
+plot( ddvi_pivot_l ? ddvi[pivot_confirmation_bars_right] : na                             , "DDVI at DDVI pivot l" , offset = -pivot_confirmation_bars_right , linewidth = 2   , color = osc_div_line_color)
+plot( ddvi_pivot_h ? ddvi[pivot_confirmation_bars_right] : na                             , "DDVI at DDVI pivot h" , offset = -pivot_confirmation_bars_right , linewidth = 2   , color = osc_div_line_color)
+
+plotshape( show_strong_bull and strong_bull ? low[pivot_confirmation_bars_right]     : na , "price at strong bull" , offset = -pivot_confirmation_bars_right , text = "str\nbull"  , style = shape.labelup      , location = location.belowbar , color = div_label_color , textcolor = color.white, force_overlay = true )
+plotshape( show_strong_bear and strong_bear ? high[pivot_confirmation_bars_right]    : na , "price at strong bear" , offset = -pivot_confirmation_bars_right , text = "str\nbear"  , style = shape.labeldown    , location = location.abovebar , color = div_label_color , textcolor = color.white, force_overlay = true )
+plotshape( show_medium_bull and medium_bull ? low[pivot_confirmation_bars_right]     : na , "price at medium bull" , offset = -pivot_confirmation_bars_right , text = "med\nbull"  , style = shape.labelup      , location = location.belowbar , color = div_label_color , textcolor = color.white, force_overlay = true )
+plotshape( show_medium_bear and medium_bear ? high[pivot_confirmation_bars_right]    : na , "price at medium bear" , offset = -pivot_confirmation_bars_right , text = "med\nbear"  , style = shape.labeldown    , location = location.abovebar , color = div_label_color , textcolor = color.white, force_overlay = true )
+plotshape( show_weak_bull   and weak_bull   ? low[pivot_confirmation_bars_right]     : na , "price at weak bull"   , offset = -pivot_confirmation_bars_right , text = "weak\nbull" , style = shape.labelup      , location = location.belowbar , color = div_label_color , textcolor = color.white, force_overlay = true )
+plotshape( show_weak_bear   and weak_bear   ? high[pivot_confirmation_bars_right]    : na , "price at weak bear"   , offset = -pivot_confirmation_bars_right , text = "weak\nbear" , style = shape.labeldown    , location = location.abovebar , color = div_label_color , textcolor = color.white, force_overlay = true )
+plotshape( show_hbull       and hidden_bull ? low[pivot_confirmation_bars_right]     : na , "price at hidden bull" , offset = -pivot_confirmation_bars_right , text = "hid\nbull"  , style = shape.labelup      , location = location.belowbar , color = div_label_color , textcolor = color.white, force_overlay = true )
+plotshape( show_hbear       and hidden_bear ? high[pivot_confirmation_bars_right]    : na , "price at hidden bear" , offset = -pivot_confirmation_bars_right , text = "hid\nbear"  , style = shape.labeldown    , location = location.abovebar , color = div_label_color , textcolor = color.white, force_overlay = true )
+
+plotshape( show_strong_bull and strong_bull ? ddvi[pivot_confirmation_bars_right]    : na , "DDVI at strong bull" , offset = -pivot_confirmation_bars_right , text = "str\nbull"  , style = shape.labelup      , location = location.absolute , color = div_label_color , textcolor = color.white )
+plotshape( show_strong_bear and strong_bear ? ddvi[pivot_confirmation_bars_right]    : na , "DDVI at strong bear" , offset = -pivot_confirmation_bars_right , text = "str\nbear"  , style = shape.labeldown    , location = location.absolute , color = div_label_color , textcolor = color.white )
+plotshape( show_medium_bull and medium_bull ? ddvi[pivot_confirmation_bars_right]    : na , "DDVI at medium bull" , offset = -pivot_confirmation_bars_right , text = "med\nbull"  , style = shape.labelup      , location = location.absolute , color = div_label_color , textcolor = color.white )
+plotshape( show_medium_bear and medium_bear ? ddvi[pivot_confirmation_bars_right]    : na , "DDVI at medium bear" , offset = -pivot_confirmation_bars_right , text = "med\nbear"  , style = shape.labeldown    , location = location.absolute , color = div_label_color , textcolor = color.white )
+plotshape( show_weak_bull   and weak_bull   ? ddvi[pivot_confirmation_bars_right]    : na , "DDVI at weak bull"   , offset = -pivot_confirmation_bars_right , text = "weak\nbull" , style = shape.labelup      , location = location.absolute , color = div_label_color , textcolor = color.white )
+plotshape( show_weak_bear   and weak_bear   ? ddvi[pivot_confirmation_bars_right]    : na , "DDVI at weak bear"   , offset = -pivot_confirmation_bars_right , text = "weak\nbear" , style = shape.labeldown    , location = location.absolute , color = div_label_color , textcolor = color.white )
+plotshape( show_hbull       and hidden_bull ? ddvi[pivot_confirmation_bars_right]    : na , "DDVI at hidden bull" , offset = -pivot_confirmation_bars_right , text = "hid\nbull"  , style = shape.labelup      , location = location.absolute , color = div_label_color , textcolor = color.white )
+plotshape( show_hbear       and hidden_bear ? ddvi[pivot_confirmation_bars_right]    : na , "DDVI at hidden bear" , offset = -pivot_confirmation_bars_right , text = "hid\nbear"  , style = shape.labeldown    , location = location.absolute , color = div_label_color , textcolor = color.white )
+
+plotshape( _show_bull or _show_hbull ? low[pivot_confirmation_bars_right]            : na , 'price signal new bullish divergence'                                                 , style = shape.cross        , location = location.absolute , color = div_label_color  , size = size.tiny , force_overlay = true)
+plotshape( _show_bear or _show_hbear ? high[pivot_confirmation_bars_right]           : na , 'price signal new bearish divergence'                                                 , style = shape.cross        , location = location.absolute , color = div_label_color  , size = size.tiny , force_overlay = true)
+plotshape( _show_bull or _show_hbull ? ddvi[pivot_confirmation_bars_right]           : na , 'DDVI signal new bullish divergence'                                                  , style = shape.cross        , location = location.absolute , color = div_label_color  , size = size.tiny )
+plotshape( _show_bear or _show_hbear ? ddvi[pivot_confirmation_bars_right]           : na , 'DDVI signal new bearish divergence'                                                  , style = shape.cross        , location = location.absolute , color = div_label_color  , size = size.tiny )
+

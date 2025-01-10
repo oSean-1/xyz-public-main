@@ -1,0 +1,162 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © LonesomeTheBlue
+
+//@version=5
+indicator('Indicators Positions')
+tper = input.int(defval=300, title='Period', minval=50, maxval=500)
+uth1 = input(defval=70, title='Upper Threshold #1')
+uth2 = input(defval=80, title='Upper Threshold #2')
+lth1 = input(defval=30, title='Lower Threshold #1')
+lth2 = input(defval=20, title='Lower Threshold #2')
+
+displayMTF = input(title='Display MTF?', defval=true)
+
+res1 = input.timeframe(title='Multi Timeframe 1:', defval='30')
+res2 = input.timeframe(title='Multi Timeframe 2:', defval='60')
+res3 = input.timeframe(title='Multi Timeframe 3:', defval='120')
+res4 = input.timeframe(title='Multi Timeframe 4:', defval='240')
+res5 = input.timeframe(title='Multi Timeframe 5:', defval='480')
+
+res1x = input.timeframe(title='Multi Timeframe 1:', defval='D')
+res2x = input.timeframe(title='Multi Timeframe 2:', defval='2D')
+res3x = input.timeframe(title='Multi Timeframe 3:', defval='3D')
+res4x = input.timeframe(title='Multi Timeframe 4:', defval='4D')
+res5x = input.timeframe(title='Multi Timeframe 5:', defval='1W')
+
+indipos(indi) =>
+    ipos = (indi - ta.lowest(indi, tper)) / (ta.highest(indi, tper) - ta.lowest(indi, tper))
+    ipos
+
+indiposall() =>
+    pos = 0.0
+    // MACD 
+    macd = ta.ema(close, 8) - ta.ema(close, 16)
+    signal = ta.ema(macd, 11)
+    aa = indipos(macd)
+    tt = na(aa) ? 0 : 1
+    pos += nz(aa)
+
+    // MACD-Asprey
+    macdas = macd - signal
+    aa := indipos(macdas)
+    tt += (na(aa) ? 0 : 1)
+    pos += nz(aa)
+
+    // RSI
+    vrsi = ta.rsi(close, 14)
+    aa := indipos(vrsi)
+    tt += (na(aa) ? 0 : 1)
+    pos += nz(aa)
+
+    // stoch
+    stk = ta.sma(ta.stoch(close, high, low, 14), 3)
+    aa := indipos(stk)
+    tt += (na(aa) ? 0 : 1)
+    pos += nz(aa)
+
+    // CCI
+    xcci = ta.cci(close, 10)
+    aa := indipos(xcci)
+    tt += (na(aa) ? 0 : 1)
+    pos += nz(aa)
+
+    // momentum
+    moment = ta.mom(close, 10)
+    aa := indipos(moment)
+    tt += (na(aa) ? 0 : 1)
+    pos += nz(aa)
+
+    // OBV
+    aa := indipos(ta.obv)
+    tt += (na(aa) ? 0 : 1)
+    pos += nz(aa)
+
+    // DI
+    DI = ta.change(high) - -ta.change(low)
+    trur = ta.rma(ta.tr, 14)
+    diosi = fixnan(100 * ta.rma(DI, 14) / trur)
+    aa := indipos(diosi)
+    tt += (na(aa) ? 0 : 1)
+    pos += nz(aa)
+
+    // volume weighted macd
+    maFast = ta.vwma(close, 12)
+    maSlow = ta.vwma(close, 26)
+    vwmacd = maFast - maSlow
+    aa := indipos(vwmacd)
+    tt += (na(aa) ? 0 : 1)
+    pos += nz(aa)
+
+    // cmf
+    Cmfm = (close - low - (high - close)) / (high - low)
+    Cmfv = Cmfm * volume
+    cmf21 = ta.sma(Cmfv, 21) / ta.sma(volume, 21)
+    aa := indipos(cmf21)
+    tt += (na(aa) ? 0 : 1)
+    pos += nz(aa)
+
+    pos := na(tt) ? na : pos / tt
+    pos
+
+higherframe = timeframe.period == '1' ? '5' : timeframe.period == '3' ? '15' : timeframe.period == '5' ? '15' : timeframe.period == '15' ? '60' : timeframe.period == '30' ? '60' : timeframe.period == '45' ? '60' : timeframe.period == '60' ? '240' : timeframe.period == '120' ? '240' : timeframe.period == '180' ? '240' : timeframe.period == '240' ? 'D' : timeframe.period == 'D' ? 'W' : '4W'
+
+poscur = indiposall()
+col = poscur >= uth1 / 100 and poscur < uth2 / 100 ? color.orange : poscur >= uth2 / 100 ? color.red : color.silver
+col := poscur <= lth1 / 100 and poscur > lth2 / 100 ? color.green : poscur <= lth2 / 100 ? color.lime : col
+//plot(poscur, color=col, style=plot.style_columns)
+//plot(poscur, color=color.new(color.gray, 0))
+poshf = request.security(syminfo.tickerid, higherframe, poscur, lookahead=barmerge.lookahead_on)
+//plot(poshf, color=color.new(color.blue, 0), linewidth=2)
+
+LowThresh = input(.25)
+
+mtfK1 = displayMTF ? request.security(syminfo.tickerid, res1, poscur <= LowThresh ? 1 : 0) : na
+mtfK2 = displayMTF ? request.security(syminfo.tickerid, res2, poscur <= LowThresh  ? 1 : 0) : na
+mtfK3 = displayMTF ? request.security(syminfo.tickerid, res3, poscur <= LowThresh  ? 1 : 0) : na
+mtfK4 = displayMTF ? request.security(syminfo.tickerid, res4, poscur <= LowThresh ? 1 : 0) : na
+mtfK5 = displayMTF ? request.security(syminfo.tickerid, res5, poscur <= LowThresh  ? 1 : 0) : na
+
+mtfK1x = displayMTF ? request.security(syminfo.tickerid, res1x, poscur <= LowThresh ? 1 : 0) : na
+mtfK2x = displayMTF ? request.security(syminfo.tickerid, res2x, poscur <= LowThresh  ? 1 : 0) : na
+mtfK3x = displayMTF ? request.security(syminfo.tickerid, res3x, poscur <= LowThresh  ? 1 : 0) : na
+mtfK4x = displayMTF ? request.security(syminfo.tickerid, res4x, poscur <= LowThresh  ? 1 : 0) : na
+mtfK5x = displayMTF ? request.security(syminfo.tickerid, res5x, poscur <= LowThresh  ? 1 : 0) : na
+
+ALL =  (mtfK1 + mtfK2 + mtfK3 + mtfK4 + mtfK5) + (mtfK1x + mtfK2x + mtfK3x + mtfK4x + mtfK5x)
+ALL3_avg = input(4)
+ALLv =  math.avg((mtfK1 + mtfK2 + mtfK3 + mtfK4 + mtfK5) + (mtfK1x + mtfK2x + mtfK3x + mtfK4x + mtfK5x),ALL3_avg)
+
+plot(series=ALLv, title="MtF All", color=color.new(#42bda8, 0), style=plot.style_line)
+plot(series=ALL, title="MtF All", color= ALL >= ALLv ? color.new(#42bda8, 0) : color.red, style=plot.style_line)
+plot(series=ALL, title="MtF All", color= ALL >= ALLv ? color.white : color.rgb(255, 82, 82, 100), style=plot.style_cross)
+
+mtfKZ1 = request.security(syminfo.tickerid, res1x, poscur)
+mtfKZ2 = request.security(syminfo.tickerid, res2x, poscur)
+mtfKZ3 = request.security(syminfo.tickerid, res3x, poscur)
+mtfKZ4 = request.security(syminfo.tickerid, res4x, poscur)
+mtfKZ5 = request.security(syminfo.tickerid, res5x, poscur)
+
+mtfKZ1x = request.security(syminfo.tickerid, res1x, poscur)
+mtfKZ2x = request.security(syminfo.tickerid, res2x, poscur)
+mtfKZ3x = request.security(syminfo.tickerid, res3x, poscur)
+mtfKZ4x = request.security(syminfo.tickerid, res4x, poscur)
+mtfKZ5x = request.security(syminfo.tickerid, res5x, poscur)
+
+ALL2 =  (mtfKZ1 + mtfKZ2 + mtfKZ3 + mtfKZ4 + mtfKZ5) + (mtfKZ1x + mtfKZ2x + mtfKZ3x + mtfKZ4x + mtfKZ5x)
+plot(ALL2)
+
+
+//plot(mtfKZ1, color=color.new(#e91e63, 0), style=plot.style_line)
+//plot(mtfKZ2, color=color.new(#9c27b0, 0), style=plot.style_line)
+//plot(mtfKZ3, color=color.new(#673ab7, 0), style=plot.style_line)
+//plot(mtfKZ4, color=color.new(#2962ff, 0), style=plot.style_line)
+//plot(mtfKZ5, color=color.new(#00bcd4, 0), style=plot.style_line)
+
+//plot(mtfKZ1x, color=color.new(#089981, 0), style=plot.style_line)
+//plot(mtfKZ2x, color=color.new(#4caf50, 0), style=plot.style_line)
+//plot(mtfKZ3x, color=color.new(#FFEB3B, 0), style=plot.style_line)
+//plot(mtfKZ4x, color=color.new(#FF9800, 0), style=plot.style_line)
+//plot(mtfKZ5x, color=color.new(#FF5252, 0), style=plot.style_line)
+
+
+

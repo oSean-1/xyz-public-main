@@ -1,0 +1,83 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// Thanks to @ALifeToMake, @Bjorgum and vgladkov on stackoverflow for all the assistance!
+// © BlockchainSpecialists
+//@version=5
+indicator('Distribution Curve', overlay = false, max_bars_back = 5000, max_lines_count = 100, max_labels_count = 15)
+//Inputs {
+src = input.source(close, title = 'Distribution Source', inline = '0')
+colour = input.color(color.orange, title = '', inline = '0')
+//}
+//Formulas {
+var array<float> src_rank = array.new<float>()
+var array<float> curve_sum = array.new<float>()
+var array<float> distribution = array.new<float>()
+
+method increaseCounterByIndex(int[] arr, index) =>
+    currentValue = arr.get(index)
+    increasedValue = currentValue + 1
+    arr.set(index, increasedValue)
+
+createLinesArray(int size, float[] src_rank) =>
+    _linesArr = array.new<line>()
+    for i = 0 to size - 1
+        l = line.new(na, na, na, na)
+        _linesArr.push(l)
+    _linesArr
+
+if not na(src)
+    array.unshift(src_rank, src)
+    if array.size(src_rank) > 5000
+        array.remove(src_rank, array.size(src_rank) - 1)
+
+high_src = array.percentile_linear_interpolation(src_rank, 100)
+low_src = array.percentile_linear_interpolation(src_rank, 0)
+lookback = 5000 > bar_index + 1 ? bar_index + 1 : 5000
+distribution_count = bar_index - bar_index[1]
+var distribution_line = array.new_line()
+var line lines = na
+if bar_index == 0
+    for i = 0 to 100 - 1
+        array.push(distribution_line,
+           line.new(na, na, na, na, color = colour, width = 2))
+//}
+//Plotting {
+if barstate.islast
+    for i = 0 to 100
+        array.push(distribution, low_src + ((high_src - low_src) * float(i * 0.01)))
+    for x = 0 to 100 - 1
+        curve = float(0)
+        for y = 0 to lookback - 1
+            curve := (src[y] < array.get(distribution, x)) or (src[y] > array.get(distribution, x + 1)) ? 
+               curve : distribution_count[y] + curve
+        array.push(curve_sum, curve)
+    for z = 0 to 100 - 1
+        lines := array.get(distribution_line, z)
+        lines_distribution = array.get(distribution, z)
+        curve_max = array.get(curve_sum, z) / array.max(curve_sum)
+        line.set_xy1(lines, (bar_index + 201), lines_distribution)
+        line.set_xy2(lines, (bar_index + 201) - math.round((((20000 / lookback) * lookback) / 100) * curve_max), 
+           array.get(distribution, z))
+//}
+//Data Labels {
+label_colour = color.new(chart.bg_color == color.white ? color.black : color.white, 100)
+var label[] percentile_labels = array.new_label(0)
+
+if barstate.islast
+    for i = 0 to 30 by 5
+        var label data_label = na
+        data_label := label.new(bar_index + 202, array.percentile_linear_interpolation(src_rank, i), 
+                      text = str.tostring(i) + "th Percentile ~ " + str.tostring(math.round(array.percentile_linear_interpolation(src_rank, i), 3)), 
+                      color = color.new(label_colour, 100), style = label.style_label_left, textcolor = colour, size = size.small, 
+                      tooltip = str.tostring(i) + "th Percentile ~ " + str.tostring(math.round(array.percentile_linear_interpolation(src_rank, i), 3)))
+        array.push(percentile_labels, data_label)
+    for i = 70 to 100 by 5
+        var label data_label = na
+        data_label := label.new(bar_index + 202, array.percentile_linear_interpolation(src_rank, i), 
+                      text = str.tostring(i) + "th Percentile ~ " + str.tostring(math.round(array.percentile_linear_interpolation(src_rank, i), 3)), 
+                      color = color.new(label_colour, 100), style = label.style_label_left, textcolor = colour, size = size.small, 
+                      tooltip = str.tostring(i) + "th Percentile ~ " + str.tostring(math.round(array.percentile_linear_interpolation(src_rank, i), 3)))
+        array.push(percentile_labels, data_label)
+
+    label data_average = label.new(bar_index + 202, array.avg(src_rank), text = 'Average ~ ' + str.tostring(math.round(array.avg(src_rank), 3)), color = color.new(label_colour, 100),
+       style = label.style_label_left, textcolor = colour, size = size.small, tooltip = 'Average ~ ' + str.tostring(math.round(array.avg(src_rank), 3)))
+//}

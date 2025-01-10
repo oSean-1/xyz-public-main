@@ -1,0 +1,29 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © peacefulLizard50262
+//@version=5
+indicator("CWEEMA", overlay = true)
+// Define the exponential moving average function
+
+ema(src, len) => //{
+    alpha = 2 / (len + 1)
+    sum   = 0.0
+    sum  := na(sum[1]) ? src : alpha * src + (1 - alpha) * nz(sum[1])
+
+// Define the weighted moving average function
+wma(src, weights, int len) =>
+    // Compute the weighted sum of the source data
+    weightedSum = math.sum(src * weights, len)
+    // Compute the sum of the weights
+    sumWeights = math.sum(weights, len)
+    // Divide the weighted sum by the sum of the weights to calculate the weighted average
+    weightedSum / sumWeights
+
+cweema(src, len) =>
+    // Compute the weights for each value in the moving average
+    weights = (len + 1) / 2 - math.abs(len - src)
+    // Calculate the weighted moving average
+    wma(ema(src, len), weights, len)
+
+source = input.source(close, 'Source')
+length = input.int(5, "Length", 1)
+plot(cweema(source, length))

@@ -1,0 +1,66 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Cmo22
+
+//@version=5
+indicator("Advanced High-Resolution Volume-Price Pressure Indicator with Optimized Wavelets", shorttitle="AHRVPP_Wavelets_Optimized", overlay=false)
+
+// Input parameters
+length = input.int(33, title="Wavelet Length")
+volatilityLength = input.int(88, title="Volatility Length")
+src1 = input(close)
+
+// ATR-based volatility calculation
+volatility = ta.atr(volatilityLength)
+
+// Optimized Wavelet Transform Function
+waveletTransform(src1, waveletLength) =>
+    waveletSum = 0.0
+    weight = 0.0
+    for i = 0 to waveletLength - 1 by 1
+        weight := math.exp(-i / waveletLength)  // Apply exponential weighting to reduce distant influence
+        waveletSum += src1[i] * math.sin(2 * math.pi * i / waveletLength) * weight
+    waveletSum
+
+// Fetch high-resolution data (1-second timeframe)
+fetch1SecData(expression) =>
+    request.security(syminfo.tickerid, '1S', expression, lookahead=barmerge.lookahead_off)
+
+// Normalized difference function
+normalizedDiff(src1, length) =>
+    totalChange = math.sum(math.abs(src1 - src1[1]), length) * math.pi
+    avgChange = totalChange / length
+    src1Change = src1 - src1[1]
+    avgChange != 0 ? src1Change / avgChange : 0
+
+// Sigmoid function for non-linear transformation
+sigmoid(x) =>
+    1 / (1 + math.exp(-x))
+
+// Fetch and normalize high-resolution volume data
+upVolume = fetch1SecData(close > open ? volume : 0)
+downVolume = fetch1SecData(close < open ? volume : 0)
+priceDiff = fetch1SecData(normalizedDiff(close, length))
+upVolumeDiff = fetch1SecData(normalizedDiff(upVolume, length))
+downVolumeDiff = fetch1SecData(normalizedDiff(downVolume, length))
+
+// Apply the optimized wavelet transform
+priceWavelet = waveletTransform(priceDiff, length)
+upVolumeWavelet = waveletTransform(upVolumeDiff, length)
+downVolumeWavelet = waveletTransform(downVolumeDiff, length)
+
+// Weighted combination of normalized price and volume differences using volatility
+combinedScore = (priceWavelet + upVolumeWavelet - downVolumeWavelet) / volatility
+
+// Apply non-linear transformation to the combined score using sigmoid
+transformedScore = sigmoid(combinedScore)
+
+// Additional smoothing to reduce noise
+smoothedScore = ta.sma(transformedScore, 5)  // 5-period simple moving average to smooth the signal
+
+
+
+
+
+// Plotting the improved Volume-Price Pressure Indicator
+plot(smoothedScore, title="Smoothed Volume-Price Pressure Score", color=color.new(color.blue, 0), linewidth=2)
+

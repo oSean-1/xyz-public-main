@@ -1,0 +1,117 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © voided
+
+//@version=5
+indicator("level_stats", overlay = true)
+
+// HISTOGRAM
+
+histogram(x, num_buckets, chart_width, chart_height, position, level) =>
+
+    max_ = array.max(x)
+    min_ = array.min(x)
+    bucket_width = (max_ - min_) / num_buckets
+    
+    int[] counts = array.new_int(num_buckets + 1, 0)
+
+    for i = 0 to array.size(x) - 1
+        val = array.get(x, i)
+        bucket = math.floor((val - min_) / bucket_width)
+        count = array.get(counts, bucket)
+        array.set(counts, bucket, count + 1)
+
+    count_max = array.max(counts)
+    count_min = array.min(counts)
+    bucket_height = (count_max - count_min) / num_buckets
+    
+    hist = table.new(position, num_buckets + 1, num_buckets + 1)
+    
+    empty = color.new(color.white, 100)
+    less_than = color.new(color.blue, 70)
+    greater_than = color.new(color.red, 70)
+    
+    cell_width = chart_width / num_buckets
+    cell_height = chart_height / num_buckets
+    
+    for i = 0 to num_buckets
+        for j = 0 to num_buckets
+
+            count = array.get(counts, i)
+            bucket = min_ + i * bucket_width
+            height = math.floor((count - count_min) / bucket_height)
+        
+            bg_clr = height >= j ? bucket < level ? less_than : greater_than : empty
+
+            table.cell(hist, i, num_buckets - j, width = cell_width, height = cell_height, bgcolor = bg_clr)
+    
+// PROGRAM
+
+float level = input(0., title = "level")
+int num_buckets = input(50, title = "number of buckets")
+int width = input(30, title = "histogram width %")
+int height = input(20, title = "histogram height %")
+start = input.time(timestamp("1 Jan 1950 00:00 +0300"), "start")
+end = input.time(timestamp("1 Jan 2300 00:00 +0300"), "end")
+above_clr = color.new(color.red, 70)
+below_clr = color.new(color.blue, 70)
+
+var above = array.new_int(0)
+var below = array.new_int(0)
+var x = array.new_float(0)
+
+in_range = time >= start and time < end
+a = close >= level and in_range
+b = close < level and in_range
+
+if a
+  
+    array.push(above, 1)
+    array.push(x, close)
+    
+else if b
+
+    array.push(above, 0)
+    array.push(x, close)
+
+bgcolor(a ? above_clr : b ? below_clr : na)
+
+hline(level, title="level", color=above_clr, linestyle = hline.style_solid, editable = true)
+
+if barstate.islast
+
+    
+    stats = table.new(position.top_right, 3, 6)
+    label_clr_a = color.new(color.green, 70)
+    label_clr_b = color.new(color.yellow, 70)
+    
+    total = array.size(above)
+    above_total = array.sum(above)
+    below_total = total - above_total
+    above_pct = above_total / total
+    below_pct = below_total / total
+    
+    table.cell(stats, 0, 0)
+    table.cell(stats, 1, 0, "total", bgcolor = label_clr_a)
+    table.cell(stats, 2, 0, "ratio", bgcolor = label_clr_a)
+    
+    table.cell(stats, 0, 1, "above", bgcolor = label_clr_a)
+    table.cell(stats, 1, 1, str.tostring(above_pct, "#.##"))
+    table.cell(stats, 2, 1, str.tostring(above_total) + " / " + str.tostring(total))
+    
+    table.cell(stats, 0, 2, "below", bgcolor = label_clr_a)
+    table.cell(stats, 1, 2, str.tostring(below_pct, "#.##"))
+    table.cell(stats, 2, 2, str.tostring(below_total) + " / " + str.tostring(total))
+    
+    table.cell(stats, 0, 3, "mean", bgcolor = label_clr_b)
+    table.cell(stats, 1, 3, str.tostring(array.avg(x), "#.##"))
+    
+    table.cell(stats, 0, 4, "median", bgcolor = label_clr_b)
+    table.cell(stats, 1, 4, str.tostring(array.median(x), "#.##"))
+    
+    table.cell(stats, 0, 5, "stdev", bgcolor = label_clr_b)
+    table.cell(stats, 1, 5, str.tostring(array.stdev(x), "#.##"))
+    
+    histogram(x, num_buckets, width, height, position.bottom_right, level)
+    
+    
+    

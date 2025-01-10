@@ -1,0 +1,24 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © aamonkey
+
+//@version=5
+indicator("Correlation Coefficient based on Log Returns", shorttitle = "CC_LR", format = format.price, precision = 2)
+
+symbolInput = input.symbol("GOOG", "Symbol", confirm = true)
+sourceInput = input.source(close, "Source")
+lengthInput = input.int(20, "Length")
+
+// This takes into account additional settings enabled on chart, e.g. dividend adjustment or extended session 
+adjustedSeries = ticker.modify(symbolInput)
+requestedData = request.security(adjustedSeries, timeframe.period, sourceInput)
+
+// Compute log returns for both series
+logReturnCurrent = math.log(sourceInput / ta.hma(sourceInput, 2))
+logReturnRequested =  math.log(requestedData / ta.hma(requestedData, 2))
+
+correlation = ta.correlation(logReturnCurrent, logReturnRequested, lengthInput)
+
+plot(correlation, "Correlation", color = color.blue)
+hline(1)
+hline(0, color = color.new(color.gray, 50))
+hline(-1)

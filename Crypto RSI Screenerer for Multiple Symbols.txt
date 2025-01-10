@@ -1,0 +1,626 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// ©
+// Original Script by @Leviathan
+// Modified by @Daveatt
+
+//@version=6
+
+indicator('Fancy Screener [Daveatt]', "Fancy Screener", overlay = false, max_labels_count = 80, max_lines_count = 40, precision = 1)
+
+// Tickers lists
+g1 = 'BTC, ETH, SOL, PEPE, DOGE, WLD, WIF, TRB, ENA, NEAR, GALA, BNB, BOME, XRP, FET, ETHFI, ARKM, SHIB, ARB, AR, BONK, LINK, SUI, AVAX, FLOKI, RUNE, HBAR, GLM, ADA, ORDI, FIL, REZ, OP, FTM, AGIX, DOT, LTC, ETC, PHB, TIA'
+g2 = 'LUNC, LPT, GALA, ICP, JTO, ADA, NFP, GRT, RSR, MATIC, AI, CTXC, 1000SATS, LINK, PENDLE, ATOM, TRX, INJ, JUP, SEI, STX, LUNA, LEVER, VANRY, JASMY, APT, STRK, ALT, CKB, PIXEL, PYTH, YGG, SAGA, TAO, BCH, CFX, ATA, TNSR, IQ, CELR'
+g3 = 'OCEAN, HIGH, MANTA, CHZ, OM, OMNI, THETA, UNI, GMT, AEVO, SSV, MEME, DYDX, LDO, RLC, PORTAL, POLYX, EGLD, CRV, ID, APE, ACE, MKR, AAVE, MDT, ALGO, TRU, EOS, DYM, BLUR, MOVR, SAND, BNX, CAKE, ENS, RDNT, COS, PEOPLE, VGX, ROSE'
+g4 = 'VET, ONT, ONG, NMR, ERN, NULS, BEAMX, XAI, IMX, LQTY, CHR, PHA, POWR, MINA, ACH, NEO, PDA, TLM, KEY, GAL, AXS, REI, MAGIC, AXL, MASK, CTSI, VITE, OAX, SUSHI, FARM, SUPER, RONIN, KSM, FTT, IOTA, ADX, ANKR, SNX, XVG, ORN'
+g5 = 'VIC, BOND, TFUEL, LSK, NKN, PROM, NTRN, TWT, ASTR, XLM, BAKE, RAY, C98, HOOK, XVS, MAV, STG, COTI, HIFI, MANA, KMD, POND, RVN, WOO, XTZ, AMP, DUSK, CTK, 1INCH, QNT, IOTX, KAVA, CVC, ONE, CYBER, EDU, ZIL, SLP, GMX, API3'
+g6 = 'YFI, ENJ, STORJ, OGN, GLMR, MBOX, ALPACA, UNFI, XEC, DATA, SNT, WAVES, BEL, FLOW, FXS, MDX, STMX, CELO, RIF, UTK, DASH, GAS, HFT, AUCTION, VIB, PSG, DIA, OOKI, SANTOS, JOE, COMBO, ZEC, AMB, BLZ, OXT, COMP, LRC, LINA, ILV, ARPA'
+g7 = 'BICO, REN, LTO, KDA, KP3R, AUDIO, ZEN, SFP, SYN, BETA, METIS, ZRX, VIDT, FORTH, RAD, DAR, SXP, MTL, STEEM, FUN, QKC, MBL, WING, SYS, ALPHA, DENT, GNS, CLV, OSMO, AKRO, GFT, QTUM, SPELL, TROY, SC, PYR, BURGER, CREAM, FLUX, PERP'
+// g = 'ALCX, SKL, EPX, ATM, GTC, FIRO, CELR, KLAY, FLM, BNT, HOT, STORJ, QI, OGN, LIT, CVP, CVX, VOXEL, WAXP, AGLD, TKO, BIFI, DCR, AERGO, BADGER, PROS, FIDA, WBTC, ALICE, STPT, JUV, WBETH, ALPINE, PAXG, FOR, OMG, DEXE, XNO, AVA, RARE
+// g = 'DODO, UMA, HARD, IOST, QUICK, ACM, REEF, REQ, PIVX, FIO, BTTC, CHESS, WAN, ACA, PUNDIX, JST, WRX, MLN, BSW, BAND, LOOM, ASR, LAZIO, OG, DGB, SCRT, ICX, BAL, GHST, ELF, DEGO, VTHO, GNO, PORTO, RPL, LOKA, STRAX, NEXO, DF, IRIS
+
+// Settings Groups
+gn1 = 'Appearance'
+gn2 = 'Ticker selection'
+gn3 = 'Oscillator Settings'
+
+// General Settings
+rsiTf = input.timeframe('', 'Oscillator Timeframe')
+symGroup = input.string('#1', 'Group', ['#1', '#2', '#3', '#4', '#5', '#6', '#7'])
+
+// Oscillator Settings
+oscillatorType = input.string('RSI', 'Oscillator Type', options = ['RSI', 'Awesome Oscillator', 'Chaikin Oscillator', 'Stochastic RSI', 'Stochastic', 'Volume Oscillator', 'CCI', 'Williams %R', 'MFI', 'ROC', 'External', 'ATR Multiple', 'ADX', 'Fisher Transform', 'Historical Volatility'], group = gn3)
+
+
+rsiLength = input.int(14, 'RSI Length', group = "RSI")  
+
+// Stochastic Settings
+stochLength = input.int(14, 'Stochastic Length', group = "Stochastic")
+stochSmoothK = input.int(3, 'Stochastic Smooth K', group = "Stochastic")
+stochSmoothD = input.int(3, 'Stochastic Smooth D', group = "Stochastic")
+
+// Chaikin Settings
+chaikinFastLength = input.int(3, 'Chaikin Fast Length', group = "Chaikin")
+chaikinSlowLength = input.int(10, 'Chaikin Slow Length', group = "Chaikin")
+
+// Volume Oscillator Settings
+voFastLength = input.int(14, 'Volume Oscillator Fast Length', group = "Volume Oscillator")
+voSlowLength = input.int(28, 'Volume Oscillator Slow Length', group = "Volume Oscillator")
+
+// CCI Settings
+cciLength = input.int(20, 'CCI Length', group = "CCI")
+
+// Williams %R Settings
+williamsLength = input.int(14, 'Williams %R Length', group = "Williams %R")
+
+// Momentum Settings
+momLength = input.int(10, 'Momentum Length', group = "Momentum")
+
+// MFI Settings
+mfiLength = input.int(14, 'MFI Length', group = "MFI")
+
+// ROC Settings
+rocLength = input.int(10, 'ROC Length', group = "ROC")
+
+// ADX/DMI Settings
+len = input.int(17, minval=1, title="DI Length", group = "ADX")
+lensig = input.int(14, title="ADX Smoothing", minval=1, group = "ADX")
+
+// Historical Volatility Settings
+hvLength = input.int(10, 'HV Length', minval=1, group = "Historical Volatility")
+
+// Add to your inputs section under the "Oscillator Settings" group
+atrLength = input.int(14, "ATR Length", minval = 1, group = "ATR Multiple")
+atrMultiple = input.float(2.0, "ATR Multiple", minval = 0.1, step = 0.1, group = "ATR Multiple")
+
+// Fisher Transform Settings
+fisherLength = input.int(9, 'Fisher Length', group = "Fisher Transform")
+
+// External
+_ext = input.source(close, 'External Source', group = "External")
+ext = nz(_ext)
+
+// Appearance Settings
+//showChg = input.bool(true, 'Oscillator Change Lines', inline = 'bl', group = gn1)
+showAvg = input.bool(false, 'Average Oscillator Line', inline = 'bl', group = gn1)
+barSpace = input.int(4, 'Space (bars)', group = gn1, tooltip = 'Number of bars between each Oscillator label.')
+offset = input.int(0, 'Offset', group = gn1, tooltip = 'Shift all labels right or left for N (Offset) number of bars')
+useHm = input.bool(true, 'Gradient coloring', group = gn1)
+col0 = input.color(#e1c8a4, '     Oscillator: 50 - 0    ', inline = '050', group = gn1)
+col00 = input.color(#ec407a, '-', inline = '050', group = gn1)
+col1 = input.color(#e1c8a4, '     Oscillator: 50 - 100 ', inline = '010', group = gn1)
+col11 = input.color(#3179f5, '-', inline = '010', group = gn1)
+useBg = input.bool(true, 'Color zones', group = gn1)
+zone1pCol = input.color(color.rgb(120, 123, 134, 95), '     Zones > Mid', inline = 'z1', group = gn1)
+zone2pCol = input.color(color.rgb(91, 156, 246, 100), '', inline = 'z1', group = gn1)
+zone3pCol = input.color(color.rgb(91, 156, 246, 100), '', inline = 'z1', group = gn1)
+zone1nCol = input.color(color.rgb(120, 123, 134, 95), '     Zones < Mid', inline = 'z2', group = gn1)
+zone2nCol = input.color(color.rgb(198, 40, 93, 100), '', inline = 'z2', group = gn1)
+zone3nCol = input.color(color.rgb(198, 40, 93, 100), '', inline = 'z2', group = gn1)
+
+// Alerts
+
+useOverbought = input.bool(true, "Overbought Alert", group = "Alerts")
+overbought = input.int(70, "Overbought Level", minval = 50, maxval = 100, group = "Alerts")
+
+useOversold = input.bool(true, "Oversold Alert", group = "Alerts")
+oversold = input.int(30, "Oversold Level", minval = 0, maxval = 50, group = "Alerts")
+
+// Ticker group #1
+group1 = input.text_area(g1, 'Ticker group #1', group = gn2)
+group1p = input.string('BINANCE', '', inline = 'g1', group = gn2)
+group1s = input.string('USDT', '', inline = 'g1', group = gn2)
+
+// Ticker group #2
+group2 = input.text_area(g2, 'Ticker group #2', group = gn2)
+group2p = input.string('BINANCE', '', inline = 'g2', group = gn2)
+group2s = input.string('USDT', '', inline = 'g2', group = gn2)
+
+// Ticker group #3
+group3 = input.text_area(g3, 'Ticker group #3', group = gn2)
+group3p = input.string('BINANCE', '', inline = 'g3', group = gn2)
+group3s = input.string('USDT', '', inline = 'g3', group = gn2)
+
+// Ticker group #4
+group4 = input.text_area(g4, 'Ticker group #4', group = gn2)
+group4p = input.string('BINANCE', '', inline = 'g4', group = gn2)
+group4s = input.string('USDT', '', inline = 'g4', group = gn2)
+
+// Ticker group #5
+group5 = input.text_area(g5, 'Ticker group #5', group = gn2)
+group5p = input.string('BINANCE', '', inline = 'g5', group = gn2)
+group5s = input.string('USDT', '', inline = 'g5', group = gn2)
+
+// Ticker group #6
+group6 = input.text_area(g6, 'Ticker group #6', group = gn2)
+group6p = input.string('BINANCE', '', inline = 'g6', group = gn2)
+group6s = input.string('USDT', '', inline = 'g6', group = gn2)
+
+// Ticker group #7
+group7 = input.text_area(g7, 'Ticker group #7', group = gn2)
+group7p = input.string('BINANCE', '', inline = 'g7', group = gn2)
+group7s = input.string('USDT', '', inline = 'g7', group = gn2)
+
+
+// Arrays
+syms = array.new_float()
+var array<label> pLabels = array.new_label(40, na)
+var array<line> pLines = array.new_line(40, na)
+
+// Getting ticker info based on selected group
+
+var string selection = ''
+var string pref = ''
+var string suf = ''
+
+if barstate.isfirst
+    
+    selection := symGroup == '#1' ? group1 : symGroup == '#2' ? group2 : symGroup == '#3' ? group3 : symGroup == '#4' ? group4 : symGroup == '#5' ? group5 : symGroup == '#6' ? group6 : group7
+    _pref = symGroup == '#1' ? group1p : symGroup == '#2' ? group2p : symGroup == '#3' ? group3p : symGroup == '#4' ? group4p : symGroup == '#5' ? group5p : symGroup == '#6' ? group6p : group7p
+    pref := _pref + ':'
+
+    suf := symGroup == '#1' ? group1s : symGroup == '#2' ? group2s : symGroup == '#3' ? group3s : symGroup == '#4' ? group4s : symGroup == '#5' ? group5s : symGroup == '#6' ? group6s : group7s
+
+feedV2(_str) =>
+    str = str.trim(_str)
+    str2 = str.split(str, ',')
+    result = array.new_string()
+    if str.length(str) == 0
+        result := na
+    else
+        for i = 0 to array.size(str2) - 1
+            ticker = str.trim(array.get(str2, i))
+            array.push(result, ticker)
+    result
+
+// Function to calculate Awesome Oscillator
+f_ao(_src) =>
+    ta.sma(_src, 5) - ta.sma(_src, 34)
+
+// Add this function after f_ao()
+f_adl() =>
+    mfm = (close - low - (high - close)) / (high - low)
+    mfv = mfm * volume
+    float adl = na
+    adl := na(adl[1]) ? mfv : adl[1] + mfv
+
+// Function to calculate CCI
+f_cci(_high, _low, _close, _length) =>
+    typical = (_high + _low + _close) / 3
+    sma = ta.sma(typical, _length)
+    meanDev = ta.sma(math.abs(typical - sma), _length)
+    (typical - sma) / (0.015 * meanDev)
+
+// Function to calculate Williams %R
+f_williamsr(_high, _low, _close, _length) =>
+    highest = ta.highest(_high, _length)
+    lowest = ta.lowest(_low, _length)
+    r = ((highest - _close) / (highest - lowest)) * -100
+    r
+
+f_round(val) => val > .99 ? .999 : val < -.99 ? -.999 : val
+
+// Add Fisher Transform calculation function:
+f_fisher(_src, _length) =>
+    high_ = ta.highest(_src, _length)
+    low_ = ta.lowest(_src, _length)
+    
+    value = 0.0
+    value := f_round(.66 * ((_src - low_) / (high_ - low_) - .5) + .67 * nz(value[1]))
+    fish = 0.0
+    fish := .5 * math.log((1 + value) / (1 - value)) + .5 * nz(fish[1])
+    fish
+
+// Add Historical Volatility calculation function:
+f_hv(_close, _length) =>
+    annual = 365
+    per = timeframe.isintraday or timeframe.isdaily and timeframe.multiplier == 1 ? 1 : 7
+    100 * ta.stdev(math.log(_close / _close[1]), _length) * math.sqrt(annual / per)
+
+// Function to calculate oscillator value based on selected type
+f_getOscillator(_tidN) =>
+    float result = 0.0
+    tckr = pref + _tidN + suf
+    var float osc = 0.
+        
+    if oscillatorType == 'RSI'
+        osc := ta.rsi(close, rsiLength)
+
+    else if oscillatorType == 'Awesome Oscillator'
+        osc := f_ao(hl2)
+
+    else if oscillatorType == 'Chaikin Oscillator'
+        ema1 = ta.ema(f_adl(), chaikinFastLength)
+        ema2 = ta.ema(f_adl(), chaikinSlowLength)
+        osc := ema1 - ema2
+
+    else if oscillatorType == 'Stochastic RSI'
+        osc := ta.stoch(ta.rsi(close, rsiLength), ta.rsi(close, rsiLength), ta.rsi(close, rsiLength), stochLength)
+
+    else if oscillatorType == 'Stochastic'
+        osc := ta.stoch(close, high, low, stochLength)  
+
+    else if oscillatorType == 'Volume Oscillator'
+        osc := (ta.ema(volume, voFastLength) - ta.ema(volume, voSlowLength)) / ta.ema(volume, voSlowLength) * 100   
+
+    else if oscillatorType == 'CCI'
+        osc := f_cci(high, low, close, cciLength)
+
+    else if oscillatorType == 'Williams %R'
+        osc := f_williamsr(high, low, close, williamsLength)
+
+    else if oscillatorType == 'MFI'
+        osc := ta.mfi(hlc3, mfiLength)
+
+    else if oscillatorType == 'ROC'
+        osc := ta.roc(close, rocLength)
+
+    else if oscillatorType == 'ADX'
+        [diplus, diminus, adx] = ta.dmi(len, lensig)
+        osc := adx
+
+    else if oscillatorType == 'Historical Volatility'
+        osc := f_hv(close, hvLength)
+    
+    else if oscillatorType == 'Fisher Transform'
+        osc := f_fisher(hl2, fisherLength)
+    
+    else if oscillatorType == 'ATR Multiple'
+        atr = ta.atr(atrLength)
+        osc := atr * atrMultiple
+
+    else if oscillatorType == "External" // Custom oscillator
+        osc := ext
+    
+    _ret = request.security(tckr, rsiTf, osc, ignore_invalid_symbol = true, lookahead = barmerge.lookahead_off)
+    _ret
+
+// Function to push RSI values into arrays
+f_push(val) =>
+    if not na(val)
+        array.push(syms, val)
+
+// Function for gradient/heatmap coloring based on RSI value
+f_grad(x) =>
+    if oscillatorType == 'RSI' or oscillatorType == 'Stochastic RSI' or oscillatorType == 'Stochastic'
+        above = color.from_gradient(x, 50, 80, col1, col11)
+        below = color.from_gradient(x, 20, 50, col00, col0)
+        x > 50 ? above : below
+    else
+        above = color.from_gradient(x, 0, math.max(array.max(syms), 0.1), col1, col11)
+        below = color.from_gradient(x, math.min(array.min(syms), -0.1), 0, col00, col0)
+        x > 0 ? above : below
+
+// Function to create or update a label
+createOrUpdateLabel(arr, idx, x_val, y_val, txt) =>
+    if not na(y_val)
+        lbl = array.get(arr, idx)
+        lcol = useHm ? f_grad(y_val) : color.gray
+        ttp = txt + ' ' + oscillatorType + ': ' + str.tostring(math.round(y_val, 1))
+        if na(lbl)
+            lbl := label.new(x_val, y_val, text = txt + '\n' + '●', textcolor = lcol, style = label.style_none, size = size.normal, tooltip = ttp)
+            array.set(arr, idx, lbl)
+        else
+            label.set_xy(lbl, x_val, y_val)
+            label.set_textcolor(lbl, lcol)
+            label.set_tooltip(lbl, ttp)
+
+// Function to create or update a line
+createOrUpdateLine(arr, idx, x_val, y_val, y2_val) =>
+    if not na(y_val)
+        li = array.get(arr, idx)
+        if na(li)
+            li := line.new(x_val, y_val, x_val, y2_val, color = color.gray, style = line.style_dotted)
+            array.set(arr, idx, li)
+        else
+            line.set_xy1(li, x_val, y_val)
+            line.set_xy2(li, x_val, y2_val)
+
+// Extract tickers sequentially from the input list using feed() function
+
+// Extract tickers using feedV2 function
+var tickers = array.new_string()
+if barstate.isfirst
+    tickers := feedV2(selection)
+
+// Get individual tickers (up to 40)
+tid1 = array.size(tickers) > 0 ? array.get(tickers, 0) : na
+tid2 = array.size(tickers) > 1 ? array.get(tickers, 1) : na
+tid3 = array.size(tickers) > 2 ? array.get(tickers, 2) : na
+tid4 = array.size(tickers) > 3 ? array.get(tickers, 3) : na
+tid5 = array.size(tickers) > 4 ? array.get(tickers, 4) : na
+tid6 = array.size(tickers) > 5 ? array.get(tickers, 5) : na
+tid7 = array.size(tickers) > 6 ? array.get(tickers, 6) : na
+tid8 = array.size(tickers) > 7 ? array.get(tickers, 7) : na
+tid9 = array.size(tickers) > 8 ? array.get(tickers, 8) : na
+tid10 = array.size(tickers) > 9 ? array.get(tickers, 9) : na
+tid11 = array.size(tickers) > 10 ? array.get(tickers, 10) : na
+tid12 = array.size(tickers) > 11 ? array.get(tickers, 11) : na
+tid13 = array.size(tickers) > 12 ? array.get(tickers, 12) : na
+tid14 = array.size(tickers) > 13 ? array.get(tickers, 13) : na
+tid15 = array.size(tickers) > 14 ? array.get(tickers, 14) : na
+tid16 = array.size(tickers) > 15 ? array.get(tickers, 15) : na
+tid17 = array.size(tickers) > 16 ? array.get(tickers, 16) : na
+tid18 = array.size(tickers) > 17 ? array.get(tickers, 17) : na
+tid19 = array.size(tickers) > 18 ? array.get(tickers, 18) : na
+tid20 = array.size(tickers) > 19 ? array.get(tickers, 19) : na
+tid21 = array.size(tickers) > 20 ? array.get(tickers, 20) : na
+tid22 = array.size(tickers) > 21 ? array.get(tickers, 21) : na
+tid23 = array.size(tickers) > 22 ? array.get(tickers, 22) : na
+tid24 = array.size(tickers) > 23 ? array.get(tickers, 23) : na
+tid25 = array.size(tickers) > 24 ? array.get(tickers, 24) : na
+tid26 = array.size(tickers) > 25 ? array.get(tickers, 25) : na
+tid27 = array.size(tickers) > 26 ? array.get(tickers, 26) : na
+tid28 = array.size(tickers) > 27 ? array.get(tickers, 27) : na
+tid29 = array.size(tickers) > 28 ? array.get(tickers, 28) : na
+tid30 = array.size(tickers) > 29 ? array.get(tickers, 29) : na
+tid31 = array.size(tickers) > 30 ? array.get(tickers, 30) : na
+tid32 = array.size(tickers) > 31 ? array.get(tickers, 31) : na
+tid33 = array.size(tickers) > 32 ? array.get(tickers, 32) : na
+tid34 = array.size(tickers) > 33 ? array.get(tickers, 33) : na
+tid35 = array.size(tickers) > 34 ? array.get(tickers, 34) : na
+tid36 = array.size(tickers) > 35 ? array.get(tickers, 35) : na
+tid37 = array.size(tickers) > 36 ? array.get(tickers, 36) : na
+tid38 = array.size(tickers) > 37 ? array.get(tickers, 37) : na
+tid39 = array.size(tickers) > 38 ? array.get(tickers, 38) : na
+tid40 = array.size(tickers) > 39 ? array.get(tickers, 39) : na
+
+// Calculate Oscillator for each ticker
+sym1 = f_getOscillator(tid1)
+sym2 = f_getOscillator(tid2)
+sym3 = f_getOscillator(tid3)
+sym4 = f_getOscillator(tid4)
+sym5 = f_getOscillator(tid5)
+sym6 = f_getOscillator(tid6)
+sym7 = f_getOscillator(tid7)
+sym8 = f_getOscillator(tid8)
+sym9 = f_getOscillator(tid9)
+sym10 = f_getOscillator(tid10)
+sym11 = f_getOscillator(tid11)
+sym12 = f_getOscillator(tid12)
+sym13 = f_getOscillator(tid13)
+sym14 = f_getOscillator(tid14)
+sym15 = f_getOscillator(tid15)
+sym16 = f_getOscillator(tid16)
+sym17 = f_getOscillator(tid17)
+sym18 = f_getOscillator(tid18)
+sym19 = f_getOscillator(tid19)
+sym20 = f_getOscillator(tid20)
+sym21 = f_getOscillator(tid21)
+sym22 = f_getOscillator(tid22)
+sym23 = f_getOscillator(tid23)
+sym24 = f_getOscillator(tid24)
+sym25 = f_getOscillator(tid25)
+sym26 = f_getOscillator(tid26)
+sym27 = f_getOscillator(tid27)
+sym28 = f_getOscillator(tid28)
+sym29 = f_getOscillator(tid29)
+sym30 = f_getOscillator(tid30)
+sym31 = f_getOscillator(tid31)
+sym32 = f_getOscillator(tid32)
+sym33 = f_getOscillator(tid33)
+sym34 = f_getOscillator(tid34)
+sym35 = f_getOscillator(tid35)
+sym36 = f_getOscillator(tid36)
+sym37 = f_getOscillator(tid37)
+sym38 = f_getOscillator(tid38)
+sym39 = f_getOscillator(tid39)
+sym40 = f_getOscillator(tid40)
+
+// Push RSI values into arrays, so they can be used in a loop when generating labels
+f_push(sym1)
+f_push(sym2)
+f_push(sym3)
+f_push(sym4)
+f_push(sym5)
+f_push(sym6)
+f_push(sym7)
+f_push(sym8)
+f_push(sym9)
+f_push(sym10)
+f_push(sym11)
+f_push(sym12)
+f_push(sym13)
+f_push(sym14)
+f_push(sym15)
+f_push(sym16)
+f_push(sym17)
+f_push(sym18)
+f_push(sym19)
+f_push(sym20)
+f_push(sym21)
+f_push(sym22)
+f_push(sym23)
+f_push(sym24)
+f_push(sym25)
+f_push(sym26)
+f_push(sym27)
+f_push(sym28)
+f_push(sym29)
+f_push(sym30)
+f_push(sym31)
+f_push(sym32)
+f_push(sym33)
+f_push(sym34)
+f_push(sym35)
+f_push(sym36)
+f_push(sym37)
+f_push(sym38)
+f_push(sym39)
+f_push(sym40)
+
+symnames = str.split(selection, ',')
+
+// Generate labels for all available symbols 
+if array.size(syms) > 0
+    // Loop through the symbols and create/update each label
+    for i = 0 to array.size(syms) - 1 by 1
+        x_val = bar_index[i * barSpace + offset + 4]
+        y_val = array.get(syms, i)
+        createOrUpdateLabel(pLabels, i, x_val, y_val, array.get(symnames, i))
+
+        // Alerts
+        if y_val > overbought and useOverbought
+            alert(symnames.get(i) + " overbought", alert.freq_once_per_bar_close)
+        if y_val < oversold and useOversold
+            alert(symnames.get(i) + " oversold", alert.freq_once_per_bar_close)
+
+    if showAvg
+        avg = array.avg(syms)
+        l = line.new(bar_index, avg, bar_index[array.size(syms) * barSpace + offset + 4], avg, color = f_grad(avg), style = line.style_dashed)
+        la = label.new(bar_index, avg, '◂ AVG ' + oscillatorType + ' (' + str.tostring(math.round(avg, 1)) + ')', style = label.style_label_left, textcolor = f_grad(avg), color = color.rgb(255, 255, 255, 100))
+        line.delete(l[1])
+        label.delete(la[1])
+
+
+
+isRsiType = oscillatorType == 'RSI' or oscillatorType == 'Stochastic RSI' or oscillatorType == 'Stochastic'
+maxVal = math.max(array.max(syms), 0.1)
+minVal = math.min(array.min(syms), -0.1)
+
+// After the arrays declaration, add these lines:
+var line p100 = line.new(na, na, na, na, color = color.new(color.gray, 80), extend = extend.both)
+var line p70 = line.new(na, na, na, na, color = color.new(color.gray, 80), extend = extend.both)
+var line p60 = line.new(na, na, na, na, color = color.new(color.gray, 80), extend = extend.both)
+var line p50 = line.new(na, na, na, na, color = color.new(color.gray, 80), extend = extend.both)
+var line p40 = line.new(na, na, na, na, color = color.new(color.gray, 80), extend = extend.both)
+var line p30 = line.new(na, na, na, na, color = color.new(color.gray, 80), extend = extend.both)
+var line p0 = line.new(na, na, na, na, color = color.new(color.gray, 80), extend = extend.both)
+
+var linefill f1 = na
+var linefill f2 = na
+var linefill f3 = na
+var linefill f4 = na
+var linefill f5 = na
+var linefill f6 = na
+
+// Replace the levels generation code with:
+if barstate.isfirst
+    isRsiType = oscillatorType == 'RSI' or oscillatorType == 'Stochastic RSI' or oscillatorType == 'Stochastic'
+
+    isCci = oscillatorType == 'CCI'
+    isWilliams = oscillatorType == 'Williams %R'
+    isMomentum = oscillatorType == 'Momentum'
+
+    float p100_val = na
+    float p70_val = na
+    float p60_val = na
+    float p50_val = na
+    float p40_val = na
+    float p30_val = na
+    float p0_val = na
+
+    // Dynamic scale calculation based on oscillator type
+    switch oscillatorType
+        'CCI' =>
+            p100_val := 200
+            p70_val := 100
+            p60_val := 50
+            p50_val := 0
+            p40_val := -50
+            p30_val := -100
+            p0_val := -200
+
+        'Williams %R' =>
+            p100_val := 0
+            p70_val := -20
+            p60_val := -40
+            p50_val := -50
+            p40_val := -60
+            p30_val := -80
+            p0_val := -100
+
+        'Awesome Oscillator' =>
+            maxVal = array.max(syms)
+            minVal = array.min(syms)
+            p100_val := maxVal
+            p70_val := maxVal * 0.5
+            p60_val := maxVal * 0.25
+            p50_val := 0
+            p40_val := minVal * 0.25
+            p30_val := minVal * 0.5
+            p0_val := minVal
+
+        'MFI' =>
+            p100_val := 100
+            p70_val := 80
+            p60_val := 60
+            p50_val := 50
+            p40_val := 40
+            p30_val := 20
+            p0_val := 0
+
+        'ROC' =>
+            maxVal = array.max(syms)
+            minVal = array.min(syms)
+            p100_val := maxVal
+            p70_val := maxVal * 0.5
+            p60_val := maxVal * 0.25
+            p50_val := 0
+            p40_val := minVal * 0.25
+            p30_val := minVal * 0.5
+            p0_val := minVal
+
+        'Fisher Transform' =>
+            maxVal = array.max(syms)
+            minVal = array.min(syms)
+            p100_val := maxVal
+            p70_val := maxVal * 0.75
+            p60_val := maxVal * 0.25
+            p50_val := 0
+            p40_val := minVal * 0.25
+            p30_val := minVal * 0.75
+            p0_val := minVal
+
+        'Historical Volatility' =>
+            maxVal = array.max(syms)
+            minVal = array.min(syms)
+            p100_val := maxVal
+            p70_val := maxVal * 0.75
+            p60_val := maxVal * 0.25
+            p50_val := 0
+            p40_val := minVal * 0.25
+            p30_val := minVal * 0.75
+            p0_val := minVal
+
+        => // default case
+            maxVal = isRsiType ? 100 : math.max(array.max(syms), 0.1)
+            minVal = isRsiType ? 0 : math.min(array.min(syms), -0.1)
+            p100_val := isRsiType ? 100 : maxVal
+            p70_val := isRsiType ? 85 : maxVal * 0.75
+            p60_val := isRsiType ? 70 : maxVal * 0.25
+            p50_val := isRsiType ? 50 : 0
+            p40_val := isRsiType ? 30 : minVal * 0.25
+            p30_val := isRsiType ? 15 : minVal * 0.75
+            p0_val := isRsiType ? 0 : minVal
+
+    line.set_xy1(p100, bar_index, p100_val)
+    line.set_xy1(p70, bar_index, p70_val)
+    line.set_xy1(p60, bar_index, p60_val)
+    line.set_xy1(p50, bar_index, p50_val)
+    line.set_xy1(p40, bar_index, p40_val)
+    line.set_xy1(p30, bar_index, p30_val)
+    line.set_xy1(p0, bar_index, p0_val)
+
+    line.set_xy2(p100, bar_index + 1, p100_val)
+    line.set_xy2(p70, bar_index + 1, p70_val)
+    line.set_xy2(p60, bar_index + 1, p60_val)
+    line.set_xy2(p50, bar_index + 1, p50_val)
+    line.set_xy2(p40, bar_index + 1, p40_val)
+    line.set_xy2(p30, bar_index + 1, p30_val)
+    line.set_xy2(p0, bar_index + 1, p0_val)
+
+    if useBg
+        linefill.new(p50, p60, color = zone1pCol)
+        linefill.new(p60, p70, color = zone2pCol)
+        linefill.new(p70, p100, color = zone3pCol)
+        linefill.new(p50, p40, color = zone1nCol)
+        linefill.new(p40, p30, color = zone2nCol)
+        linefill.new(p30, p0, color = zone3nCol)
+
+// Generate a title table
+titleTable = table.new(position.top_center, 2, 2)
+
+if barstate.islast
+    tfs = (rsiTf == '' ? timeframe.period : str.tostring(rsiTf)) + (timeframe.isminutes ? 'm' : na)
+    table.cell(titleTable, 0, 0, '• ' + oscillatorType + ' Screener' + ' •', text_size = size.normal, text_color = color.gray, text_font_family = font.family_monospace)
+    table.cell(titleTable, 0, 1, ' • ' +str.tostring(tfs) + ' • ', text_size = size.small, text_color = color.gray, text_font_family = font.family_monospace)

@@ -1,0 +1,121 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © goofoffgoose
+
+//@version=5
+indicator("Days in range", shorttitle = "DaysInRange", overlay = true)
+
+tf = input.timeframe("", "Timeframe", tooltip="Timeframe ")
+t = timestamp("01 Jan 2025 00:00")
+var float curr_price = request.security(syminfo.tickerid, tf,  close)
+
+
+i_startTime = input.time(defval = timestamp('1 Jul 2007 00:00 +0000'),  title = 'Start Time', group = "Price and Date Range") 
+i_endTime   = input.time(defval = timestamp('30 Sep 2023 00:00 +0000'), title = 'End Time',   group = "Price and Date Range")
+
+high_range_input = input.price(defval = math.round(20, 0), title = "High Range •",  group = "Price and Date Range", inline = "range input")
+low_range_input  = input.price(defval = math.round(10, 0), title = "Low Range •  ", tooltip = "Interactive Price and Date ranges user can manually set within view and drag and drop anywhere on the chart to calculate what is within the range. Chart drawings must be unlocked to use this feature. ", 
+ group = "Price and Date Range", inline = "range input")
+
+show_range_lines = input.bool(true, "Show High/Low and Start/End Range Lines",  group = "Chart Display", inline = "range lines")
+
+high_plot_color  =  input.color(color.rgb(28, 222, 236, 20), title = "High Range Color  :",   group = "Chart Display", inline = "price range line color")
+low_plot_color   =  input.color(color.rgb(77, 14,  136, 20), title = "Low Range Color    :",  group = "Chart Display", inline = "price range line color")
+start_plot_color =  input.color(color.rgb(43, 130, 170, 20), title = "Start Range Color  :",  group = "Chart Display", inline = "date range line color")
+end_plot_color   =  input.color(color.rgb(78, 44,  141, 20), title = "End Range Color    :",  group = "Chart Display", inline = "date range line color")
+candle_in_color  =  input.color(color.rgb(28, 222, 236,  0), title = "Candle In Color      :",group = "Chart Display", inline = "box colors")
+candle_out_color =  input.color(color.rgb(77, 14,  136,  0), title = "Candle Out Color  : ",  group = "Chart Display", inline = "box colors")
+
+table_loc_option = input.string("Bottom Center", "▪  Table Location", options = ["Bottom Right", "Bottom Left", "Bottom Center", "Top Right", "Top Center", "Middle Right"], 
+ group="Table", inline= "Table Options")
+table_loc = (table_loc_option == "Bottom Right") ? position.bottom_right :
+     (table_loc_option == "Bottom Left") ? position.bottom_left :
+     (table_loc_option == "Bottom Center") ? position.bottom_center :
+     (table_loc_option == "Top Right") ? position.top_right :
+     (table_loc_option == "Top Center") ? position.top_center :
+     (table_loc_option == "Middle Right") ? position.middle_right :
+         position.bottom_right
+sizeOption = input.string(defval = "Auto", title = "󠀠▪  Table Size", options = ["Auto","Huge","Large","Normal","Small","Tiny"], group = "Table", inline = "Table Options")
+textSize = (sizeOption == "Huge") ? size.huge :
+     (sizeOption == "Large") ? size.large :
+     (sizeOption == "Small") ? size.small :
+     (sizeOption == "Tiny") ? size.tiny :
+     (sizeOption == "Auto") ? size.auto :
+         size.normal
+percent_decimal = input.int(0, title = "Percent Decimals", minval = 0, group = "Table", inline = "Table Options")
+
+
+////Range conditions ///
+inDateRange = time >= i_startTime and time <= i_endTime
+
+in_price_range      = close < high_range_input and close > low_range_input
+outside_price_range = close > high_range_input or close < low_range_input
+
+in_range_cond  = in_price_range and inDateRange
+out_range_cond = outside_price_range and inDateRange
+
+plot_price_lines = show_range_lines and inDateRange
+
+///Plots///
+range_line1 = plot(plot_price_lines ? low_range_input  : na, "Low Range",  color = low_plot_color , editable = false, linewidth = 3, display=display.all-display.status_line)
+range_line2 = plot(plot_price_lines ? high_range_input : na, "High Range", color = high_plot_color, editable = false, linewidth = 3, display=display.all-display.status_line)
+if show_range_lines
+    i_startTime_line = line.new(i_startTime, high_range_input, i_startTime, low_range_input, xloc.bar_time, extend = extend.both , width = 3) 
+    start_l = label.new(i_startTime, high_range_input-10, "Start Range", xloc = xloc.bar_time, color = start_plot_color, textcolor = color.white ,style = label.style_diamond, size = size.small)
+    label.delete(start_l[1])
+    line.set_color(i_startTime_line, color=start_plot_color)
+
+    i_endTime_line = line.new(i_endTime, high_range_input, i_endTime, low_range_input, xloc.bar_time, extend = extend.both, width = 3)
+    line.set_color(i_endTime_line, color = end_plot_color)
+    end_l = label.new(i_endTime, high_range_input-10, "End Range", xloc = xloc.bar_time, color = end_plot_color, textcolor = color.white , style = label.style_diamond, size = size.small)
+    label.delete(end_l[1])
+
+
+// Table Calculations
+var barsOutsideRange = 0
+var barsInsideRange  = 0
+
+if out_range_cond
+    barsOutsideRange := barsOutsideRange + 1
+else
+    barsOutsideRange := barsOutsideRange + 0
+
+if in_range_cond
+    barsInsideRange := barsInsideRange + 1
+else
+    barsInsideRange := barsInsideRange + 0
+
+Truncate(number, decimals) =>
+    factor = math.pow(10, decimals)
+    int(number * factor) / factor
+
+var total_bars = 0
+var percentOutside = Truncate(((barsOutsideRange/total_bars)*100),percent_decimal)
+
+if inDateRange
+    total_bars := barsInsideRange + barsOutsideRange
+    percentOutside := Truncate(((barsOutsideRange/total_bars)*100),percent_decimal)
+
+
+// Candles and table
+
+var range_candle_color = color.gray
+
+if in_price_range
+    range_candle_color := candle_in_color
+else 
+    range_candle_color := candle_out_color
+
+
+barcolor(range_candle_color, editable = false)
+
+
+
+daysTable = table.new(table_loc,4,4,color.rgb(178, 181, 190, 45),frame_color = color.gray, border_color = color.silver)
+table.cell(daysTable,0,0, "Bars Outside Range   -",         text_color = color.white, text_halign = text.align_right, text_size = textSize, bgcolor = color.rgb(155, 39, 176, 45))
+table.cell(daysTable,1,0, str.tostring(barsOutsideRange),   text_color = color.white, text_halign = text.align_right, text_size = textSize, bgcolor = color.rgb(155, 39, 176, 45))
+table.cell(daysTable,0,1, "Bars Inside Range   -",          text_color = color.white, text_halign = text.align_right, text_size = textSize, bgcolor = color.rgb(0, 187, 212, 36))
+table.cell(daysTable,1,1, str.tostring(barsInsideRange),    text_color = color.white, text_halign = text.align_right, text_size = textSize, bgcolor = color.rgb(0, 187, 212, 36))
+table.cell(daysTable,0,2, "Total Bars   -",                 text_color = color.white, text_halign = text.align_right, text_size = textSize, bgcolor = color.rgb(120, 124, 131, 36))
+table.cell(daysTable,1,2, str.tostring(total_bars),         text_color = color.white, text_halign = text.align_right, text_size = textSize, bgcolor = color.rgb(120, 124, 131, 36))
+table.cell(daysTable,0,3, "% Outside Range   -",            text_color = color.white, text_halign = text.align_right, text_size = textSize, bgcolor = color.rgb(72, 74, 78, 36))
+table.cell(daysTable,1,3, str.tostring(percentOutside)+"%", text_color = color.white, text_halign = text.align_right, text_size = textSize, bgcolor = color.rgb(72, 74, 78, 36))

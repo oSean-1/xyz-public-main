@@ -1,0 +1,662 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © KioseffTrading
+
+//@version=5
+indicator("Gaps [Kioseff Trading]",  overlay = true, 
+                                     max_labels_count = 500 ,
+                                     max_boxes_count  = 500 ,
+                                     max_lines_count  = 500 , 
+                                     max_bars_back    = 500
+                                     )
+
+//  ________________________________________________
+// |                                               |  
+// |       ---------------------------------       | 
+// |      | K̲ i̲ o̲ s̲ e̲ f̲ f̲     T̲ r̲ a̲ d̲ i̲ n̲ g |      | 
+// |      |                                 |      |  
+// |      | ƃ u ᴉ p ɐ ɹ ꓕ     ⅎ ⅎ ǝ s o ᴉ ꓘ |      |  
+// |       --------------------------------        |  
+// |                                               | 
+// |_______________________________________________|
+
+// _______________________________________________________
+//
+// Inputs
+// _______________________________________________________  
+
+
+perG                    = input.float (defval = 0,           title = "Percentage Gap Size"                                               , 
+                                                             group = "Important Settings", step = 0.1, minval = 0                        , 
+                                                             tooltip = "How large, percentage wise, must a gap be to get marked?"                                     ) /100
+old                     = input.float (defval = 5,           title = "Hide Gaps When Price Deviates by Percentage"                       , 
+                                                             group = "Important Settings", minval = -1                                   , 
+                                                             tooltip = "Configuring This Setting to “-1” Will Keep All Gaps on the Chart. 
+                                                             Configuring This Setting at or Above “0” Will Hide Gap Boxes if Price Moves the Percentage 
+                                                             Amount Away From the Box. The “Percentage Amount” Is the Number in Defined for This Setting.") / 100
+
+dont                    = input.bool  (defval = false       , title = "No Partially Filled Gaps"                       , group = "Secondary Settings"                     )
+lab                     = input.bool  (defval = false       , title = "Put Data in Label"                              , group = "Secondary Settings"                     )
+del                     = input.bool  (defval = false       , title = "Delete Filled Gaps"                             , group = "Secondary Settings"                     )
+vis                     = input.bool  (defval = false       , title = "Gaps Chart"                                     , group = "Secondary Settings"                     )
+rec                     = input.int   (defval = 5           , title = "Recent Unfilled Gaps to Show (Table)"           , group = "Secondary Settings", minval = 0         )
+font                    = input.bool  (defval = true        , title = "Monospace Font", group = "Aesthetics"                                                              )
+size                    = input.string(defval = "Auto"      , group = "Aesthetics",  title = "On Chart",  options = ["Auto", "Tiny", "Small", "Normal", "Large", "Huge"]  )
+ssize                   = input.string(defval = "Normal"    , group = "Aesthetics",  title = "Table Size", options = ["Auto", "Tiny", "Small", "Normal", "Large", "Huge"] )
+ori                     = input.string(defval = "Top Right" , group = "Aesthetics",  title = "Table Orientation", 
+
+                                         options =   [
+                                                     "Top Left", "Top Center", "Top Right", 
+                                                     "Middle Left", "Middle Center", "Middle Right", 
+                                                     "Bottom Left", "Bottom Center", "Bottom Right"
+                                                     ])
+
+guc                     = input.color (defval = color.lime,  group = "Aesthetics",  title = "Gap Up Color"  , inline = "0")
+gdc                     = input.color (defval = color.red ,  group = "Aesthetics",  title = "Gap Down Color", inline = "0")
+gft                     = input.bool  (defval = true, group = "Aesthetics", title = "Show Unfilled Gaps Table"              )
+gfs                     = input.bool  (defval = true, group = "Aesthetics", title = "Show Gaps Statistics Table"            )
+
+// _______________________________________________________
+//
+// Prerequisite Calculations
+// _______________________________________________________  
+
+
+var int [] tim = array.new_int(2), var int timFin = 0
+
+if barstate.isfirst
+    
+    tim.set(0, 
+         math.round(timestamp(year, month, dayofmonth, hour, minute, second)))
+
+if bar_index == 1
+    
+    tim.set(1, 
+         math.round(timestamp(year, month, dayofmonth, hour, minute, second)))
+    
+    timFin := tim.get(1) - tim.get(0)
+
+// _______________________________________________________
+// 
+// Gaps
+// _______________________________________________________  
+
+
+
+type statsDraw
+    float  gCount
+    box    boxGpU
+    box    boxGpD
+    label  labGpD
+    label  labGpU
+    float  price
+    int    boxCount
+    float  save  
+    box    gBox
+    color  gCol
+    float  gFloat
+    string dNp
+
+bool gDn                               = high < low[1] and math.abs(low[1] / high - 1) > perG
+bool gUp                               = low > high[1] and math.abs(low / high[1] - 1) > perG
+
+var upMat = matrix.new<statsDraw>(6, 0), var          dnMat   = matrix.new<statsDraw>(6, 0)
+var gMat  = matrix.new<statsDraw>(5, 0), var int   [] avgU    = array.new_int(),   var int    []  avgD  = array.new_int(),
+                                         var float [] finAvgU = array.new_float(), var float [] finAvgD = array.new_float()
+
+sz = switch size
+
+    "Auto"   => size.auto
+    "Tiny"   => size.tiny
+    "Small"  => size.small
+    "Normal" => size.normal
+    "Large"  => size.large
+    "Huge"   => size.huge
+
+
+if session.ismarket
+   
+
+    if gUp
+
+        upMat.add_col(upMat.columns()), gMat.add_col(0)
+
+        for i = 0 to 3
+
+            dataG = switch i != -1
+
+                true and i == 0 => statsDraw.new(gFloat = gMat.columns() == 1 ? low : gMat.get(0, 1).gFloat + low - high[1])
+                true and i == 1 => statsDraw.new(gFloat = (low / high[1] - 1) * 100)
+                true and i == 2 => statsDraw.new(gCol = color.new(guc, 50))
+                =>  statsDraw.new(dNp = 
+                                     str.tostring(low - high[1], format.mintick) + "\n" + 
+                                     str.tostring(year, "###") + "/" + 
+                                     str.tostring(month, "###") + "/" + 
+                                     str.tostring(dayofmonth, "###"))
+
+
+
+            gMat.set(i, 0, dataG)
+    
+        for i = 0 to 5
+
+            dataU = switch i != -1
+
+                true and i == 0 => statsDraw.new(
+                                         boxGpU = box.new(
+                                                 math.round(time),low, math.round(time) + timFin,high[1], 
+                                                     text         = str.tostring((close / low - 1) * 100, format.percent) + " To Fill", 
+                                                     xloc         = xloc.bar_time, 
+                                                     bgcolor      = color.new(guc, 50),
+                                                     border_color = guc, 
+                                                     text_color   = color.white, 
+                                                     text_halign  = text.align_right, 
+                                                     text_size    = sz
+                                                     ))
+
+                true and i == 1 => statsDraw.new(
+                                         boxGpU = box.new(
+                                                 na, na, na, na, xloc = xloc.bar_time, text_size = sz, text_color = color.white
+                                                 ))
+
+                true and i == 2 => statsDraw.new(
+                                         labGpU = label.new(
+                                                 na, na, xloc = xloc.bar_time, 
+                                                     color     = color.new(guc, 50), 
+                                                     textcolor = #ffffff, 
+                                                     style     = label.style_label_left, 
+                                                     size      = size == "Auto" ? size.small : sz
+                                                     ))
+
+                true and i == 3 => statsDraw.new(boxCount = 0)
+                true and i == 4 => statsDraw.new(price = 1e+13)
+                true and i == 5 => statsDraw.new(save = upMat.get(0, upMat.columns() - 1).boxGpU.get_top())
+
+            upMat.set(i, upMat.columns() - 1, dataU)
+
+        avgU.push(bar_index)
+
+    if gDn
+
+        gMat.add_col(0), dnMat.add_col(dnMat.columns())
+
+        for i = 0 to 3
+
+            dataG = switch i != -1
+
+                true and i == 0 => statsDraw.new(gFloat = gMat.columns() == 1 ? high : gMat.get(0, 1).gFloat + high - low[1])
+                true and i == 1 => statsDraw.new(gFloat = (high / low[1] - 1) * 100)
+                true and i == 2 => statsDraw.new(gCol   = color.new(gdc, 50))
+                => statsDraw.new(dNp = 
+                                     str.tostring(high - low[1], format.mintick) + "\n" + 
+                                     str.tostring(year, "###")  + "/" + 
+                                     str.tostring(month, "###") + "/" + 
+                                     str.tostring(dayofmonth, "###"))
+
+            gMat.set(i, 0, dataG)
+
+
+        for i = 0 to 5
+
+            dataD = switch i != -1
+
+                true and i == 0 => statsDraw.new(
+                                         boxGpD = box.new(
+                                             math.round(time), low[1], math.round(time) + timFin, high, xloc = xloc.bar_time, 
+                                                         text         = str.tostring((close / high - 1) * 100, format.percent) + " To Fill", 
+                                                         bgcolor      = color.new(gdc, 50), 
+                                                         border_color = gdc,
+                                                         text_color   = color.white, 
+                                                         text_halign  = text.align_right, 
+                                                         text_size    = sz
+                                                         ))
+
+                true and i == 1 => statsDraw.new(
+                                         boxGpD = box.new(
+                                             na, na, na, na, xloc = xloc.bar_time, text_size = sz, text_color = color.white
+                                             ))
+
+                true and i == 2 => statsDraw.new(
+                                         labGpD = label.new(
+                                             na, na, xloc = xloc.bar_time, color = color.new(gdc, 50), 
+                                                                 textcolor = #ffffff, 
+                                                                 style     = label.style_label_left, 
+                                                                 size      = size == "Auto" ? 
+                                                                 size.small : sz
+                                                                 ))
+
+                true and i == 3 => statsDraw.new(boxCount = 0)
+                true and i == 4 => statsDraw.new(price    = 0)
+                true and i == 5 => statsDraw.new(save     = dnMat.get(0, dnMat.columns() - 1).boxGpD.get_bottom())
+
+            dnMat.set(i, dnMat.columns() - 1, dataD)
+
+        avgD.push(bar_index)
+
+
+    if upMat.columns() > 0
+        for n = 0 to upMat.columns() - 1
+            if low < upMat.get(0, n).boxGpU.get_bottom() 
+
+                if upMat.get(3, n).boxCount != 1 and upMat.get(3, n).boxCount != 3
+
+                    upMat.get(0, n).boxGpU.set_text(gDn ? "New Gap" : "Filled")
+                    upMat.get(0, n).boxGpU.set_bgcolor(color.new(guc,      90))
+                    upMat.get(0, n).boxGpU.set_border_color(color.new(guc, 90))
+
+                    finAvgU.push(bar_index - array.get(avgU, n))
+
+                    if not na(upMat.get(1, n).boxGpU.get_bottom())
+                        upMat.get(1, n).boxGpU.set_bgcolor(na), upMat.get(1, n).boxGpU.set_border_color(na)
+                        upMat.get(0, n).boxGpU.set_top(upMat.get(1, n).boxGpU.get_top())
+
+                    switch del
+
+                        false => upMat.set(3, n,  statsDraw.new(boxCount = 1))
+                        =>       upMat.set(3, n,  statsDraw.new(boxCount = 3))
+
+                    if lab 
+                        upMat.get(2, n).labGpU.set_color(na), upMat.get(2, n).labGpU.set_textcolor(na)
+                    if dont 
+                        upMat.get(0, n).boxGpU.set_top(upMat.get(5, n).save)
+
+            else if low < upMat.get(0, n).boxGpU.get_top() and low > upMat.get(0, n).boxGpU.get_bottom() and (upMat.get(3, n).boxCount == 0 or upMat.get(3, n).boxCount == 2)
+
+                if upMat.get (3, n) .boxCount == 0
+                    upMat.set(3, n, statsDraw.new(boxCount = 2))
+
+                    if dont == false
+
+                        upMat.get(1, n).boxGpU.set_rightbottom(upMat.get(0, n).boxGpU.get_right(), upMat.get(0, n).boxGpU.get_bottom())
+                        upMat.get(1, n).boxGpU.set_bgcolor(color.new(guc, 90))
+                        upMat.get(1, n).boxGpU.set_border_color(guc), upMat.get(0, n).boxGpU.set_border_color(na)
+                        upMat.get(1, n).boxGpU.set_lefttop(upMat.get(0, n).boxGpU.get_left(), upMat.get(0, n).boxGpU.get_top())
+
+                upMat.get(0, n).boxGpU.set_top(low)
+
+            if upMat.get(3, n).boxCount != 1 and upMat.get(3, n).boxCount != 3
+
+                upMat.set(4, n, statsDraw.new(price = math.min(low, upMat.get(4, n).price)))
+                upMat.get(0, n).boxGpU.set_right( math.round(time + timFin))
+
+                txt = switch upMat.get(3, n).boxCount == 0 
+
+                    true => str.tostring((upMat.get(0, n).boxGpU.get_bottom()   / close  - 1) * 100, format.percent) + " Decrease To Fill"
+                    =>      dont == false ? str.tostring((upMat.get(0, n).boxGpU.get_bottom() / close  - 1) * 100, format.percent) + " To Fill \n(Partially Filled " + 
+                         str.tostring     (((   upMat.get(4, n).price
+                         -  upMat.get(1, n).boxGpU.get_top   ()) * 100) 
+                         / (upMat.get(1, n).boxGpU.get_bottom()
+                         -  upMat.get(1, n).boxGpU.get_top   ()), 
+                         format.percent) + ")"         
+                         : str.tostring((upMat.get(0, n).boxGpU.get_bottom()   / close  - 1) * 100, format.percent) + " Decrease To Fill"  
+
+                [row, row1] = if dont == true and upMat.get(3, n).boxCount != 0  
+                    [1, 0]
+                else 
+                    [0, 1]
+
+                if lab == false 
+                    switch upMat.get(3, n).boxCount == 0 
+                        true =>  upMat.get(0, n).boxGpU.set_text(txt)
+                        =>       upMat.get(row, n).boxGpU.set_text(""), upMat.get(row1, n).boxGpU.set_text(txt)
+
+                else 
+
+                    upMat.get(0, n).boxGpU.set_text(""), upMat.get(2, n).labGpU.set_text(txt)
+                    upMat.get(2, n).labGpU.set_xy(math.round(time) + timFin, math.avg(upMat.get(0, n).boxGpU.get_bottom(),
+                     upMat.get(0, n).boxGpU.get_top()))
+
+                if dont == false 
+                    upMat.get(1, n).boxGpU.set_right(math.round(time) + timFin)
+
+        if del == true
+            for i = 0 to upMat.columns() - 1
+                if i < upMat.columns()
+                    if upMat.get(3, i).boxCount == 3
+                        upMat.get(0, i).boxGpU.delete(), upMat.get(1, i).boxGpU.delete(), upMat.get(2, i).labGpU.delete()
+                        upMat.remove_col(i)
+
+        else
+
+
+            if upMat.columns() - 1 > 250
+                for i = 0 to upMat.columns() - 1
+                    if upMat.get(3, i).boxCount == 1
+                        upMat.get(0, i).boxGpU.delete(), upMat.get(1, i).boxGpU.delete(), upMat.get(2, i).labGpU.delete()
+                        upMat.remove_col(i)
+                        break                 
+
+
+        if old >= 0 and upMat.columns() > 0
+            for x = 0 to upMat.columns() - 1
+
+                if upMat.get(3, x).boxCount != 1 and upMat.get(3, x).boxCount != 3
+
+                    if close >= upMat.get(0, x).boxGpU.get_top() * (1 + old)
+
+                        for i = 0 to 1
+
+                            upMat.get(i, x).boxGpU.set_bgcolor(na), upMat.get(i, x).boxGpU.set_border_color(na)
+                            upMat.get(i, x).boxGpU.set_right(upMat.get(i, x).boxGpU.get_left())
+
+                    else 
+
+                        for i = 0 to 1
+
+                            upMat.get(i, x).boxGpU.set_bgcolor(color.new(guc, 50))
+                            upMat.get(i, x).boxGpU.set_border_color(color.new(guc, 50))                    
+
+    if dnMat.columns() > 0
+        for n = 0 to dnMat.columns() - 1
+            if high > dnMat.get(0, n).boxGpD.get_top()
+                if dnMat.get(3, n).boxCount != 1 and dnMat.get(3, n).boxCount != 3
+
+                    finAvgD.push(bar_index - avgD.get(n))
+                    dnMat.get(0, n).boxGpD.set_text(gUp ? "New Gap" : "Filled")
+                    dnMat.get(0, n).boxGpD.set_bgcolor(color.new     (gdc, 90))
+                    dnMat.get(0, n).boxGpD.set_border_color(color.new(gdc, 90))
+
+                    if not na(dnMat.get(1, n).boxGpD.get_bottom())
+
+                        dnMat.get(1, n).boxGpD.set_bgcolor(na), dnMat.get(1, n).boxGpD.set_border_color(na)
+                        dnMat.get(0, n).boxGpD.set_bottom(dnMat.get(1, n).boxGpD.get_bottom())
+
+                    switch del
+
+                        false => dnMat.set(3, n, statsDraw.new(boxCount = 1))
+                        =>       dnMat.set(3, n, statsDraw.new(boxCount = 3))
+
+                    if lab 
+                        dnMat.get(2, n).labGpD.set_color(na), dnMat.get(2, n).labGpD.set_textcolor(na)
+                    if dont 
+                        dnMat.get(0, n).boxGpD.set_bottom(dnMat.get(5, n).save)
+
+            else if high < dnMat.get(0, n).boxGpD.get_top() and high > dnMat.get(0, n).boxGpD.get_bottom() and (dnMat.get(3, n).boxCount == 0 or dnMat.get(3, n).boxCount == 2)
+
+                if dnMat.get(3, n).boxCount == 0
+                    dnMat.set(3, n, statsDraw.new(boxCount = 2))
+
+                    if dont == false 
+
+                        dnMat.get(1, n).boxGpD.set_rightbottom(dnMat.get(0, n).boxGpD.get_right(), dnMat.get(0, n).boxGpD.get_bottom())
+                        dnMat.get(1, n).boxGpD.set_bgcolor(color.new(gdc, 90))
+                        dnMat.get(1, n).boxGpD.set_border_color(gdc), dnMat.get(0, n).boxGpD.set_border_color(na)
+                        dnMat.get(1, n).boxGpD.set_lefttop(dnMat.get(0, n).boxGpD.get_left(), dnMat.get(0, n).boxGpD.get_top())
+
+                dnMat.get(0, n).boxGpD.set_bottom(high)
+
+            if dnMat.get(3, n).boxCount != 1 and dnMat.get(3, n).boxCount != 3
+
+                dnMat.set(5, n, statsDraw.new(price = math.max(high, dnMat.get(5, n).price)))
+                dnMat.get(0, n).boxGpD.set_right(math.round(time) + timFin)
+
+                txt = switch dnMat.get(3, n).boxCount == 0  
+
+                    true =>  str.tostring((dnMat.get(0, n).boxGpD.get_top() / close  - 1) * 100, format.percent) +                 " Increase To Fill"
+                    =>       dont == false ? str.tostring((dnMat.get(0, n).boxGpD.get_top() / close  - 1) * 100, format.percent) + " To Fill \n(Partially Filled " + 
+
+                     str.tostring(((dnMat.get(0, n).boxGpD.get_bottom() - dnMat.get(1, n).boxGpD.get_bottom()) * 100) 
+                         / (dnMat.get(0, n).boxGpD.get_top() - dnMat.get(1, n).boxGpD.get_bottom()),                     
+                         format.percent) + ")" :
+                         str.tostring((dnMat.get(0, n).boxGpD.get_top() / close  - 1) * 100, format.percent) + " Increase To Fill"
+
+                [row, row1] = if dont == true and dnMat.get(3, n).boxCount != 0  
+                    [1, 0]
+                else 
+                    [0, 1]
+
+                if lab == false
+
+                    switch dnMat.get(3, n).boxCount == 0  
+                        
+                        true => dnMat.get(0, n).boxGpD.set_text(txt)
+                        => dnMat.get(row, n).boxGpD.set_text(""), dnMat.get(row1, n).boxGpD.set_text(txt)
+
+
+                else 
+
+                    dnMat.get(0, n).boxGpD.set_text("")
+                    dnMat.get(2, n).labGpD.set_text(txt), dnMat.get(2, n).labGpD.set_xy(math.round(time) + timFin, 
+                                  math.avg(dnMat.get(0, n).boxGpD.get_bottom(), dnMat.get(0, n).boxGpD.get_top()))
+
+                dnMat.get(1, n).boxGpD.set_right(math.round(time) + timFin)
+
+        if del == true 
+            for i = 0 to dnMat.columns() - 1
+                if i < dnMat.columns() 
+                    if  dnMat.get(3, i).boxCount == 3
+                        dnMat.get(0, i).boxGpD.delete(), dnMat.get(1, i).boxGpD.delete(), dnMat.get(0, i).labGpD.delete()
+                        dnMat.remove_col(i)
+
+        else
+
+
+            if dnMat.columns() > 250
+                for i = 0 to dnMat.columns() - 1
+                    if dnMat.get(3, i).boxCount == 1
+                        dnMat.get(0, i).boxGpD.delete(), dnMat.get(1, i).boxGpD.delete(), dnMat.get(0, i).labGpD.delete()
+                        dnMat.remove_col(i)
+                        break
+
+        if old >= 0 and dnMat.columns() > 0
+            for x = 0 to dnMat.columns() - 1
+                if dnMat.get(3, x).boxCount != 1 and dnMat.get(3, x).boxCount != 3
+                    if close <= dnMat.get(0, x).boxGpD.get_bottom() * (1 - old)
+
+                        for i = 0 to 1
+                            dnMat.get(i, x).boxGpD.set_bgcolor(na), dnMat.get(i, x).boxGpD.set_border_color(na)
+                            dnMat.get(i, x).boxGpD.set_right(dnMat.get(i, x).boxGpD.get_left())
+
+                    else 
+
+                        for i = 0 to 1
+                            dnMat.get(i, x).boxGpD.set_bgcolor(color.new(gdc, 50))
+                            dnMat.get(i, x).boxGpD.set_border_color(color.new(gdc, 50))                
+
+if barstate.islast
+
+    if gMat.columns() > 0
+        xn = gMat
+        if  vis == true
+           
+            bo = box.all    
+         
+            for i = 0 to bo.size() - 1
+                bo.shift().delete()
+            
+            for i = 0 to math.min(500, gMat.columns() - 2)  
+                
+                xn.set(4, i, statsDraw.new(gBox = box.new(bar_index[i + 1], 
+                             
+                             xn.get(0, i).gFloat  > xn.get(0, i + 1).gFloat ? xn.get(0, i).gFloat :  xn.get(0, i + 1).gFloat ,
+                             bar_index[i], 
+                             xn.get(0, i).gFloat  > xn.get(0, i + 1).gFloat ?  xn.get(0, i + 1).gFloat :  xn.get(0, i).gFloat,
+                             bgcolor = xn.get(2, i).gCol,
+                             border_color = color.white, 
+                             text = xn.get(3, i).dNp, 
+                             text_color = color.white,
+                             text_size = sz
+                             
+                             
+                             )))
+            
+            calc = math.abs(close - xn.get(4, 0).gBox.get_top()), calc1 = math.abs(close - xn.get(4, 0).gBox.get_bottom())
+            
+            for i = 0 to array.size(box.all) - 1
+                xn.get(4, i).gBox.set_top(xn.get(4, i)   .gBox.get_top   () + calc)
+                xn.get(4, i).gBox.set_bottom(xn.get(4, i).gBox.get_bottom() + calc1)
+
+        else 
+
+
+            sli = array.new_float()
+            for i = 0 to gMat.columns() - 1
+                sli.push(xn.get(1, i).gFloat)
+    
+            sli.sort(order.ascending)
+            
+            
+            dn  = array.new_float(), up = array.new_float()
+            
+            for x = 1 to sli.size() - 1
+                
+                
+                if sli.get(0) < 0
+                    if sli.get(sli.size() - 1) > 0
+                        if sli.get(x - 1) < 0 and sli.get(x) > 0
+                        
+                            for n = 0 to x - 1
+                                dn.push(sli.get(n))
+                            for n = x to sli.size() - 1
+                                up.push(sli.get(n))
+                            
+                            break
+                    
+                else if sli.get(0) > 0 
+                    if x != sli.size() - 1
+                        up.push(sli.get(x - 1))
+                    
+                    else
+                        
+                        if sli.size() > 1
+                            up.push(sli.get(x))
+                            up.push(sli.get(x - 1))
+                
+                if sli.get(sli.size() - 1) < 0 
+                    if x != sli.size() - 1 
+                        dn.push(sli.get(x - 1))
+                    
+                    else 
+                    
+                        if sli.size() > 1
+                            up.push(sli.get(x))
+                            up.push(sli.get(x - 1))
+            
+
+            orit = switch ori
+               
+                "Top Left"      => position.top_left   
+                "Top Center"    => position.top_center
+                "Top Right"     => position.top_right
+                "Middle Left"   => position.middle_left
+                "Middle Center" => position.middle_center
+                "Middle Right"  => position.middle_right   
+                "Bottom Left"   => position.bottom_left  
+                "Bottom Center" => position.bottom_center   
+                "Bottom Right"  => position.bottom_right  
+
+
+            var table stats =   table.new(position.bottom_right, 10, 10, border_color = color.white, frame_color= color.white, border_width = 1, frame_width = 1) 
+            var table upRight = table.new(orit, 10, 10, border_color = color.white, frame_color= color.white, border_width = 1, frame_width = 1) 
+
+            if gfs
+                
+                stats.cell(0, 0, "# of Gaps: "           + str.tostring(sli.size())                           , text_color = guc, bgcolor = color.new(#000000, 75))
+                stats.cell(0, 1, "Gaps Up: "             + str.tostring(array.size(up))                       , text_color = guc, bgcolor = color.new(#000000, 75))
+                stats.cell(0, 2, "Gaps Down: "           + str.tostring(array.size(dn))                       , text_color = guc, bgcolor = color.new(#000000, 75))
+                stats.cell(1, 1, "Cumulative Increase: " + str.tostring(array.sum(up), format.percent)        , text_color = guc, bgcolor = color.new(#000000, 75))
+                stats.cell(2, 1, "Cumulative Decrease: " + str.tostring(array.sum(dn), format.percent)        , text_color = guc, bgcolor = color.new(#000000, 75))
+                stats.cell(1, 2, "Avg. Increase: "       + str.tostring(array.avg(up), format.percent)        , text_color = guc, bgcolor = color.new(#000000, 75))
+                stats.cell(2, 2, "Avg. Decrease: "       + str.tostring(array.avg(dn), format.percent)        , text_color = guc, bgcolor = color.new(#000000, 75))
+    
+            strUp = "", strDn = ""
+            
+            if upMat.columns() > 0 and rec > 0 
+                upCou = 0
+                for n = upMat.columns() - 1 to 0
+                    if upCou == rec
+                        upCou := 0, break
+                    if upMat.get(3, n).boxCount != 1 and upMat.get(3, n).boxCount != 3
+                        if not na(upMat.get(0, n).boxGpU.get_bottom())
+                            strUp := strUp +    str.tostring(upMat.get(0, n).boxGpU.get_bottom(), format.mintick) + 
+                             " - " +            str.tostring(upMat.get(0, n).boxGpU.get_top   (), format.mintick) +
+                             " (Distance: " + str.tostring((close - upMat.get(0, n).boxGpU.get_bottom()) * -1, format.mintick) + ")" +
+                             "\n"
+                            upCou += 1
+            
+            if dnMat.columns() > 0 and rec > 0
+                dnCou = 0
+                for n = dnMat.columns() - 1 to 0
+                    if dnCou == rec
+                        break
+                    if dnMat.get(3, n).boxCount != 1 and dnMat.get(3, n).boxCount != 3
+                        if not na(dnMat.get(0, n).boxGpD.get_bottom())
+                            strDn := strDn + str.tostring(dnMat.get(0, n).boxGpD.get_bottom(), format.mintick) + 
+                             " - "         + str.tostring(dnMat.get(0, n).boxGpD.get_top   (), format.mintick) + 
+                             " (Distance: +" + str.tostring((close - dnMat.get(0, n).boxGpD.get_top()) * -1, format.mintick) + ")" +
+                             "\n"
+                            dnCou += 1 
+    
+            if gft
+                
+                if rec > 0 
+
+                    sz2 = switch size
+
+                        "Auto"   => size.auto
+                        "Tiny"   => size.tiny
+                        "Small"  => size.small
+                        "Normal" => size.normal
+                        "Large"  => size.large
+                        "Huge"   => size.huge
+
+
+                    if strUp != ""
+                        upRight.cell(0, 0, old != -1/100 ? "Gaps " + str.tostring(old * 100, format.percent) 
+                             + " Away From Price Are Not Shown \nThis Can Be Changed In The Settings"
+                             : "All Gaps Shown\n This Can Be Changed In The Settings", 
+                                             bgcolor = color.new(#000000, 75), 
+                                             text_color = color.yellow, 
+                                             text_size = size.small
+                                             )
+
+                        upRight.cell(0, 1, "Unfilled Up Gaps", bgcolor = color.new(#000000, 75), text_color = guc, text_size = sz2)
+                        upRight.cell(0, 2, strUp,  bgcolor = color.new(#000000, 75), text_color = guc, text_size = sz2)                 
+                    if strDn != ""
+                        upRight.cell(0, 3, "Unfilled Down Gaps", bgcolor = color.new(#000000, 75), text_color = gdc, text_size = sz2)                 
+                        upRight.cell(0, 4, strDn, bgcolor = color.new(#000000, 75), text_color = gdc, text_size = sz2)                 
+
+
+            if font  
+                bo = box.all, ta = table.all
+
+                if gft
+                    for i = 0 to 4
+                        upRight  .cell_set_text_font_family(0, i, font.family_monospace)
+
+                if gfs
+                    for i = 0 to 2
+                        for x = 0 to 2
+                            stats.cell_set_text_font_family(i, x, font.family_monospace)
+
+                for i = 0 to bo.size() - 1
+                    bo.get(i)               .set_text_font_family(font.family_monospace)
+                
+                if lab 
+                    l = label.all
+                    for i = 0 to l.size() - 1
+                        l.get(i)            .set_text_font_family(font.family_monospace)
+    
+
+            if del == false and gfs
+                for i = 1 to 2
+                    strin = switch i != -1 
+                        true and i == 1 => "Avg. Bars to Fill Up Gap: "   + str.tostring(math.round(finAvgU.avg()), "#")
+                        =>                 "Avg. Bars to Fill Down Gap: " + str.tostring(math.round(finAvgD.avg()), "#")
+                    
+                    table.cell(stats, i, 0,  strin, 
+                                             text_color       = guc, 
+                                             bgcolor          = color.new(#000000, 75),
+                                             text_font_family = font ? font.family_monospace : font.family_default)
+ 
+
+            else
+                
+                if gfs
+                    
+                    stats.merge_cells(0, 0, 2, 0)
+   
+    else
+    
+        runtime.error("No Gaps Detected - Change Assets or Plot a Different Dataset")
+
+

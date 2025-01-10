@@ -1,0 +1,423 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © HALDRO
+//@version=4
+study(title="CountConditionMA", shorttitle='CCMA', overlay = false, max_labels_count = 500)
+
+//==============================================================================================================
+// A1  = 'ADXMA'
+// A2  = 'ALMA'
+// A3  = 'ARSI'
+// A4  = 'CTI'
+// A5  = 'DOUBLEEMA'
+// A6  = 'EMA'
+// A7  = 'QEMA'
+// A8  = 'HMA'
+// A9  = 'KAMA'
+// A10 = 'RMA'
+// A11 = 'SMA'
+// A12 = 'STMA'
+// A13 = 'SUPERSMOOTH'
+// A14 = 'THMA'
+// A15 = 'TILSONT3'
+// A16 = 'TRIPLEEMA'
+// A17 = 'VVMA'
+// A18 = 'VWMA'
+// A19 = 'WMA'
+// A20 = 'WWMA'
+// A21 = 'ZEMA'
+// A22 = 'ZLMA'
+
+
+A1(_src, _len) => // 20 14
+    len_adx= 14
+    [_diplus, _diminus, _adx] = dmi(17, len_adx)
+    _vol_sum  = 0.0
+    _adx_sum  = 0.0
+    for i = 0 to _len
+        _vol_sum  := _src[i] * _adx[i] + _vol_sum
+        _adx_sum  := _adx[i] + _adx_sum 
+    _volwma   = _vol_sum / _adx_sum
+
+A2(_src,_len) =>
+    a = alma(_src,_len, .85, 6)
+    
+A3(_src, _len)=>
+    alpha = 2 * abs(rsi(_src, _len) / 100 - 0.5)
+    arsi = 0.0
+    arsi := alpha * _src + (1 - alpha) * nz(arsi[1])
+
+A4(_src, _len) =>
+    cd= 0.0
+    di = (_len - 1.0) / 2.0 + 1.0
+    c1 = 2 / (di + 1.0)
+    c2 = 1 - c1
+    c3 = 3.0 * (cd * cd + cd * cd * cd)
+    c4 = -3.0 * (2.0 * cd * cd + cd + cd * cd * cd)
+    c5 = 3.0 * cd + 1.0 + cd * cd * cd + 3.0 * cd * cd
+    i1 = 0.0
+    i2 = 0.0
+    i3 = 0.0
+    i4 = 0.0
+    i5 = 0.0
+    i6 = 0.0
+    i1 := c1*_src + c2*nz(i1[1])
+    i2 := c1*i1 + c2*nz(i2[1])
+    i3 := c1*i2 + c2*nz(i3[1])
+    i4 := c1*i3 + c2*nz(i4[1])
+    i5 := c1*i4 + c2*nz(i5[1])
+    i6 := c1*i5 + c2*nz(i6[1])
+    bfr = -cd*cd*cd*i6 + c3*(i5) + c4*(i4) + c5*(i3)
+
+A5(_src, _len) =>
+    v2 = ema(_src, _len)
+    v6 = 2 * v2 - ema(v2, _len)
+    
+A6(_src, _len) =>
+    ema(_src, _len)
+
+A7(_src, _len)=> // len = 20
+    ema1 = ema(_src, _len)
+    ema2 = ema(ema1, _len)
+    ema3 = ema(ema2, _len)
+    ema4 = ema(ema3, _len)
+    ema5 = ema(ema4, _len)
+    qema = 5 * ema1 - 10 * ema2 + 10 * ema3 - 5 * ema4 + ema5
+
+A8(_src, _len) =>
+    hma(_src, _len)
+
+A9(_src,_len)=>
+    xPrice = _src
+	xvnoise = abs(xPrice - xPrice[1])
+	nAMA = 0.0
+	nfastend = 0.666
+	nslowend = 0.0645
+	nsignal = abs(xPrice - xPrice[_len])
+	nnoise = sum(xvnoise, _len)
+	nefratio = iff(nnoise != 0, nsignal / nnoise, 0)
+	nsmooth = pow(nefratio * (nfastend - nslowend) + nslowend, 2) 
+	nAMA := nz(nAMA[1]) + nsmooth * (xPrice - nz(nAMA[1]))
+
+A10(_src, _len) =>
+    rma(_src, _len)
+
+A11(_src, _len) =>
+    sma(_src, _len)
+
+A12(_src, _len)=>
+    _Mult =3
+    _atr= atr(_len) 
+    _up=_src-(_Mult*_atr)
+    up1 = nz(_up[1],_up)
+    _up := _src[1] > up1 ? max(_up,up1) : _up
+    _dn=_src+(_Mult*_atr)
+    dn1 = nz(_dn[1], _dn)
+    _dn := _src[1] < dn1 ? min(_dn, dn1) : _dn
+    _dir = 1
+    _dir := nz(_dir[1], _dir)
+    _dir := _dir == -1 and _src > dn1 ? 1 : _dir == 1 and _src < up1 ? -1 : _dir
+    outsig= _dir == 1 ? _up : _dir == 1 ? na : _dn 
+
+A13(_src, _len) =>
+    a1 = exp(-1.414 * math.pi / _len)
+    b1 = 2 * a1 * cos(1.414 * math.pi / _len)
+    c2 = b1
+    c3 = -a1 * a1
+    c1 = 1 - c2 - c3
+    v9 = 0.0
+    v9 := c1 * (_src + nz(_src[1])) / 2 + c2 * nz(v9[1]) + c3 * nz(v9[2])
+
+A14(_src, _len)=>
+    thma = wma(wma(_src,_len / 3) * 3 - wma(_src, _len / 2) - wma(_src, _len), _len)
+    thma
+ 
+A15(_src, _len) =>
+    a = 2.0/(2.0 + (_len-1.0)/2.0)
+    a1 = ema(_src,_len)
+    a2 = ema(a1,_len)
+    a3 = ema(a2,_len)
+    a4 = ema(a3,_len)
+    a5 = ema(a4,_len)
+    a6 = ema(a5,_len)
+    c1 = -a*a*a
+    c2=3*a*a+3*a*a*a
+    c3=-6*a*a-3*a-3*a*a*a
+    c4=1+3*a+a*a*a+3*a*a
+    c1*a6+c2*a5+c3*a4+c4*a3
+
+
+A16(_src, _len) =>
+    v2 = ema(_src, _len)
+    v7 = 3 * (v2 - ema(v2, _len)) + ema(ema(v2, _len), _len)  
+
+A17(_src,_len) => // defval period 20
+    _vol_sum = 0.0
+    tr_sum  = 0.0
+    for i   = 0 to _len
+        _vol_sum  := _src[i] * volume[i] * abs(tr(true)[i]) * (_len + 1 - i) + _vol_sum
+        tr_sum          := volume[i] * abs(tr(true)[i]) * (_len + 1 - i) + tr_sum 
+    VVwma   = _vol_sum / tr_sum
+
+A18(_src, _len) =>
+    vwma(_src, _len)
+
+A19(_src, _len) =>
+    wma(_src, _len)
+
+A20(_src,_len)=>
+    wwalpha = 1/ _len
+    WWMA = 0.0
+    WWMA := wwalpha*_src + (1-wwalpha)*nz(WWMA[1])
+ 
+A21(_src, _len) =>
+    lag = (_len - 1) / 2
+    emaSrc = _src + _src - _src[lag]
+    v10 = ema(emaSrc, _len)
+
+
+A22(_src, _len)=> // 50
+    _lag = (1.4)
+    a=0., b=0.
+    a := nz(_lag*_src+(1-_lag)*
+     b[_len/2] + a[1],_src)
+    b := change(a,_len)/_len
+
+
+GetMA(_src, _len, MAType)=>ma=
+     (MAType == 1 ) ? A1 (_src,_len) :  
+     (MAType == 2 ) ? A2 (_src,_len) :  
+     (MAType == 3 ) ? A3 (_src,_len) :  
+     (MAType == 4 ) ? A4 (_src,_len) :  
+     (MAType == 5 ) ? A5 (_src,_len) :  
+     (MAType == 6 ) ? A6 (_src,_len) :  
+     (MAType == 7 ) ? A7 (_src,_len) :  
+     (MAType == 8 ) ? A8 (_src,_len) :  
+     (MAType == 9 ) ? A9 (_src,_len) :  
+     (MAType == 10) ? A10(_src,_len) :  
+     (MAType == 11) ? A11(_src,_len) :  
+     (MAType == 12) ? A12(_src,_len) :  
+     (MAType == 13) ? A13(_src,_len) :  
+     (MAType == 14) ? A14(_src,_len) :  
+     (MAType == 15) ? A15(_src,_len) :  
+     (MAType == 16) ? A16(_src,_len) :  
+     (MAType == 17) ? A17(_src,_len) :  
+     (MAType == 18) ? A18(_src,_len) :  
+     (MAType == 19) ? A19(_src,_len) :  
+     (MAType == 20) ? A20(_src,_len) :  
+     (MAType == 21) ? A21(_src,_len) :  
+     (MAType == 22) ? A22(_src,_len) :  
+     na
+
+//==============================================================================================================
+masrc  = close
+MALen1 = input(5, inline='1'), MALen2 = input(8, inline='1'), MALen3 = input(13, inline='2'), MALen4 = input(21, inline='2'), MALen5 = input(34, inline='3'), MALen6 = input(55, inline='3'), MALen7 = input(89, inline='4'), MALen8 = input(144, inline='4')
+n1ma1  = A1 (masrc, MALen1),  n2ma1  =A1 (masrc, MALen2),  n3ma1  = A1 (masrc,  MALen3), n4ma1  =A1 (masrc, MALen4),  n5ma1  = A1 (masrc, MALen5),  n6ma1  = A1 (masrc, MALen6),  n7ma1  =  A1 (masrc, MALen7),  n8ma1  =  A1 (masrc, MALen8)
+n1ma2  = A2 (masrc, MALen1),  n2ma2  =A2 (masrc, MALen2),  n3ma2  = A2 (masrc,  MALen3), n4ma2  =A2 (masrc, MALen4),  n5ma2  = A2 (masrc, MALen5),  n6ma2  = A2 (masrc, MALen6),  n7ma2  =  A2 (masrc, MALen7),  n8ma2  =  A2 (masrc, MALen8)
+n1ma3  = A3 (masrc, MALen1),  n2ma3  =A3 (masrc, MALen2),  n3ma3  = A3 (masrc,  MALen3), n4ma3  =A3 (masrc, MALen4),  n5ma3  = A3 (masrc, MALen5),  n6ma3  = A3 (masrc, MALen6),  n7ma3  =  A3 (masrc, MALen7),  n8ma3  =  A3 (masrc, MALen8)
+n1ma4  = A4 (masrc, MALen1),  n2ma4  =A4 (masrc, MALen2),  n3ma4  = A4 (masrc,  MALen3), n4ma4  =A4 (masrc, MALen4),  n5ma4  = A4 (masrc, MALen5),  n6ma4  = A4 (masrc, MALen6),  n7ma4  =  A4 (masrc, MALen7),  n8ma4  =  A4 (masrc, MALen8)
+n1ma5  = A5 (masrc, MALen1),  n2ma5  =A5 (masrc, MALen2),  n3ma5  = A5 (masrc,  MALen3), n4ma5  =A5 (masrc, MALen4),  n5ma5  = A5 (masrc, MALen5),  n6ma5  = A5 (masrc, MALen6),  n7ma5  =  A5 (masrc, MALen7),  n8ma5  =  A5 (masrc, MALen8)
+n1ma6  = A6 (masrc, MALen1),  n2ma6  =A6 (masrc, MALen2),  n3ma6  = A6 (masrc,  MALen3), n4ma6  =A6 (masrc, MALen4),  n5ma6  = A6 (masrc, MALen5),  n6ma6  = A6 (masrc, MALen6),  n7ma6  =  A6 (masrc, MALen7),  n8ma6  =  A6 (masrc, MALen8)
+n1ma7  = A7 (masrc, MALen1),  n2ma7  =A7 (masrc, MALen2),  n3ma7  = A7 (masrc,  MALen3), n4ma7  =A7 (masrc, MALen4),  n5ma7  = A7 (masrc, MALen5),  n6ma7  = A7 (masrc, MALen6),  n7ma7  =  A7 (masrc, MALen7),  n8ma7  =  A7 (masrc, MALen8)
+n1ma8  = A8 (masrc, MALen1),  n2ma8  =A8 (masrc, MALen2),  n3ma8  = A8 (masrc,  MALen3), n4ma8  =A8 (masrc, MALen4),  n5ma8  = A8 (masrc, MALen5),  n6ma8  = A8 (masrc, MALen6),  n7ma8  =  A8 (masrc, MALen7),  n8ma8  =  A8 (masrc, MALen8)
+n1ma9  = A9 (masrc, MALen1),  n2ma9  =A9 (masrc, MALen2),  n3ma9  = A9 (masrc,  MALen3), n4ma9  =A9 (masrc, MALen4),  n5ma9  = A9 (masrc, MALen5),  n6ma9  = A9 (masrc, MALen6),  n7ma9  =  A9 (masrc, MALen7),  n8ma9  =  A9 (masrc, MALen8)
+n1ma10 = A10(masrc, MALen1),  n2ma10 =A10(masrc, MALen2),  n3ma10 = A10(masrc,  MALen3), n4ma10 =A10(masrc, MALen4),  n5ma10 = A10(masrc, MALen5),  n6ma10 = A10(masrc, MALen6),  n7ma10 =  A10(masrc, MALen7),  n8ma10 =  A10(masrc, MALen8)
+n1ma11 = A11(masrc, MALen1),  n2ma11 =A11(masrc, MALen2),  n3ma11 = A11(masrc,  MALen3), n4ma11 =A11(masrc, MALen4),  n5ma11 = A11(masrc, MALen5),  n6ma11 = A11(masrc, MALen6),  n7ma11 =  A11(masrc, MALen7),  n8ma11 =  A11(masrc, MALen8)
+n1ma12 = A12(masrc, MALen1),  n2ma12 =A12(masrc, MALen2),  n3ma12 = A12(masrc,  MALen3), n4ma12 =A12(masrc, MALen4),  n5ma12 = A12(masrc, MALen5),  n6ma12 = A12(masrc, MALen6),  n7ma12 =  A12(masrc, MALen7),  n8ma12 =  A12(masrc, MALen8)
+n1ma13 = A13(masrc, MALen1),  n2ma13 =A13(masrc, MALen2),  n3ma13 = A13(masrc,  MALen3), n4ma13 =A13(masrc, MALen4),  n5ma13 = A13(masrc, MALen5),  n6ma13 = A13(masrc, MALen6),  n7ma13 =  A13(masrc, MALen7),  n8ma13 =  A13(masrc, MALen8)
+n1ma14 = A14(masrc, MALen1),  n2ma14 =A14(masrc, MALen2),  n3ma14 = A14(masrc,  MALen3), n4ma14 =A14(masrc, MALen4),  n5ma14 = A14(masrc, MALen5),  n6ma14 = A14(masrc, MALen6),  n7ma14 =  A14(masrc, MALen7),  n8ma14 =  A14(masrc, MALen8)
+n1ma15 = A15(masrc, MALen1),  n2ma15 =A15(masrc, MALen2),  n3ma15 = A15(masrc,  MALen3), n4ma15 =A15(masrc, MALen4),  n5ma15 = A15(masrc, MALen5),  n6ma15 = A15(masrc, MALen6),  n7ma15 =  A15(masrc, MALen7),  n8ma15 =  A15(masrc, MALen8)
+n1ma16 = A16(masrc, MALen1),  n2ma16 =A16(masrc, MALen2),  n3ma16 = A16(masrc,  MALen3), n4ma16 =A16(masrc, MALen4),  n5ma16 = A16(masrc, MALen5),  n6ma16 = A16(masrc, MALen6),  n7ma16 =  A16(masrc, MALen7),  n8ma16 =  A16(masrc, MALen8)
+n1ma17 = A17(masrc, MALen1),  n2ma17 =A17(masrc, MALen2),  n3ma17 = A17(masrc,  MALen3), n4ma17 =A17(masrc, MALen4),  n5ma17 = A17(masrc, MALen5),  n6ma17 = A17(masrc, MALen6),  n7ma17 =  A17(masrc, MALen7),  n8ma17 =  A17(masrc, MALen8)
+n1ma18 = A18(masrc, MALen1),  n2ma18 =A18(masrc, MALen2),  n3ma18 = A18(masrc,  MALen3), n4ma18 =A18(masrc, MALen4),  n5ma18 = A18(masrc, MALen5),  n6ma18 = A18(masrc, MALen6),  n7ma18 =  A18(masrc, MALen7),  n8ma18 =  A18(masrc, MALen8)
+n1ma19 = A19(masrc, MALen1),  n2ma19 =A19(masrc, MALen2),  n3ma19 = A19(masrc,  MALen3), n4ma19 =A19(masrc, MALen4),  n5ma19 = A19(masrc, MALen5),  n6ma19 = A19(masrc, MALen6),  n7ma19 =  A19(masrc, MALen7),  n8ma19 =  A19(masrc, MALen8)
+n1ma20 = A20(masrc, MALen1),  n2ma20 =A20(masrc, MALen2),  n3ma20 = A20(masrc,  MALen3), n4ma20 =A20(masrc, MALen4),  n5ma20 = A20(masrc, MALen5),  n6ma20 = A20(masrc, MALen6),  n7ma20 =  A20(masrc, MALen7),  n8ma20 =  A20(masrc, MALen8)
+n1ma21 = A21(masrc, MALen1),  n2ma21 =A21(masrc, MALen2),  n3ma21 = A21(masrc,  MALen3), n4ma21 =A21(masrc, MALen4),  n5ma21 = A21(masrc, MALen5),  n6ma21 = A21(masrc, MALen6),  n7ma21 =  A21(masrc, MALen7),  n8ma21 =  A21(masrc, MALen8)
+n1ma22 = A22(masrc, MALen1),  n2ma22 =A22(masrc, MALen2),  n3ma22 = A22(masrc,  MALen3), n4ma22 =A22(masrc, MALen4),  n5ma22 = A22(masrc, MALen5),  n6ma22 = A22(masrc, MALen6),  n7ma22 =  A22(masrc, MALen7),  n8ma22 =  A22(masrc, MALen8)
+//==============================================================================================================
+
+L1_MA_Cond1  = crossover(n1ma1 ,n2ma1 ), L2_MA_Cond1  = crossover(n2ma1 ,n3ma1 ), L3_MA_Cond1  = crossover(n3ma1 ,n4ma1 ), L4_MA_Cond1  = crossover(n4ma1 ,n5ma1 ), L5_MA_Cond1  = crossover(n5ma1 ,n6ma1 ), L6_MA_Cond1  = crossover(n6ma1 ,n7ma1 ), L7_MA_Cond1  = crossover(n7ma1 ,n8ma1 )        
+L1_MA_Cond2  = crossover(n1ma2 ,n2ma2 ), L2_MA_Cond2  = crossover(n2ma2 ,n3ma2 ), L3_MA_Cond2  = crossover(n3ma2 ,n4ma2 ), L4_MA_Cond2  = crossover(n4ma2 ,n5ma2 ), L5_MA_Cond2  = crossover(n5ma2 ,n6ma2 ), L6_MA_Cond2  = crossover(n6ma2 ,n7ma2 ), L7_MA_Cond2  = crossover(n7ma2 ,n8ma2 )        
+L1_MA_Cond3  = crossover(n1ma3 ,n2ma3 ), L2_MA_Cond3  = crossover(n2ma3 ,n3ma3 ), L3_MA_Cond3  = crossover(n3ma3 ,n4ma3 ), L4_MA_Cond3  = crossover(n4ma3 ,n5ma3 ), L5_MA_Cond3  = crossover(n5ma3 ,n6ma3 ), L6_MA_Cond3  = crossover(n6ma3 ,n7ma3 ), L7_MA_Cond3  = crossover(n7ma3 ,n8ma3 )        
+L1_MA_Cond4  = crossover(n1ma4 ,n2ma4 ), L2_MA_Cond4  = crossover(n2ma4 ,n3ma4 ), L3_MA_Cond4  = crossover(n3ma4 ,n4ma4 ), L4_MA_Cond4  = crossover(n4ma4 ,n5ma4 ), L5_MA_Cond4  = crossover(n5ma4 ,n6ma4 ), L6_MA_Cond4  = crossover(n6ma4 ,n7ma4 ), L7_MA_Cond4  = crossover(n7ma4 ,n8ma4 )        
+L1_MA_Cond5  = crossover(n1ma5 ,n2ma5 ), L2_MA_Cond5  = crossover(n2ma5 ,n3ma5 ), L3_MA_Cond5  = crossover(n3ma5 ,n4ma5 ), L4_MA_Cond5  = crossover(n4ma5 ,n5ma5 ), L5_MA_Cond5  = crossover(n5ma5 ,n6ma5 ), L6_MA_Cond5  = crossover(n6ma5 ,n7ma5 ), L7_MA_Cond5  = crossover(n7ma5 ,n8ma5 )        
+L1_MA_Cond6  = crossover(n1ma6 ,n2ma6 ), L2_MA_Cond6  = crossover(n2ma6 ,n3ma6 ), L3_MA_Cond6  = crossover(n3ma6 ,n4ma6 ), L4_MA_Cond6  = crossover(n4ma6 ,n5ma6 ), L5_MA_Cond6  = crossover(n5ma6 ,n6ma6 ), L6_MA_Cond6  = crossover(n6ma6 ,n7ma6 ), L7_MA_Cond6  = crossover(n7ma6 ,n8ma6 )        
+L1_MA_Cond7  = crossover(n1ma7 ,n2ma7 ), L2_MA_Cond7  = crossover(n2ma7 ,n3ma7 ), L3_MA_Cond7  = crossover(n3ma7 ,n4ma7 ), L4_MA_Cond7  = crossover(n4ma7 ,n5ma7 ), L5_MA_Cond7  = crossover(n5ma7 ,n6ma7 ), L6_MA_Cond7  = crossover(n6ma7 ,n7ma7 ), L7_MA_Cond7  = crossover(n7ma7 ,n8ma7 )        
+L1_MA_Cond8  = crossover(n1ma8 ,n2ma8 ), L2_MA_Cond8  = crossover(n2ma8 ,n3ma8 ), L3_MA_Cond8  = crossover(n3ma8 ,n4ma8 ), L4_MA_Cond8  = crossover(n4ma8 ,n5ma8 ), L5_MA_Cond8  = crossover(n5ma8 ,n6ma8 ), L6_MA_Cond8  = crossover(n6ma8 ,n7ma8 ), L7_MA_Cond8  = crossover(n7ma8 ,n8ma8 )        
+L1_MA_Cond9  = crossover(n1ma9 ,n2ma9 ), L2_MA_Cond9  = crossover(n2ma9 ,n3ma9 ), L3_MA_Cond9  = crossover(n3ma9 ,n4ma9 ), L4_MA_Cond9  = crossover(n4ma9 ,n5ma9 ), L5_MA_Cond9  = crossover(n5ma9 ,n6ma9 ), L6_MA_Cond9  = crossover(n6ma9 ,n7ma9 ), L7_MA_Cond9  = crossover(n7ma9 ,n8ma9 )        
+L1_MA_Cond10 = crossover(n1ma10,n2ma10), L2_MA_Cond10 = crossover(n2ma10,n3ma10), L3_MA_Cond10 = crossover(n3ma10,n4ma10), L4_MA_Cond10 = crossover(n4ma10,n5ma10), L5_MA_Cond10 = crossover(n5ma10,n6ma10), L6_MA_Cond10 = crossover(n6ma10,n7ma10), L7_MA_Cond10 = crossover(n7ma10,n8ma10)        
+L1_MA_Cond11 = crossover(n1ma11,n2ma11), L2_MA_Cond11 = crossover(n2ma11,n3ma11), L3_MA_Cond11 = crossover(n3ma11,n4ma11), L4_MA_Cond11 = crossover(n4ma11,n5ma11), L5_MA_Cond11 = crossover(n5ma11,n6ma11), L6_MA_Cond11 = crossover(n6ma11,n7ma11), L7_MA_Cond11 = crossover(n7ma11,n8ma11)        
+L1_MA_Cond12 = crossover(n1ma12,n2ma12), L2_MA_Cond12 = crossover(n2ma12,n3ma12), L3_MA_Cond12 = crossover(n3ma12,n4ma12), L4_MA_Cond12 = crossover(n4ma12,n5ma12), L5_MA_Cond12 = crossover(n5ma12,n6ma12), L6_MA_Cond12 = crossover(n6ma12,n7ma12), L7_MA_Cond12 = crossover(n7ma12,n8ma12)        
+L1_MA_Cond13 = crossover(n1ma13,n2ma13), L2_MA_Cond13 = crossover(n2ma13,n3ma13), L3_MA_Cond13 = crossover(n3ma13,n4ma13), L4_MA_Cond13 = crossover(n4ma13,n5ma13), L5_MA_Cond13 = crossover(n5ma13,n6ma13), L6_MA_Cond13 = crossover(n6ma13,n7ma13), L7_MA_Cond13 = crossover(n7ma13,n8ma13)        
+L1_MA_Cond14 = crossover(n1ma14,n2ma14), L2_MA_Cond14 = crossover(n2ma14,n3ma14), L3_MA_Cond14 = crossover(n3ma14,n4ma14), L4_MA_Cond14 = crossover(n4ma14,n5ma14), L5_MA_Cond14 = crossover(n5ma14,n6ma14), L6_MA_Cond14 = crossover(n6ma14,n7ma14), L7_MA_Cond14 = crossover(n7ma14,n8ma14)        
+L1_MA_Cond15 = crossover(n1ma15,n2ma15), L2_MA_Cond15 = crossover(n2ma15,n3ma15), L3_MA_Cond15 = crossover(n3ma15,n4ma15), L4_MA_Cond15 = crossover(n4ma15,n5ma15), L5_MA_Cond15 = crossover(n5ma15,n6ma15), L6_MA_Cond15 = crossover(n6ma15,n7ma15), L7_MA_Cond15 = crossover(n7ma15,n8ma15)        
+L1_MA_Cond16 = crossover(n1ma16,n2ma16), L2_MA_Cond16 = crossover(n2ma16,n3ma16), L3_MA_Cond16 = crossover(n3ma16,n4ma16), L4_MA_Cond16 = crossover(n4ma16,n5ma16), L5_MA_Cond16 = crossover(n5ma16,n6ma16), L6_MA_Cond16 = crossover(n6ma16,n7ma16), L7_MA_Cond16 = crossover(n7ma16,n8ma16)        
+L1_MA_Cond17 = crossover(n1ma17,n2ma17), L2_MA_Cond17 = crossover(n2ma17,n3ma17), L3_MA_Cond17 = crossover(n3ma17,n4ma17), L4_MA_Cond17 = crossover(n4ma17,n5ma17), L5_MA_Cond17 = crossover(n5ma17,n6ma17), L6_MA_Cond17 = crossover(n6ma17,n7ma17), L7_MA_Cond17 = crossover(n7ma17,n8ma17)        
+L1_MA_Cond18 = crossover(n1ma18,n2ma18), L2_MA_Cond18 = crossover(n2ma18,n3ma18), L3_MA_Cond18 = crossover(n3ma18,n4ma18), L4_MA_Cond18 = crossover(n4ma18,n5ma18), L5_MA_Cond18 = crossover(n5ma18,n6ma18), L6_MA_Cond18 = crossover(n6ma18,n7ma18), L7_MA_Cond18 = crossover(n7ma18,n8ma18)        
+L1_MA_Cond19 = crossover(n1ma19,n2ma19), L2_MA_Cond19 = crossover(n2ma19,n3ma19), L3_MA_Cond19 = crossover(n3ma19,n4ma19), L4_MA_Cond19 = crossover(n4ma19,n5ma19), L5_MA_Cond19 = crossover(n5ma19,n6ma19), L6_MA_Cond19 = crossover(n6ma19,n7ma19), L7_MA_Cond19 = crossover(n7ma19,n8ma19)        
+L1_MA_Cond20 = crossover(n1ma20,n2ma20), L2_MA_Cond20 = crossover(n2ma20,n3ma20), L3_MA_Cond20 = crossover(n3ma20,n4ma20), L4_MA_Cond20 = crossover(n4ma20,n5ma20), L5_MA_Cond20 = crossover(n5ma20,n6ma20), L6_MA_Cond20 = crossover(n6ma20,n7ma20), L7_MA_Cond20 = crossover(n7ma20,n8ma20)        
+L1_MA_Cond21 = crossover(n1ma21,n2ma21), L2_MA_Cond21 = crossover(n2ma21,n3ma21), L3_MA_Cond21 = crossover(n3ma21,n4ma21), L4_MA_Cond21 = crossover(n4ma21,n5ma21), L5_MA_Cond21 = crossover(n5ma21,n6ma21), L6_MA_Cond21 = crossover(n6ma21,n7ma21), L7_MA_Cond21 = crossover(n7ma21,n8ma21)        
+L1_MA_Cond22 = crossover(n1ma22,n2ma22), L2_MA_Cond22 = crossover(n2ma22,n3ma22), L3_MA_Cond22 = crossover(n3ma22,n4ma22), L4_MA_Cond22 = crossover(n4ma22,n5ma22), L5_MA_Cond22 = crossover(n5ma22,n6ma22), L6_MA_Cond22 = crossover(n6ma22,n7ma22), L7_MA_Cond22 = crossover(n7ma22,n8ma22)        
+
+countL = 0
+countL := L1_MA_Cond1  ? countL + 1 : countL, countL := L2_MA_Cond1  ? countL + 1 : countL, countL := L3_MA_Cond1  ? countL + 1 : countL, countL := L4_MA_Cond1  ? countL + 1 : countL, countL := L5_MA_Cond1  ? countL + 1 : countL, countL := L6_MA_Cond1  ? countL + 1 : countL, countL := L7_MA_Cond1  ? countL + 1 : countL
+countL := L1_MA_Cond2  ? countL + 1 : countL, countL := L2_MA_Cond2  ? countL + 1 : countL, countL := L3_MA_Cond2  ? countL + 1 : countL, countL := L4_MA_Cond2  ? countL + 1 : countL, countL := L5_MA_Cond2  ? countL + 1 : countL, countL := L6_MA_Cond2  ? countL + 1 : countL, countL := L7_MA_Cond2  ? countL + 1 : countL
+countL := L1_MA_Cond3  ? countL + 1 : countL, countL := L2_MA_Cond3  ? countL + 1 : countL, countL := L3_MA_Cond3  ? countL + 1 : countL, countL := L4_MA_Cond3  ? countL + 1 : countL, countL := L5_MA_Cond3  ? countL + 1 : countL, countL := L6_MA_Cond3  ? countL + 1 : countL, countL := L7_MA_Cond3  ? countL + 1 : countL
+countL := L1_MA_Cond4  ? countL + 1 : countL, countL := L2_MA_Cond4  ? countL + 1 : countL, countL := L3_MA_Cond4  ? countL + 1 : countL, countL := L4_MA_Cond4  ? countL + 1 : countL, countL := L5_MA_Cond4  ? countL + 1 : countL, countL := L6_MA_Cond4  ? countL + 1 : countL, countL := L7_MA_Cond4  ? countL + 1 : countL
+countL := L1_MA_Cond5  ? countL + 1 : countL, countL := L2_MA_Cond5  ? countL + 1 : countL, countL := L3_MA_Cond5  ? countL + 1 : countL, countL := L4_MA_Cond5  ? countL + 1 : countL, countL := L5_MA_Cond5  ? countL + 1 : countL, countL := L6_MA_Cond5  ? countL + 1 : countL, countL := L7_MA_Cond5  ? countL + 1 : countL
+countL := L1_MA_Cond6  ? countL + 1 : countL, countL := L2_MA_Cond6  ? countL + 1 : countL, countL := L3_MA_Cond6  ? countL + 1 : countL, countL := L4_MA_Cond6  ? countL + 1 : countL, countL := L5_MA_Cond6  ? countL + 1 : countL, countL := L6_MA_Cond6  ? countL + 1 : countL, countL := L7_MA_Cond6  ? countL + 1 : countL
+countL := L1_MA_Cond7  ? countL + 1 : countL, countL := L2_MA_Cond7  ? countL + 1 : countL, countL := L3_MA_Cond7  ? countL + 1 : countL, countL := L4_MA_Cond7  ? countL + 1 : countL, countL := L5_MA_Cond7  ? countL + 1 : countL, countL := L6_MA_Cond7  ? countL + 1 : countL, countL := L7_MA_Cond7  ? countL + 1 : countL
+countL := L1_MA_Cond8  ? countL + 1 : countL, countL := L2_MA_Cond8  ? countL + 1 : countL, countL := L3_MA_Cond8  ? countL + 1 : countL, countL := L4_MA_Cond8  ? countL + 1 : countL, countL := L5_MA_Cond8  ? countL + 1 : countL, countL := L6_MA_Cond8  ? countL + 1 : countL, countL := L7_MA_Cond8  ? countL + 1 : countL
+countL := L1_MA_Cond9  ? countL + 1 : countL, countL := L2_MA_Cond9  ? countL + 1 : countL, countL := L3_MA_Cond9  ? countL + 1 : countL, countL := L4_MA_Cond9  ? countL + 1 : countL, countL := L5_MA_Cond9  ? countL + 1 : countL, countL := L6_MA_Cond9  ? countL + 1 : countL, countL := L7_MA_Cond9  ? countL + 1 : countL
+countL := L1_MA_Cond10 ? countL + 1 : countL, countL := L2_MA_Cond10 ? countL + 1 : countL, countL := L3_MA_Cond10 ? countL + 1 : countL, countL := L4_MA_Cond10 ? countL + 1 : countL, countL := L5_MA_Cond10 ? countL + 1 : countL, countL := L6_MA_Cond10 ? countL + 1 : countL, countL := L7_MA_Cond10 ? countL + 1 : countL
+countL := L1_MA_Cond11 ? countL + 1 : countL, countL := L2_MA_Cond11 ? countL + 1 : countL, countL := L3_MA_Cond11 ? countL + 1 : countL, countL := L4_MA_Cond11 ? countL + 1 : countL, countL := L5_MA_Cond11 ? countL + 1 : countL, countL := L6_MA_Cond11 ? countL + 1 : countL, countL := L7_MA_Cond11 ? countL + 1 : countL
+countL := L1_MA_Cond12 ? countL + 1 : countL, countL := L2_MA_Cond12 ? countL + 1 : countL, countL := L3_MA_Cond12 ? countL + 1 : countL, countL := L4_MA_Cond12 ? countL + 1 : countL, countL := L5_MA_Cond12 ? countL + 1 : countL, countL := L6_MA_Cond12 ? countL + 1 : countL, countL := L7_MA_Cond12 ? countL + 1 : countL
+countL := L1_MA_Cond13 ? countL + 1 : countL, countL := L2_MA_Cond13 ? countL + 1 : countL, countL := L3_MA_Cond13 ? countL + 1 : countL, countL := L4_MA_Cond13 ? countL + 1 : countL, countL := L5_MA_Cond13 ? countL + 1 : countL, countL := L6_MA_Cond13 ? countL + 1 : countL, countL := L7_MA_Cond13 ? countL + 1 : countL
+countL := L1_MA_Cond14 ? countL + 1 : countL, countL := L2_MA_Cond14 ? countL + 1 : countL, countL := L3_MA_Cond14 ? countL + 1 : countL, countL := L4_MA_Cond14 ? countL + 1 : countL, countL := L5_MA_Cond14 ? countL + 1 : countL, countL := L6_MA_Cond14 ? countL + 1 : countL, countL := L7_MA_Cond14 ? countL + 1 : countL
+countL := L1_MA_Cond15 ? countL + 1 : countL, countL := L2_MA_Cond15 ? countL + 1 : countL, countL := L3_MA_Cond15 ? countL + 1 : countL, countL := L4_MA_Cond15 ? countL + 1 : countL, countL := L5_MA_Cond15 ? countL + 1 : countL, countL := L6_MA_Cond15 ? countL + 1 : countL, countL := L7_MA_Cond15 ? countL + 1 : countL
+countL := L1_MA_Cond16 ? countL + 1 : countL, countL := L2_MA_Cond16 ? countL + 1 : countL, countL := L3_MA_Cond16 ? countL + 1 : countL, countL := L4_MA_Cond16 ? countL + 1 : countL, countL := L5_MA_Cond16 ? countL + 1 : countL, countL := L6_MA_Cond16 ? countL + 1 : countL, countL := L7_MA_Cond16 ? countL + 1 : countL
+countL := L1_MA_Cond17 ? countL + 1 : countL, countL := L2_MA_Cond17 ? countL + 1 : countL, countL := L3_MA_Cond17 ? countL + 1 : countL, countL := L4_MA_Cond17 ? countL + 1 : countL, countL := L5_MA_Cond17 ? countL + 1 : countL, countL := L6_MA_Cond17 ? countL + 1 : countL, countL := L7_MA_Cond17 ? countL + 1 : countL
+countL := L1_MA_Cond18 ? countL + 1 : countL, countL := L2_MA_Cond18 ? countL + 1 : countL, countL := L3_MA_Cond18 ? countL + 1 : countL, countL := L4_MA_Cond18 ? countL + 1 : countL, countL := L5_MA_Cond18 ? countL + 1 : countL, countL := L6_MA_Cond18 ? countL + 1 : countL, countL := L7_MA_Cond18 ? countL + 1 : countL
+countL := L1_MA_Cond19 ? countL + 1 : countL, countL := L2_MA_Cond19 ? countL + 1 : countL, countL := L3_MA_Cond19 ? countL + 1 : countL, countL := L4_MA_Cond19 ? countL + 1 : countL, countL := L5_MA_Cond19 ? countL + 1 : countL, countL := L6_MA_Cond19 ? countL + 1 : countL, countL := L7_MA_Cond19 ? countL + 1 : countL
+countL := L1_MA_Cond20 ? countL + 1 : countL, countL := L2_MA_Cond20 ? countL + 1 : countL, countL := L3_MA_Cond20 ? countL + 1 : countL, countL := L4_MA_Cond20 ? countL + 1 : countL, countL := L5_MA_Cond20 ? countL + 1 : countL, countL := L6_MA_Cond20 ? countL + 1 : countL, countL := L7_MA_Cond20 ? countL + 1 : countL
+countL := L1_MA_Cond21 ? countL + 1 : countL, countL := L2_MA_Cond21 ? countL + 1 : countL, countL := L3_MA_Cond21 ? countL + 1 : countL, countL := L4_MA_Cond21 ? countL + 1 : countL, countL := L5_MA_Cond21 ? countL + 1 : countL, countL := L6_MA_Cond21 ? countL + 1 : countL, countL := L7_MA_Cond21 ? countL + 1 : countL
+countL := L1_MA_Cond22 ? countL + 1 : countL, countL := L2_MA_Cond22 ? countL + 1 : countL, countL := L3_MA_Cond22 ? countL + 1 : countL, countL := L4_MA_Cond22 ? countL + 1 : countL, countL := L5_MA_Cond22 ? countL + 1 : countL, countL := L6_MA_Cond22 ? countL + 1 : countL, countL := L7_MA_Cond22 ? countL + 1 : countL
+//==============================================================================================================
+
+
+
+//==============================================================================================================
+S1_MA_Cond1  = crossunder(n1ma1 ,n2ma1 ), S2_MA_Cond1  = crossunder(n2ma1 ,n3ma1 ), S3_MA_Cond1  = crossunder(n3ma1 ,n4ma1 ), S4_MA_Cond1  = crossunder(n4ma1 ,n5ma1 ), S5_MA_Cond1  = crossunder(n5ma1 ,n6ma1 ), S6_MA_Cond1  = crossunder(n6ma1 ,n7ma1 ), S7_MA_Cond1  = crossunder(n7ma1 ,n8ma1 )        
+S1_MA_Cond2  = crossunder(n1ma2 ,n2ma2 ), S2_MA_Cond2  = crossunder(n2ma2 ,n3ma2 ), S3_MA_Cond2  = crossunder(n3ma2 ,n4ma2 ), S4_MA_Cond2  = crossunder(n4ma2 ,n5ma2 ), S5_MA_Cond2  = crossunder(n5ma2 ,n6ma2 ), S6_MA_Cond2  = crossunder(n6ma2 ,n7ma2 ), S7_MA_Cond2  = crossunder(n7ma2 ,n8ma2 )        
+S1_MA_Cond3  = crossunder(n1ma3 ,n2ma3 ), S2_MA_Cond3  = crossunder(n2ma3 ,n3ma3 ), S3_MA_Cond3  = crossunder(n3ma3 ,n4ma3 ), S4_MA_Cond3  = crossunder(n4ma3 ,n5ma3 ), S5_MA_Cond3  = crossunder(n5ma3 ,n6ma3 ), S6_MA_Cond3  = crossunder(n6ma3 ,n7ma3 ), S7_MA_Cond3  = crossunder(n7ma3 ,n8ma3 )        
+S1_MA_Cond4  = crossunder(n1ma4 ,n2ma4 ), S2_MA_Cond4  = crossunder(n2ma4 ,n3ma4 ), S3_MA_Cond4  = crossunder(n3ma4 ,n4ma4 ), S4_MA_Cond4  = crossunder(n4ma4 ,n5ma4 ), S5_MA_Cond4  = crossunder(n5ma4 ,n6ma4 ), S6_MA_Cond4  = crossunder(n6ma4 ,n7ma4 ), S7_MA_Cond4  = crossunder(n7ma4 ,n8ma4 )        
+S1_MA_Cond5  = crossunder(n1ma5 ,n2ma5 ), S2_MA_Cond5  = crossunder(n2ma5 ,n3ma5 ), S3_MA_Cond5  = crossunder(n3ma5 ,n4ma5 ), S4_MA_Cond5  = crossunder(n4ma5 ,n5ma5 ), S5_MA_Cond5  = crossunder(n5ma5 ,n6ma5 ), S6_MA_Cond5  = crossunder(n6ma5 ,n7ma5 ), S7_MA_Cond5  = crossunder(n7ma5 ,n8ma5 )        
+S1_MA_Cond6  = crossunder(n1ma6 ,n2ma6 ), S2_MA_Cond6  = crossunder(n2ma6 ,n3ma6 ), S3_MA_Cond6  = crossunder(n3ma6 ,n4ma6 ), S4_MA_Cond6  = crossunder(n4ma6 ,n5ma6 ), S5_MA_Cond6  = crossunder(n5ma6 ,n6ma6 ), S6_MA_Cond6  = crossunder(n6ma6 ,n7ma6 ), S7_MA_Cond6  = crossunder(n7ma6 ,n8ma6 )        
+S1_MA_Cond7  = crossunder(n1ma7 ,n2ma7 ), S2_MA_Cond7  = crossunder(n2ma7 ,n3ma7 ), S3_MA_Cond7  = crossunder(n3ma7 ,n4ma7 ), S4_MA_Cond7  = crossunder(n4ma7 ,n5ma7 ), S5_MA_Cond7  = crossunder(n5ma7 ,n6ma7 ), S6_MA_Cond7  = crossunder(n6ma7 ,n7ma7 ), S7_MA_Cond7  = crossunder(n7ma7 ,n8ma7 )        
+S1_MA_Cond8  = crossunder(n1ma8 ,n2ma8 ), S2_MA_Cond8  = crossunder(n2ma8 ,n3ma8 ), S3_MA_Cond8  = crossunder(n3ma8 ,n4ma8 ), S4_MA_Cond8  = crossunder(n4ma8 ,n5ma8 ), S5_MA_Cond8  = crossunder(n5ma8 ,n6ma8 ), S6_MA_Cond8  = crossunder(n6ma8 ,n7ma8 ), S7_MA_Cond8  = crossunder(n7ma8 ,n8ma8 )        
+S1_MA_Cond9  = crossunder(n1ma9 ,n2ma9 ), S2_MA_Cond9  = crossunder(n2ma9 ,n3ma9 ), S3_MA_Cond9  = crossunder(n3ma9 ,n4ma9 ), S4_MA_Cond9  = crossunder(n4ma9 ,n5ma9 ), S5_MA_Cond9  = crossunder(n5ma9 ,n6ma9 ), S6_MA_Cond9  = crossunder(n6ma9 ,n7ma9 ), S7_MA_Cond9  = crossunder(n7ma9 ,n8ma9 )        
+S1_MA_Cond10 = crossunder(n1ma10,n2ma10), S2_MA_Cond10 = crossunder(n2ma10,n3ma10), S3_MA_Cond10 = crossunder(n3ma10,n4ma10), S4_MA_Cond10 = crossunder(n4ma10,n5ma10), S5_MA_Cond10 = crossunder(n5ma10,n6ma10), S6_MA_Cond10 = crossunder(n6ma10,n7ma10), S7_MA_Cond10 = crossunder(n7ma10,n8ma10)        
+S1_MA_Cond11 = crossunder(n1ma11,n2ma11), S2_MA_Cond11 = crossunder(n2ma11,n3ma11), S3_MA_Cond11 = crossunder(n3ma11,n4ma11), S4_MA_Cond11 = crossunder(n4ma11,n5ma11), S5_MA_Cond11 = crossunder(n5ma11,n6ma11), S6_MA_Cond11 = crossunder(n6ma11,n7ma11), S7_MA_Cond11 = crossunder(n7ma11,n8ma11)        
+S1_MA_Cond12 = crossunder(n1ma12,n2ma12), S2_MA_Cond12 = crossunder(n2ma12,n3ma12), S3_MA_Cond12 = crossunder(n3ma12,n4ma12), S4_MA_Cond12 = crossunder(n4ma12,n5ma12), S5_MA_Cond12 = crossunder(n5ma12,n6ma12), S6_MA_Cond12 = crossunder(n6ma12,n7ma12), S7_MA_Cond12 = crossunder(n7ma12,n8ma12)        
+S1_MA_Cond13 = crossunder(n1ma13,n2ma13), S2_MA_Cond13 = crossunder(n2ma13,n3ma13), S3_MA_Cond13 = crossunder(n3ma13,n4ma13), S4_MA_Cond13 = crossunder(n4ma13,n5ma13), S5_MA_Cond13 = crossunder(n5ma13,n6ma13), S6_MA_Cond13 = crossunder(n6ma13,n7ma13), S7_MA_Cond13 = crossunder(n7ma13,n8ma13)        
+S1_MA_Cond14 = crossunder(n1ma14,n2ma14), S2_MA_Cond14 = crossunder(n2ma14,n3ma14), S3_MA_Cond14 = crossunder(n3ma14,n4ma14), S4_MA_Cond14 = crossunder(n4ma14,n5ma14), S5_MA_Cond14 = crossunder(n5ma14,n6ma14), S6_MA_Cond14 = crossunder(n6ma14,n7ma14), S7_MA_Cond14 = crossunder(n7ma14,n8ma14)        
+S1_MA_Cond15 = crossunder(n1ma15,n2ma15), S2_MA_Cond15 = crossunder(n2ma15,n3ma15), S3_MA_Cond15 = crossunder(n3ma15,n4ma15), S4_MA_Cond15 = crossunder(n4ma15,n5ma15), S5_MA_Cond15 = crossunder(n5ma15,n6ma15), S6_MA_Cond15 = crossunder(n6ma15,n7ma15), S7_MA_Cond15 = crossunder(n7ma15,n8ma15)        
+S1_MA_Cond16 = crossunder(n1ma16,n2ma16), S2_MA_Cond16 = crossunder(n2ma16,n3ma16), S3_MA_Cond16 = crossunder(n3ma16,n4ma16), S4_MA_Cond16 = crossunder(n4ma16,n5ma16), S5_MA_Cond16 = crossunder(n5ma16,n6ma16), S6_MA_Cond16 = crossunder(n6ma16,n7ma16), S7_MA_Cond16 = crossunder(n7ma16,n8ma16)        
+S1_MA_Cond17 = crossunder(n1ma17,n2ma17), S2_MA_Cond17 = crossunder(n2ma17,n3ma17), S3_MA_Cond17 = crossunder(n3ma17,n4ma17), S4_MA_Cond17 = crossunder(n4ma17,n5ma17), S5_MA_Cond17 = crossunder(n5ma17,n6ma17), S6_MA_Cond17 = crossunder(n6ma17,n7ma17), S7_MA_Cond17 = crossunder(n7ma17,n8ma17)        
+S1_MA_Cond18 = crossunder(n1ma18,n2ma18), S2_MA_Cond18 = crossunder(n2ma18,n3ma18), S3_MA_Cond18 = crossunder(n3ma18,n4ma18), S4_MA_Cond18 = crossunder(n4ma18,n5ma18), S5_MA_Cond18 = crossunder(n5ma18,n6ma18), S6_MA_Cond18 = crossunder(n6ma18,n7ma18), S7_MA_Cond18 = crossunder(n7ma18,n8ma18)        
+S1_MA_Cond19 = crossunder(n1ma19,n2ma19), S2_MA_Cond19 = crossunder(n2ma19,n3ma19), S3_MA_Cond19 = crossunder(n3ma19,n4ma19), S4_MA_Cond19 = crossunder(n4ma19,n5ma19), S5_MA_Cond19 = crossunder(n5ma19,n6ma19), S6_MA_Cond19 = crossunder(n6ma19,n7ma19), S7_MA_Cond19 = crossunder(n7ma19,n8ma19)        
+S1_MA_Cond20 = crossunder(n1ma20,n2ma20), S2_MA_Cond20 = crossunder(n2ma20,n3ma20), S3_MA_Cond20 = crossunder(n3ma20,n4ma20), S4_MA_Cond20 = crossunder(n4ma20,n5ma20), S5_MA_Cond20 = crossunder(n5ma20,n6ma20), S6_MA_Cond20 = crossunder(n6ma20,n7ma20), S7_MA_Cond20 = crossunder(n7ma20,n8ma20)        
+S1_MA_Cond21 = crossunder(n1ma21,n2ma21), S2_MA_Cond21 = crossunder(n2ma21,n3ma21), S3_MA_Cond21 = crossunder(n3ma21,n4ma21), S4_MA_Cond21 = crossunder(n4ma21,n5ma21), S5_MA_Cond21 = crossunder(n5ma21,n6ma21), S6_MA_Cond21 = crossunder(n6ma21,n7ma21), S7_MA_Cond21 = crossunder(n7ma21,n8ma21)        
+S1_MA_Cond22 = crossunder(n1ma22,n2ma22), S2_MA_Cond22 = crossunder(n2ma22,n3ma22), S3_MA_Cond22 = crossunder(n3ma22,n4ma22), S4_MA_Cond22 = crossunder(n4ma22,n5ma22), S5_MA_Cond22 = crossunder(n5ma22,n6ma22), S6_MA_Cond22 = crossunder(n6ma22,n7ma22), S7_MA_Cond22 = crossunder(n7ma22,n8ma22)        
+
+
+countS = 0
+countS := S1_MA_Cond1  ? countS + 1 : countS, countS := S2_MA_Cond1  ? countS + 1 : countS, countS := S3_MA_Cond1  ? countS + 1 : countS, countS := S4_MA_Cond1  ? countS + 1 : countS, countS := S5_MA_Cond1  ? countS + 1 : countS, countS := S6_MA_Cond1  ? countS + 1 : countS, countS := S7_MA_Cond1  ? countS + 1 : countS
+countS := S1_MA_Cond2  ? countS + 1 : countS, countS := S2_MA_Cond2  ? countS + 1 : countS, countS := S3_MA_Cond2  ? countS + 1 : countS, countS := S4_MA_Cond2  ? countS + 1 : countS, countS := S5_MA_Cond2  ? countS + 1 : countS, countS := S6_MA_Cond2  ? countS + 1 : countS, countS := S7_MA_Cond2  ? countS + 1 : countS
+countS := S1_MA_Cond3  ? countS + 1 : countS, countS := S2_MA_Cond3  ? countS + 1 : countS, countS := S3_MA_Cond3  ? countS + 1 : countS, countS := S4_MA_Cond3  ? countS + 1 : countS, countS := S5_MA_Cond3  ? countS + 1 : countS, countS := S6_MA_Cond3  ? countS + 1 : countS, countS := S7_MA_Cond3  ? countS + 1 : countS
+countS := S1_MA_Cond4  ? countS + 1 : countS, countS := S2_MA_Cond4  ? countS + 1 : countS, countS := S3_MA_Cond4  ? countS + 1 : countS, countS := S4_MA_Cond4  ? countS + 1 : countS, countS := S5_MA_Cond4  ? countS + 1 : countS, countS := S6_MA_Cond4  ? countS + 1 : countS, countS := S7_MA_Cond4  ? countS + 1 : countS
+countS := S1_MA_Cond5  ? countS + 1 : countS, countS := S2_MA_Cond5  ? countS + 1 : countS, countS := S3_MA_Cond5  ? countS + 1 : countS, countS := S4_MA_Cond5  ? countS + 1 : countS, countS := S5_MA_Cond5  ? countS + 1 : countS, countS := S6_MA_Cond5  ? countS + 1 : countS, countS := S7_MA_Cond5  ? countS + 1 : countS
+countS := S1_MA_Cond6  ? countS + 1 : countS, countS := S2_MA_Cond6  ? countS + 1 : countS, countS := S3_MA_Cond6  ? countS + 1 : countS, countS := S4_MA_Cond6  ? countS + 1 : countS, countS := S5_MA_Cond6  ? countS + 1 : countS, countS := S6_MA_Cond6  ? countS + 1 : countS, countS := S7_MA_Cond6  ? countS + 1 : countS
+countS := S1_MA_Cond7  ? countS + 1 : countS, countS := S2_MA_Cond7  ? countS + 1 : countS, countS := S3_MA_Cond7  ? countS + 1 : countS, countS := S4_MA_Cond7  ? countS + 1 : countS, countS := S5_MA_Cond7  ? countS + 1 : countS, countS := S6_MA_Cond7  ? countS + 1 : countS, countS := S7_MA_Cond7  ? countS + 1 : countS
+countS := S1_MA_Cond8  ? countS + 1 : countS, countS := S2_MA_Cond8  ? countS + 1 : countS, countS := S3_MA_Cond8  ? countS + 1 : countS, countS := S4_MA_Cond8  ? countS + 1 : countS, countS := S5_MA_Cond8  ? countS + 1 : countS, countS := S6_MA_Cond8  ? countS + 1 : countS, countS := S7_MA_Cond8  ? countS + 1 : countS
+countS := S1_MA_Cond9  ? countS + 1 : countS, countS := S2_MA_Cond9  ? countS + 1 : countS, countS := S3_MA_Cond9  ? countS + 1 : countS, countS := S4_MA_Cond9  ? countS + 1 : countS, countS := S5_MA_Cond9  ? countS + 1 : countS, countS := S6_MA_Cond9  ? countS + 1 : countS, countS := S7_MA_Cond9  ? countS + 1 : countS
+countS := S1_MA_Cond10 ? countS + 1 : countS, countS := S2_MA_Cond10 ? countS + 1 : countS, countS := S3_MA_Cond10 ? countS + 1 : countS, countS := S4_MA_Cond10 ? countS + 1 : countS, countS := S5_MA_Cond10 ? countS + 1 : countS, countS := S6_MA_Cond10 ? countS + 1 : countS, countS := S7_MA_Cond10 ? countS + 1 : countS
+countS := S1_MA_Cond11 ? countS + 1 : countS, countS := S2_MA_Cond11 ? countS + 1 : countS, countS := S3_MA_Cond11 ? countS + 1 : countS, countS := S4_MA_Cond11 ? countS + 1 : countS, countS := S5_MA_Cond11 ? countS + 1 : countS, countS := S6_MA_Cond11 ? countS + 1 : countS, countS := S7_MA_Cond11 ? countS + 1 : countS
+countS := S1_MA_Cond12 ? countS + 1 : countS, countS := S2_MA_Cond12 ? countS + 1 : countS, countS := S3_MA_Cond12 ? countS + 1 : countS, countS := S4_MA_Cond12 ? countS + 1 : countS, countS := S5_MA_Cond12 ? countS + 1 : countS, countS := S6_MA_Cond12 ? countS + 1 : countS, countS := S7_MA_Cond12 ? countS + 1 : countS
+countS := S1_MA_Cond13 ? countS + 1 : countS, countS := S2_MA_Cond13 ? countS + 1 : countS, countS := S3_MA_Cond13 ? countS + 1 : countS, countS := S4_MA_Cond13 ? countS + 1 : countS, countS := S5_MA_Cond13 ? countS + 1 : countS, countS := S6_MA_Cond13 ? countS + 1 : countS, countS := S7_MA_Cond13 ? countS + 1 : countS
+countS := S1_MA_Cond14 ? countS + 1 : countS, countS := S2_MA_Cond14 ? countS + 1 : countS, countS := S3_MA_Cond14 ? countS + 1 : countS, countS := S4_MA_Cond14 ? countS + 1 : countS, countS := S5_MA_Cond14 ? countS + 1 : countS, countS := S6_MA_Cond14 ? countS + 1 : countS, countS := S7_MA_Cond14 ? countS + 1 : countS
+countS := S1_MA_Cond15 ? countS + 1 : countS, countS := S2_MA_Cond15 ? countS + 1 : countS, countS := S3_MA_Cond15 ? countS + 1 : countS, countS := S4_MA_Cond15 ? countS + 1 : countS, countS := S5_MA_Cond15 ? countS + 1 : countS, countS := S6_MA_Cond15 ? countS + 1 : countS, countS := S7_MA_Cond15 ? countS + 1 : countS
+countS := S1_MA_Cond16 ? countS + 1 : countS, countS := S2_MA_Cond16 ? countS + 1 : countS, countS := S3_MA_Cond16 ? countS + 1 : countS, countS := S4_MA_Cond16 ? countS + 1 : countS, countS := S5_MA_Cond16 ? countS + 1 : countS, countS := S6_MA_Cond16 ? countS + 1 : countS, countS := S7_MA_Cond16 ? countS + 1 : countS
+countS := S1_MA_Cond17 ? countS + 1 : countS, countS := S2_MA_Cond17 ? countS + 1 : countS, countS := S3_MA_Cond17 ? countS + 1 : countS, countS := S4_MA_Cond17 ? countS + 1 : countS, countS := S5_MA_Cond17 ? countS + 1 : countS, countS := S6_MA_Cond17 ? countS + 1 : countS, countS := S7_MA_Cond17 ? countS + 1 : countS
+countS := S1_MA_Cond18 ? countS + 1 : countS, countS := S2_MA_Cond18 ? countS + 1 : countS, countS := S3_MA_Cond18 ? countS + 1 : countS, countS := S4_MA_Cond18 ? countS + 1 : countS, countS := S5_MA_Cond18 ? countS + 1 : countS, countS := S6_MA_Cond18 ? countS + 1 : countS, countS := S7_MA_Cond18 ? countS + 1 : countS
+countS := S1_MA_Cond19 ? countS + 1 : countS, countS := S2_MA_Cond19 ? countS + 1 : countS, countS := S3_MA_Cond19 ? countS + 1 : countS, countS := S4_MA_Cond19 ? countS + 1 : countS, countS := S5_MA_Cond19 ? countS + 1 : countS, countS := S6_MA_Cond19 ? countS + 1 : countS, countS := S7_MA_Cond19 ? countS + 1 : countS
+countS := S1_MA_Cond20 ? countS + 1 : countS, countS := S2_MA_Cond20 ? countS + 1 : countS, countS := S3_MA_Cond20 ? countS + 1 : countS, countS := S4_MA_Cond20 ? countS + 1 : countS, countS := S5_MA_Cond20 ? countS + 1 : countS, countS := S6_MA_Cond20 ? countS + 1 : countS, countS := S7_MA_Cond20 ? countS + 1 : countS
+countS := S1_MA_Cond21 ? countS + 1 : countS, countS := S2_MA_Cond21 ? countS + 1 : countS, countS := S3_MA_Cond21 ? countS + 1 : countS, countS := S4_MA_Cond21 ? countS + 1 : countS, countS := S5_MA_Cond21 ? countS + 1 : countS, countS := S6_MA_Cond21 ? countS + 1 : countS, countS := S7_MA_Cond21 ? countS + 1 : countS
+countS := S1_MA_Cond22 ? countS + 1 : countS, countS := S2_MA_Cond22 ? countS + 1 : countS, countS := S3_MA_Cond22 ? countS + 1 : countS, countS := S4_MA_Cond22 ? countS + 1 : countS, countS := S5_MA_Cond22 ? countS + 1 : countS, countS := S6_MA_Cond22 ? countS + 1 : countS, countS := S7_MA_Cond22 ? countS + 1 : countS
+
+//==============================================================================================================
+countSrcL = 0
+countSrcL := n1ma1  < masrc ? countSrcL + 1 : countSrcL, countSrcL := n2ma1  < masrc ? countSrcL + 1 : countSrcL, countSrcL := n3ma1  < masrc ? countSrcL + 1 : countSrcL, countSrcL := n4ma1  < masrc ? countSrcL + 1 : countSrcL, countSrcL := n5ma1  < masrc ? countSrcL + 1 : countSrcL, countSrcL := n6ma1  < masrc ? countSrcL + 1 : countSrcL
+countSrcL := n1ma2  < masrc ? countSrcL + 1 : countSrcL, countSrcL := n2ma2  < masrc ? countSrcL + 1 : countSrcL, countSrcL := n3ma2  < masrc ? countSrcL + 1 : countSrcL, countSrcL := n4ma2  < masrc ? countSrcL + 1 : countSrcL, countSrcL := n5ma2  < masrc ? countSrcL + 1 : countSrcL, countSrcL := n6ma2  < masrc ? countSrcL + 1 : countSrcL
+countSrcL := n1ma3  < masrc ? countSrcL + 1 : countSrcL, countSrcL := n2ma3  < masrc ? countSrcL + 1 : countSrcL, countSrcL := n3ma3  < masrc ? countSrcL + 1 : countSrcL, countSrcL := n4ma3  < masrc ? countSrcL + 1 : countSrcL, countSrcL := n5ma3  < masrc ? countSrcL + 1 : countSrcL, countSrcL := n6ma3  < masrc ? countSrcL + 1 : countSrcL
+countSrcL := n1ma4  < masrc ? countSrcL + 1 : countSrcL, countSrcL := n2ma4  < masrc ? countSrcL + 1 : countSrcL, countSrcL := n3ma4  < masrc ? countSrcL + 1 : countSrcL, countSrcL := n4ma4  < masrc ? countSrcL + 1 : countSrcL, countSrcL := n5ma4  < masrc ? countSrcL + 1 : countSrcL, countSrcL := n6ma4  < masrc ? countSrcL + 1 : countSrcL
+countSrcL := n1ma5  < masrc ? countSrcL + 1 : countSrcL, countSrcL := n2ma5  < masrc ? countSrcL + 1 : countSrcL, countSrcL := n3ma5  < masrc ? countSrcL + 1 : countSrcL, countSrcL := n4ma5  < masrc ? countSrcL + 1 : countSrcL, countSrcL := n5ma5  < masrc ? countSrcL + 1 : countSrcL, countSrcL := n6ma5  < masrc ? countSrcL + 1 : countSrcL
+countSrcL := n1ma6  < masrc ? countSrcL + 1 : countSrcL, countSrcL := n2ma6  < masrc ? countSrcL + 1 : countSrcL, countSrcL := n3ma6  < masrc ? countSrcL + 1 : countSrcL, countSrcL := n4ma6  < masrc ? countSrcL + 1 : countSrcL, countSrcL := n5ma6  < masrc ? countSrcL + 1 : countSrcL, countSrcL := n6ma6  < masrc ? countSrcL + 1 : countSrcL
+countSrcL := n1ma7  < masrc ? countSrcL + 1 : countSrcL, countSrcL := n2ma7  < masrc ? countSrcL + 1 : countSrcL, countSrcL := n3ma7  < masrc ? countSrcL + 1 : countSrcL, countSrcL := n4ma7  < masrc ? countSrcL + 1 : countSrcL, countSrcL := n5ma7  < masrc ? countSrcL + 1 : countSrcL, countSrcL := n6ma7  < masrc ? countSrcL + 1 : countSrcL
+countSrcL := n1ma8  < masrc ? countSrcL + 1 : countSrcL, countSrcL := n2ma8  < masrc ? countSrcL + 1 : countSrcL, countSrcL := n3ma8  < masrc ? countSrcL + 1 : countSrcL, countSrcL := n4ma8  < masrc ? countSrcL + 1 : countSrcL, countSrcL := n5ma8  < masrc ? countSrcL + 1 : countSrcL, countSrcL := n6ma8  < masrc ? countSrcL + 1 : countSrcL
+countSrcL := n1ma9  < masrc ? countSrcL + 1 : countSrcL, countSrcL := n2ma9  < masrc ? countSrcL + 1 : countSrcL, countSrcL := n3ma9  < masrc ? countSrcL + 1 : countSrcL, countSrcL := n4ma9  < masrc ? countSrcL + 1 : countSrcL, countSrcL := n5ma9  < masrc ? countSrcL + 1 : countSrcL, countSrcL := n6ma9  < masrc ? countSrcL + 1 : countSrcL
+countSrcL := n1ma10 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n2ma10 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n3ma10 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n4ma10 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n5ma10 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n6ma10 < masrc ? countSrcL + 1 : countSrcL
+countSrcL := n1ma11 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n2ma11 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n3ma11 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n4ma11 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n5ma11 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n6ma11 < masrc ? countSrcL + 1 : countSrcL
+countSrcL := n1ma12 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n2ma12 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n3ma12 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n4ma12 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n5ma12 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n6ma12 < masrc ? countSrcL + 1 : countSrcL
+countSrcL := n1ma13 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n2ma13 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n3ma13 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n4ma13 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n5ma13 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n6ma13 < masrc ? countSrcL + 1 : countSrcL
+countSrcL := n1ma14 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n2ma14 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n3ma14 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n4ma14 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n5ma14 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n6ma14 < masrc ? countSrcL + 1 : countSrcL
+countSrcL := n1ma15 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n2ma15 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n3ma15 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n4ma15 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n5ma15 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n6ma15 < masrc ? countSrcL + 1 : countSrcL
+countSrcL := n1ma16 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n2ma16 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n3ma16 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n4ma16 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n5ma16 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n6ma16 < masrc ? countSrcL + 1 : countSrcL
+countSrcL := n1ma17 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n2ma17 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n3ma17 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n4ma17 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n5ma17 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n6ma17 < masrc ? countSrcL + 1 : countSrcL
+countSrcL := n1ma18 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n2ma18 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n3ma18 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n4ma18 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n5ma18 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n6ma18 < masrc ? countSrcL + 1 : countSrcL
+countSrcL := n1ma19 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n2ma19 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n3ma19 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n4ma19 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n5ma19 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n6ma19 < masrc ? countSrcL + 1 : countSrcL
+countSrcL := n1ma20 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n2ma20 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n3ma20 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n4ma20 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n5ma20 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n6ma20 < masrc ? countSrcL + 1 : countSrcL
+countSrcL := n1ma21 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n2ma21 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n3ma21 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n4ma21 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n5ma21 < masrc ? countSrcL + 1 : countSrcL, countSrcL := n6ma21 < masrc ? countSrcL + 1 : countSrcL
+
+
+countSrcS = 0
+countSrcS := n1ma1  > masrc ? countSrcS + 1 : countSrcS, countSrcS := n2ma1  > masrc ? countSrcS + 1 : countSrcS, countSrcS := n3ma1  > masrc ? countSrcS + 1 : countSrcS, countSrcS := n4ma1  > masrc ? countSrcS + 1 : countSrcS, countSrcS := n5ma1  > masrc ? countSrcS + 1 : countSrcS, countSrcS := n5ma1  > masrc ? countSrcS + 1 : countSrcS
+countSrcS := n1ma2  > masrc ? countSrcS + 1 : countSrcS, countSrcS := n2ma2  > masrc ? countSrcS + 1 : countSrcS, countSrcS := n3ma2  > masrc ? countSrcS + 1 : countSrcS, countSrcS := n4ma2  > masrc ? countSrcS + 1 : countSrcS, countSrcS := n5ma2  > masrc ? countSrcS + 1 : countSrcS, countSrcS := n5ma2  > masrc ? countSrcS + 1 : countSrcS
+countSrcS := n1ma3  > masrc ? countSrcS + 1 : countSrcS, countSrcS := n2ma3  > masrc ? countSrcS + 1 : countSrcS, countSrcS := n3ma3  > masrc ? countSrcS + 1 : countSrcS, countSrcS := n4ma3  > masrc ? countSrcS + 1 : countSrcS, countSrcS := n5ma3  > masrc ? countSrcS + 1 : countSrcS, countSrcS := n5ma3  > masrc ? countSrcS + 1 : countSrcS
+countSrcS := n1ma4  > masrc ? countSrcS + 1 : countSrcS, countSrcS := n2ma4  > masrc ? countSrcS + 1 : countSrcS, countSrcS := n3ma4  > masrc ? countSrcS + 1 : countSrcS, countSrcS := n4ma4  > masrc ? countSrcS + 1 : countSrcS, countSrcS := n5ma4  > masrc ? countSrcS + 1 : countSrcS, countSrcS := n5ma4  > masrc ? countSrcS + 1 : countSrcS
+countSrcS := n1ma5  > masrc ? countSrcS + 1 : countSrcS, countSrcS := n2ma5  > masrc ? countSrcS + 1 : countSrcS, countSrcS := n3ma5  > masrc ? countSrcS + 1 : countSrcS, countSrcS := n4ma5  > masrc ? countSrcS + 1 : countSrcS, countSrcS := n5ma5  > masrc ? countSrcS + 1 : countSrcS, countSrcS := n5ma5  > masrc ? countSrcS + 1 : countSrcS
+countSrcS := n1ma6  > masrc ? countSrcS + 1 : countSrcS, countSrcS := n2ma6  > masrc ? countSrcS + 1 : countSrcS, countSrcS := n3ma6  > masrc ? countSrcS + 1 : countSrcS, countSrcS := n4ma6  > masrc ? countSrcS + 1 : countSrcS, countSrcS := n5ma6  > masrc ? countSrcS + 1 : countSrcS, countSrcS := n5ma6  > masrc ? countSrcS + 1 : countSrcS
+countSrcS := n1ma7  > masrc ? countSrcS + 1 : countSrcS, countSrcS := n2ma7  > masrc ? countSrcS + 1 : countSrcS, countSrcS := n3ma7  > masrc ? countSrcS + 1 : countSrcS, countSrcS := n4ma7  > masrc ? countSrcS + 1 : countSrcS, countSrcS := n5ma7  > masrc ? countSrcS + 1 : countSrcS, countSrcS := n5ma7  > masrc ? countSrcS + 1 : countSrcS
+countSrcS := n1ma8  > masrc ? countSrcS + 1 : countSrcS, countSrcS := n2ma8  > masrc ? countSrcS + 1 : countSrcS, countSrcS := n3ma8  > masrc ? countSrcS + 1 : countSrcS, countSrcS := n4ma8  > masrc ? countSrcS + 1 : countSrcS, countSrcS := n5ma8  > masrc ? countSrcS + 1 : countSrcS, countSrcS := n5ma8  > masrc ? countSrcS + 1 : countSrcS
+countSrcS := n1ma9  > masrc ? countSrcS + 1 : countSrcS, countSrcS := n2ma9  > masrc ? countSrcS + 1 : countSrcS, countSrcS := n3ma9  > masrc ? countSrcS + 1 : countSrcS, countSrcS := n4ma9  > masrc ? countSrcS + 1 : countSrcS, countSrcS := n5ma9  > masrc ? countSrcS + 1 : countSrcS, countSrcS := n5ma9  > masrc ? countSrcS + 1 : countSrcS
+countSrcS := n1ma10 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n2ma10 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n3ma10 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n4ma10 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n5ma10 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n5ma10 > masrc ? countSrcS + 1 : countSrcS
+countSrcS := n1ma11 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n2ma11 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n3ma11 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n4ma11 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n5ma11 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n5ma11 > masrc ? countSrcS + 1 : countSrcS
+countSrcS := n1ma12 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n2ma12 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n3ma12 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n4ma12 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n5ma12 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n5ma12 > masrc ? countSrcS + 1 : countSrcS
+countSrcS := n1ma13 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n2ma13 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n3ma13 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n4ma13 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n5ma13 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n5ma13 > masrc ? countSrcS + 1 : countSrcS
+countSrcS := n1ma14 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n2ma14 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n3ma14 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n4ma14 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n5ma14 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n5ma14 > masrc ? countSrcS + 1 : countSrcS
+countSrcS := n1ma15 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n2ma15 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n3ma15 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n4ma15 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n5ma15 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n5ma15 > masrc ? countSrcS + 1 : countSrcS
+countSrcS := n1ma16 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n2ma16 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n3ma16 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n4ma16 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n5ma16 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n5ma16 > masrc ? countSrcS + 1 : countSrcS
+countSrcS := n1ma17 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n2ma17 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n3ma17 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n4ma17 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n5ma17 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n5ma17 > masrc ? countSrcS + 1 : countSrcS
+countSrcS := n1ma18 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n2ma18 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n3ma18 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n4ma18 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n5ma18 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n5ma18 > masrc ? countSrcS + 1 : countSrcS
+countSrcS := n1ma19 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n2ma19 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n3ma19 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n4ma19 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n5ma19 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n5ma19 > masrc ? countSrcS + 1 : countSrcS
+countSrcS := n1ma20 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n2ma20 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n3ma20 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n4ma20 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n5ma20 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n5ma20 > masrc ? countSrcS + 1 : countSrcS
+countSrcS := n1ma21 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n2ma21 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n3ma21 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n4ma21 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n5ma21 > masrc ? countSrcS + 1 : countSrcS, countSrcS := n5ma21 > masrc ? countSrcS + 1 : countSrcS
+
+//==============================================================================================================
+differm = input(true, 'On = Differ MOD | Off = Ratio MOD')
+histgrm = input(false,'On = Show All | Off = Show Only Cross')
+usema   = input(true, 'Smooth ?', inline='smooth')
+lenma   = input(4,    'Lenght', inline='smooth')
+smthtype= input(6,    'Type', minval=1, maxval=22, tooltip="1='ADXMA', 2='ALMA', 3='ARSI', 4='CTI', 5='DOUBLEEMA', 6='EMA', 7='QEMA', 8='HMA', 9='KAMA', 10='RMA', 11='SMA', 12='STMA', 13='SUPERSMOOTH', 14='THMA', 15='TILSONT3', 16='TRIPLEEMA', 17='VVMA', 18='VWMA', 19='WMA', 20='WWMA', 21='ZEMA', 22='ZLMA'", inline='smooth')
+ucolor  = input(color.new(#029240, 0), 'Up color', inline="color")
+ncolor  = input(color.new(#fbc02d, 0), 'Neutral color', inline="color")
+dcolor  = input(color.new(#b11a4e, 0), 'Down color', inline="color")
+
+macountL  = usema ? GetMA((countL + countSrcL), lenma, smthtype) : (countL + countSrcL)
+macountS  = usema ? GetMA((countS + countSrcS), lenma, smthtype) : (countS + countSrcS)
+macountL0 = usema ? GetMA((countL), lenma, smthtype) : (countL)
+macountS0 = usema ? GetMA((countS), lenma, smthtype) : (countS)
+
+
+choiceL = histgrm ? macountL : macountL0
+choiceS = histgrm ? macountS : macountS0
+plot(differm ? na : choiceS, 'Count Short', style=plot.style_columns,color=dcolor, editable=false)
+plot(differm ? na : choiceL, 'Count Long' , style=plot.style_columns,color=ucolor, editable=false)
+
+positionL = histgrm ? - 10 : - 2
+positionS = histgrm ? - 24 : - 5
+plot(differm ? na : positionL, 'Count Long > Count Short? Cross', style=plot.style_circles, linewidth=2, color=countL > countS ? ucolor : countL == countS ? ncolor : dcolor, editable=false)
+plot(differm ? na : positionS, 'Count Long > Count Short? All  ', style=plot.style_circles, linewidth=2, color=(countSrcL + countL) > (countSrcS + countS) ? ucolor : countSrcL == countSrcS ? ncolor : dcolor, editable=false)
+
+differ = choiceL - choiceS
+plot(differm ? differ : na, 'Ratio MOD', color=differ > 0 ? ucolor : dcolor, style=plot.style_columns, editable=false)
+plot(differm ? differ : na, style=plot.style_circles, linewidth=2, color=countL == countS ? ncolor : na, editable=false)
+
+
+//label.new(bar_index, low, text=tostring(countL), style=label.style_circle, size=size.small, textcolor=color.green, color=color.green)
+//label.new(bar_index, high,text=tostring(countS), style=label.style_circle, size=size.small, textcolor=color.red, color=color.red)
+
+//count = 0
+//cond1 = ta.crossover(ta.ema(close, 30), ta.ema(close, 50))
+//cond2 = ta.cross(ta.rsi(close, 14), 50)
+//count := cond1 ? count + 1 : count
+//count := cond2 ? count + 1 : count

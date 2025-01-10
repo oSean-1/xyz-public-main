@@ -1,0 +1,152 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © akitoMAN3
+
+//@version=5
+indicator('曜日ごとの変化率')
+//input
+//エントリー条件□■□■□■□■□■□■□■□■□■□■□■□■□■□■□■□■□■□■□■□■□■□■□■□■□■□■□■□■□■□■□■□■□■□■□■□■□
+//ここから＿/＿/＿/＿/＿/＿/＿/＿/＿/＿/＿/＿/＿/＿/＿/＿/＿/＿/＿/＿/＿/＿/＿/
+timezone = input(title='Timezone', defval='America/New_York')
+
+YS = input(2000, 'トレード開始年')
+MS = input.int(1, 'トレード開始月', minval=1, maxval=12)
+DS = input.int(1, 'トレード開始日', minval=1, maxval=31)
+HS = input.int(00, 'トレード開始時', minval=0, maxval=23)
+MIS = input.int(00, 'トレード開始分', minval=0, maxval=59)
+backtest_use = input(false, 'トレード期間を指定する。')
+HL = input(2000, 'トレード指定期間(日)')
+testPeriod = backtest_use ? HL : 9999
+strart_time = timestamp('GMT+9', YS, MS, DS, HS, MIS)
+end_time = timestamp('GMT+9', YS, MS, DS, HS, MIS) + testPeriod * 24 * 60 * 60 * 1000
+
+delta_use = input(false, '正負ではなく変化率をみる')
+
+hor = hour(time, timezone)
+
+c = color.blue  // Color of background for weekdays.
+
+bgColor = dayofweek(time, timezone) == dayofweek.monday ? color.new(c, 95) : dayofweek(time, timezone) == dayofweek.tuesday ? color.new(c, 90) : dayofweek(time, timezone) == dayofweek.wednesday ? color.new(c, 85) : dayofweek(time, timezone) == dayofweek.thursday ? color.new(c, 80) : dayofweek(time, timezone) == dayofweek.friday ? color.new(c, 75) : color.new(color.black, 70)
+
+bgcolor(bgColor, transp=90)
+
+var float monday = 0
+var float tuesday = 0
+var float wednesday = 0
+var float thursday = 0
+var float friday = 0
+var float saturday = 0
+var float sunday = 0
+
+if time[1] > strart_time
+    if delta_use==false
+        if dayofweek(time, timezone) == dayofweek.tuesday
+            monday += (close[0] - close[1]) / close[0] * 100
+            monday
+        if dayofweek(time, timezone) == dayofweek.wednesday
+            tuesday += (close[0] - close[1]) / close[0] * 100
+            tuesday
+        if dayofweek(time, timezone) == dayofweek.thursday
+            wednesday += (close[0] - close[1]) / close[0] * 100
+            wednesday
+        if dayofweek(time, timezone) == dayofweek.friday
+            thursday += (close[0] - close[1]) / close[0] * 100
+            thursday
+        if dayofweek(time, timezone) == dayofweek.saturday
+            friday += (close[0] - close[1]) / close[0] * 100
+            friday
+        if dayofweek(time, timezone) == dayofweek.sunday
+            saturday += (close[0] - close[1]) / close[0] * 100
+            saturday
+        if dayofweek(time, timezone) == dayofweek.monday
+            sunday += (close[0] - close[1]) / close[0] * 100
+            sunday
+    if delta_use==true
+        if dayofweek(time, timezone) == dayofweek.tuesday
+            i=(close[0] - close[1]) / close[0] * 100
+            if i<0
+                monday += -i
+                monday
+            else 
+                monday += i
+                monday
+        if dayofweek(time, timezone) == dayofweek.wednesday
+            i=(close[0] - close[1]) / close[0] * 100
+            if i<0
+                tuesday += -i
+                tuesday
+            else 
+                tuesday += i
+                tuesday
+        if dayofweek(time, timezone) == dayofweek.thursday
+            i=(close[0] - close[1]) / close[0] * 100
+            if i<0
+                wednesday += -i
+                wednesday
+            else 
+                wednesday += i
+                wednesday
+        if dayofweek(time, timezone) == dayofweek.friday
+            i=(close[0] - close[1]) / close[0] * 100
+            if i<0
+                thursday += -i
+                thursday
+            else 
+                thursday += i
+                thursday
+        if dayofweek(time, timezone) == dayofweek.saturday
+            i=(close[0] - close[1]) / close[0] * 100
+            if i<0
+                friday += -i
+                friday
+            else 
+                friday += i
+                friday
+        if dayofweek(time, timezone) == dayofweek.sunday
+            i=(close[0] - close[1]) / close[0] * 100
+            if i<0
+                saturday += -i
+                saturday
+            else 
+                saturday += i
+                saturday
+        if dayofweek(time, timezone) == dayofweek.monday
+            i=(close[0] - close[1]) / close[0] * 100
+            if i<0
+                sunday += -i
+                sunday
+            else 
+                sunday += i
+                sunday
+
+plot(monday, title='tuesday')
+plot(tuesday, title='wednesday')
+plot(wednesday, title='thursday')
+plot(thursday, title='friday')
+plot(friday, title='saturday')
+plot(saturday, title='sunday')
+plot(sunday, title='monday')
+
+var table gttTable = table.new(position.top_left, 7, 2,border_color=color.gray, frame_color=color.gray, frame_width=2, border_width=2)
+
+
+mon = str.tostring(math.round(sunday, 2))
+table.cell(gttTable, 0, 0, text="M 月", bgcolor=color.black, text_color=color.white, text_size=size.normal)
+table.cell(gttTable, 0, 1, text=mon, bgcolor=color.green, text_color=color.white, text_size=size.normal)
+tue = str.tostring(math.round(monday, 2))
+table.cell(gttTable, 1, 0, text="T 火", bgcolor=color.black, text_color=color.white, text_size=size.normal)
+table.cell(gttTable, 1, 1, text=tue, bgcolor=color.green, text_color=color.white, text_size=size.normal)
+wed = str.tostring(math.round(tuesday, 2))
+table.cell(gttTable, 2, 0, text="W 水", bgcolor=color.black, text_color=color.white, text_size=size.normal)
+table.cell(gttTable, 2, 1, text=wed, bgcolor=color.green, text_color=color.white, text_size=size.normal)
+thu = str.tostring(math.round(wednesday, 2))
+table.cell(gttTable, 3, 0, text="T 木", bgcolor=color.black, text_color=color.white, text_size=size.normal)
+table.cell(gttTable, 3, 1, text=thu, bgcolor=color.green, text_color=color.white, text_size=size.normal)
+fri = str.tostring(math.round(thursday, 2))
+table.cell(gttTable, 4, 0, text="F 金", bgcolor=color.black, text_color=color.white, text_size=size.normal)
+table.cell(gttTable, 4, 1, text=fri, bgcolor=color.green, text_color=color.white, text_size=size.normal)
+sat = str.tostring(math.round(friday, 2))
+table.cell(gttTable, 5, 0, text="S 土", bgcolor=color.black, text_color=color.white, text_size=size.normal)
+table.cell(gttTable, 5, 1, text=sat, bgcolor=color.green, text_color=color.white, text_size=size.normal)
+sun = str.tostring(math.round(saturday, 2))
+table.cell(gttTable, 6, 0, text="S 日", bgcolor=color.black, text_color=color.white, text_size=size.normal)
+table.cell(gttTable, 6, 1, text=sun, bgcolor=color.green, text_color=color.white, text_size=size.normal)

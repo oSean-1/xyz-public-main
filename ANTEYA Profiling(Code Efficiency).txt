@@ -1,0 +1,273 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © moebius1977
+
+// A framework for finding the fastest working code by calling it multiple times in a loop (with random values) 
+// and measuring how much time it takes.
+// The script runs the test code within a loop for fixed time until a certain time or iterations limit.
+
+// Paste the code to be tested within THE LOOP (see below) as option 1 and 2.
+
+
+//@version=5
+indicator("ANTEYA Profiling", overlay = true)
+
+//======================================================================================
+// USER DEFINED TYPES 
+//====================================================================================== {
+// This wierd UDT is excessive - I originally planned to encapsulate string buffer into 'debugger' type, but
+// it turned ourt that UDT's cannot be 'varip'. Still left it this way - once turned into library debugger object of  
+// exported type can be used to pass parameters to functions within the debugger library.   
+// also dbgLabel object may be used in future with overloaded functions
+
+
+//@type dbgTable
+//@field buffer     buffer of lines to be printed. *** NB *** temporarily out of order, looks like no varip UDT objects 
+//                  an assignment of a varip array to a property of a var UDT object alone makes the array non-varip 
+//@field tbl        table to print to 
+//@field txtColor   text color 
+type dbgTable
+    string[]    buffer      
+    table       tbl          // fixed label  
+    color       txtColor    
+
+
+// END OF USER DEFINED TYPES }
+
+//======================================================================================
+// CONSTANTS 
+//====================================================================================== {
+
+// -------- Colors ----------{
+
+var MAX_LOOP_TIME = 100 // Maximum time loop is allowed to run. Pine Script's limit is 500ms
+var ARDEBUGS_MAX_SIZE = 20 // number of lines in debug label (= elemnents ib debug array)  
+
+// END OF COLORS}
+
+// var DEFAULT_TXT_COLOR = color.rgb(34, 203, 39)
+var DEFAULT_TXT_COLOR = #22CB27
+
+// END OF CONSTANTS}
+
+
+
+//======================================================================================
+//   DEBUGGER INPUT & INIT 
+//====================================================================================== {
+
+var TL = "Time elapsed",    var IL = "Number of iterations"
+i_limitType =         input.string(TL, "When to stop", [TL, IL])
+i_limitTime =         1000 * input.float(0.2, "Time limit, sec", minval = 0.01, inline = "limits")
+i_limitIterations =   input.int(10000, "Iterations limit", minval = 0, inline = "limits")
+i_tblTxtColor =       input.color(DEFAULT_TXT_COLOR, "Text color")
+i_option2 =           input.bool(false, "Test option 2 code")
+
+
+// END OF DEBUGGER INPITS AND INIT} 
+
+//======================================================================================
+//   DEBUG FUNCTIONS 
+//======================================================================================{
+
+
+
+f_initDebugger(dbgTable _db, color _txtColor = #22CB27) =>
+    // *** !!! ***  as a 'varip' _dbBuffer persists during realtime bars 
+    var _tbl = table.new(position.bottom_right, 1, 2, bgcolor = color.black, frame_color = color.gray)
+    _db.tbl := _tbl
+    // Table headers
+    table.cell(_tbl,0,0,text="Bar index:  | Loop:      | Iterations: | Loop time,s:", text_color = _txtColor, text_font_family = font.family_monospace, text_halign = text.align_left)
+    // table.cell(_tbl,1,0,text="Loop:", text_color = i_tblTxtColor, text_font_family = font.family_monospace)
+    // table.cell(_tbl,2,0,text="Iterations:", text_color = i_tblTxtColor, text_font_family = font.family_monospace)
+    // table.cell(_tbl,3,0,text="Time per loop,s:", text_color = i_tblTxtColor, text_font_family = font.family_monospace)
+
+
+f_updateDebugger(dbgTable _db, string _s, color _txtColor = #22CB27) =>
+    table.cell(_db.tbl, 0, 1, text = _s, text_color = _txtColor, text_font_family = font.family_monospace, text_halign =  text.align_left )
+
+
+
+
+
+f_dbPrint(string[] dbBuffer, string _s) =>
+    // var c = 0 
+    // c += 1 
+    // array.unshift(dbBuffer, str.tostring(c) + " " + _s)
+    array.unshift(dbBuffer, _s)
+    if array.size(dbBuffer) > ARDEBUGS_MAX_SIZE
+        array.pop(dbBuffer)
+
+// END OF DEBUG FUNCTIONS}
+
+//======================================================================================
+//   INIT DEBUGGER 
+//====================================================================================== {
+// create and init debugger
+// *** !!! *** declaring this object as varip results in "Variables with varip modifier cannot have type dbgLabel" error
+
+var db = dbgTable.new()
+
+// unfortunately, no way to make buffer array a field in db object, since UDT objects cannot be varip
+varip string[] dbBuffer =  array.new<string>() // needs to be varip to persist during realtime bar
+
+var debugS = "" // for debug messages
+
+varip float[] loopIterations= array.new<float>()    // number of iterations for each loop
+
+// loop variables
+varip loopStartTime = timenow   
+varip loopsPerBar = 0 
+varip iterationsPerLoop = 0
+varip loopTime =0               // time in the loop
+
+// option dependent results 
+varip progressChar1 = "⏳"
+varip progressChar2 = ""
+varip int totalTime1 =0
+varip int totalTime2 =0
+varip totalIterations1 = 0 
+varip totalIterations2 = 0 
+varip avgIterationsPerSec1 = 0 
+varip avgIterationsPerSec2 = 0 
+
+varip endCondition = false      // true upon completion
+
+varip option = 1                // test 1 and 2nd optioins then finish
+varip numOptions = i_option2 ? 2 : 1
+
+f_initDebugger(db, i_tblTxtColor)
+
+// END OF INIT DEBUGGER}
+
+
+//======================================================================================
+//   TEST CODE INPUT & INIT 
+//====================================================================================== {
+var tfMs = 1000*timeframe.in_seconds()
+l = ta.sma(high-low, 50) 
+
+// line to be deleted and set_xy
+var _ln = line.new(time,high,time + -5*tfMs, (high-low), xloc = xloc.bar_time,color = color.yellow, width = 4 )
+
+// ******** TEST CODE INPUT & INIT  ********}
+
+
+
+//======================================================================================
+//   THE LOOP AND RESULT CALCULATION 
+//======================================================================================{
+
+// reset loopCounter
+if barstate.isnew
+    loopsPerBar := 0
+
+if barstate.isrealtime
+    loopsPerBar += 1
+    
+    // switch option. Once option > 2 finish
+    if endCondition 
+        endCondition := false
+        f_dbPrint(dbBuffer,  str.format("-------------------- END OF OPTION {0} ---------------------", option))
+        switch option 
+            1 => 
+                progressChar1 := "✅"
+                progressChar2 := numOptions > 1 ? "⏳" : ""
+            2 => 
+                progressChar2 := "✅"
+        option += 1
+                                
+    // test until all options tested endCondition does not matter
+    if not (barstate.isconfirmed or option > numOptions)
+        iterationsPerLoop := 0    // loop iterations
+        loopStartTime := timenow   // loop start time
+        loopTime := 0
+        
+        // ---------------------------- <<<-->>> ----------------------------
+        // ============================ THE LOOP ============================
+        // ---------------------------- <<<-->>> ----------------------------
+        // loop to measure, Pine Script's limit on loop time is 500ms, so capping it to MAX_LOOP_TIME 
+        while not 
+                //   (time_close - timenow > MAX_LOOP_TIME // only start if we have time to complete the loop before time_close
+                  (timenow - loopStartTime > MAX_LOOP_TIME     
+                  or barstate.isconfirmed
+                  or endCondition)  
+            
+            iterationsPerLoop += 1 // loop cycles counter
+            
+            // ---------------------------- <<<----------->>> ----------------------------
+            // ---------------------------- CODE TO BE TESTED ----------------------------{
+  
+            switch option
+                1 => 
+                    // OPTION 1
+                    line.set_xy1(_ln, time, high)
+                    line.set_xy2(_ln, time, high + l * math.random(0,1,1))
+                2 =>
+                    // OPTION 2
+                    line.delete(_ln)
+                    _ln := line.new(time, high, time, high + l * math.random(0,1,1), xloc = xloc.bar_time,color = color.yellow, width = 1)
+
+            // ---------------------------- <<<------------------------->>> ----------------------------}
+            // ---------------------------- <<< END OF CODE TO BE TESTED >>> ----------------------------
+            // ---------------------------- <<<------------------------->>> ----------------------------
+            
+            endCondition := i_limitType == TL ? 
+                             (option == 1 ? totalTime1 : totalTime2) + timenow -loopStartTime > i_limitTime 
+                             : (option == 1 ? totalIterations1 : totalIterations2)  + iterationsPerLoop > i_limitIterations
+            
+
+        loopTime := timenow-loopStartTime
+        switch option 
+            1 => 
+                totalTime1 += loopTime
+                totalIterations1 += iterationsPerLoop
+                avgIterationsPerSec1 := totalIterations1 / (totalTime1 / 1000)
+            2 => 
+                totalTime2 += loopTime
+                totalIterations2 += iterationsPerLoop
+                avgIterationsPerSec2 := totalIterations2 / (totalTime2 / 1000)
+        // ======= END OF THE LOOP =======
+
+    
+        // print results of the loop:  Loop#: Cycles in loop: time per loop 
+        _s = str.format("{0, number,000,000,000} | {1, number,         0} | {2, number,000,000,000} |. {3,time,s.S}", bar_index,  loopsPerBar, iterationsPerLoop, loopTime)
+        // f_dbPrint(dbBuffer, str.tostring(bar_index)+": " + _s)
+        f_dbPrint(dbBuffer,  _s)
+// END OF THE LOOP AND RESULT CALCULATION }
+
+//======================================================================================
+//   OUTPUT RESULTS   
+//======================================================================================{
+
+// -------- RESULTS TABLE --------{
+
+tbl = table.new(position.bottom_left, 4, 3, bgcolor = color.black, frame_color = color.gray)
+// Table headers
+table.cell(tbl,0,0,text="Option:", text_color = i_tblTxtColor, text_font_family = font.family_monospace)
+table.cell(tbl,1,0,text="Total time:", text_color = i_tblTxtColor, text_font_family = font.family_monospace)
+table.cell(tbl,2,0,text="No of iterations:", text_color = i_tblTxtColor, text_font_family = font.family_monospace)
+table.cell(tbl,3,0,text="Iterations/sec (avg):", text_color = i_tblTxtColor, text_font_family = font.family_monospace)
+
+// Option 1
+table.cell(tbl,0,1,text="Option 1:", text_color = i_tblTxtColor, text_font_family = font.family_monospace)
+table.cell(tbl,1,1,text=str.format("{0, time, s.S}", totalTime1), text_color = i_tblTxtColor, text_font_family = font.family_monospace)
+table.cell(tbl,2,1,text=str.format("{0, number, #,##0}", totalIterations1), text_color = i_tblTxtColor, text_font_family = font.family_monospace)
+table.cell(tbl,3,1,text=str.format("{0, number, #,##0} {1}", avgIterationsPerSec1, progressChar1), text_color = i_tblTxtColor, text_font_family = font.family_monospace)
+
+// Option 2
+if numOptions > 1
+    table.cell(tbl,0,2,text="Option 2:", text_color = i_tblTxtColor, text_font_family = font.family_monospace)
+    table.cell(tbl,1,2,text=str.format("{0, time, s.S}", totalTime2), text_color = i_tblTxtColor, text_font_family = font.family_monospace)
+    table.cell(tbl,2,2,text=str.format("{0, number, #,##0}", totalIterations2), text_color = i_tblTxtColor, text_font_family = font.family_monospace)
+    table.cell(tbl,3,2,text=str.format("{0, number, #,##0} {1}", avgIterationsPerSec2, progressChar2), text_color = i_tblTxtColor, text_font_family = font.family_monospace)
+// END OF RESULTS TABLE}
+
+// -------- DEBUGGER TABLE  --------{
+
+debugS := array.join(dbBuffer, "\n")
+// prints each loop result to the debugger table 
+f_updateDebugger(db, debugS, i_tblTxtColor)
+
+// END OF DEBUGGER TABLE}
+
+

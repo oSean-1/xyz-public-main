@@ -1,0 +1,70 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © fareidzulkifli
+
+//@version=4
+study("Candle MA Distance (ATR)", shorttitle="CMD", overlay=false)
+
+//-------------------------------------
+src         = input(close,              title = "MA Source",     type=input.source)
+type        = input("SMA",              title = "MA Type  ",  inline="MA", options=["SMA","EMA","WMA","RMA","VWMA"])
+length      = input(20,                 title = "",           inline="MA")
+atr_len     = input(14,                 title = "ATR Length")
+disp_lim    = input(true,               title = "Display Upper/Lower Band")
+disp_line   = input(false,              title = "Display as Line")
+
+//-----------------------
+var     p_hi            = array.new_float()
+var     p_lo            = array.new_float()
+var     min_treshold    = 1.5
+var     max_array_size  = 15
+float   atr             = atr(atr_len)
+
+//-----------------------
+get_MA(typ, _src, len) =>
+    float maVal = na
+    if (typ == "EMA") 
+        maVal := ema(_src, len)
+    else if (typ == "SMA")
+        maVal := sma(_src, len)
+    else if (typ == "WMA")
+        maVal := wma(_src, len)
+    else if (typ == "RMA")
+        maVal := rma(_src, len)
+    else if (typ == "VWMA")
+        maVal := vwma(_src, len)
+    maVal
+
+//-----
+basis = get_MA(type, src, length)
+//-----
+get_ohlc(_src)=>
+    (_src-basis)/atr
+
+//-----
+o = get_ohlc(open), h = get_ohlc(high), l = get_ohlc(low), c = get_ohlc(close)
+//-----
+pvthi_ = pivothigh(h, 10, 10), pvthi = pvthi_ >  min_treshold ? pvthi_ : na
+pvtlo_ = pivotlow(l, 10, 10),  pvtlo = pvtlo_ < -min_treshold ? pvtlo_ : na
+
+// keep each peak in array
+if(barstate.isconfirmed)
+    if(pvthi>0)
+        if(array.size(p_hi) >= max_array_size)
+            array.shift(p_hi)       // remove oldest
+        array.push(p_hi, pvthi)     // insert new
+    
+    if(pvtlo<0)
+        if(array.size(p_lo) >= max_array_size)
+            array.shift(p_lo)       // remove oldest
+        array.push(p_lo, pvtlo)     // insert new
+
+// Get band size based on average of historical peak/trough
+up = array.avg(p_hi)
+dn = array.avg(p_lo)
+
+bcol = disp_line ? #00000000 : c>o ? color.green : color.red
+hline(0, "Basis", linestyle=hline.style_dotted)
+plotbar(o,h,l,c, title="Candle Up", color=bcol)
+plot(disp_line ? c : na, "Close Line", color=color.new(color.blue, 0))
+plot(disp_lim ? up : na, "Upper Band", color=color.new(color.red, 50))
+plot(disp_lim ? dn : na, "Lower Band", color=color.new(color.red, 50))

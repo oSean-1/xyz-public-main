@@ -1,0 +1,33 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © chervolino
+
+//@version=5
+indicator(title="A Better RSI [CHE]", shorttitle="ABRSI [CHE]", overlay=false, timeframe="")
+// ————— Inputs
+RSI_Length = input.int(6, title='RSI_Length')
+tr = input.int(2, 'Trigger Length')
+// ————— Constants
+HP = 0.00, a1 = 0.00, b1 = 0.00, c1 = 0.00, c2 = 0.00, c3 = 0.00, ag = 0.00, Sp = 0.00, X = 0.00, Quotient1 = 0.00, Quotient2 = 0.00, w = math.sqrt(.5)
+// ————— Calculations
+HP := 2500 * (close - 2 * nz(close[1]) + nz(close[2])) + 1.92 * nz(HP[1]) - .9216 * nz(HP[2])
+a1 := math.exp(-math.sqrt(2) * math.pi / RSI_Length)
+b1 := 2 * a1 * math.cos(math.sqrt(2) * math.pi / RSI_Length)
+c2 := b1
+c3 := -a1 * a1
+c1 := 1 - c2 - c3
+ag := c1 * (HP + nz(HP[1])) / 2 + c2 * nz(ag[1]) + c3 * nz(ag[2])
+Sp := .991 * nz(Sp[1])
+if math.abs(ag) > Sp
+    Sp := math.abs(ag)
+    Sp
+if Sp != 0
+    X := ag / Sp
+    X
+q1 = X * 60 + 50
+rsi= ta.sma(q1, tr)
+// ————— Plots
+plot(rsi, "RSI", color=#7E57C2)
+rsiUpperBand = hline(100, "RSI Upper Band", color=#787B86)
+hline(50, "RSI Middle Band", color=color.new(#787B86, 50))
+rsiLowerBand = hline(0, "RSI Lower Band", color=#787B86)
+fill(rsiUpperBand, rsiLowerBand, color=color.rgb(126, 87, 194, 90), title="RSI Background Fill")

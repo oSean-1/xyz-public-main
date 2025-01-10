@@ -1,0 +1,186 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © jeesauce
+
+//@version=5
+Title = "Cumulative Volume Delta [Aggregated]"
+ShortcutName = "Aggr CVD"
+
+indicator(Title, ShortcutName, false, format.volume)
+import jeesauce/JeeSauceScripts/2 as scripts
+
+//Color
+bearcol = #990707
+bullcol = #969a9d
+
+//Inputs
+datatype = input.string("Aggregated Data", title = "Data Type", options = ["Single Data", "Aggregated Data"], tooltip = "Choose between Single or AGG data for CVD. NOTE: AGGR only works for BTC")
+plottype = input.string("Candle", title = "Plot Type", options = ["Line", "Candle", "RSI"], tooltip = "Choose between Plotting CVD as Line or Candle type")
+currentsym = syminfo.tickerid
+
+symswitch1 = input.bool(true, title = "", inline = "1", group = "Aggregated Data"), futsym1 = input.symbol(defval = 'BINANCE:BTCUSDTPERP',  title = "", inline = "1", group = "Aggregated Data")
+// symswitch2 = input.bool(true, title = "", inline = "2", group = "Aggregated Data"), futsym2 = input.symbol(defval = 'BINANCE:BTCBUSDPERP',  title = "", inline = "2", group = "Aggregated Data")
+symswitch3 = input.bool(true, title = "", inline = "3", group = "Aggregated Data"), futsym3 = input.symbol(defval = 'BYBIT:BTCUSDT.P',      title = "", inline = "3", group = "Aggregated Data")
+symswitch4 = input.bool(true, title = "", inline = "4", group = "Aggregated Data"), futsym4 = input.symbol(defval = 'OKX:BTCUSDT.P',        title = "", inline = "4", group = "Aggregated Data")
+symswitch5 = input.bool(true, title = "", inline = "5", group = "Aggregated Data"), futsym5 = input.symbol(defval = 'DELTA:BTCUSDT.P',      title = "", inline = "5", group = "Aggregated Data")
+symswitch6 = input.bool(true, title = "", inline = "6", group = "Aggregated Data"), futsym6 = input.symbol(defval = 'WOONETWORK:BTCUSDT.P', title = "", inline = "6", group = "Aggregated Data")
+
+//Aggregated Data
+[upvolume , downvolume]  = request.security_lower_tf(currentsym, "60" , scripts.getupdnvol())
+[upvolume1, downvolume1] = request.security_lower_tf(futsym1   , "60" , scripts.getupdnvol())
+// [upvolume2, downvolume2] = request.security_lower_tf(futsym2   , "1" , scripts.getupdnvol())
+[upvolume3, downvolume3] = request.security_lower_tf(futsym3   , "60" , scripts.getupdnvol())
+[upvolume4, downvolume4] = request.security_lower_tf(futsym4   , "60" , scripts.getupdnvol())
+[upvolume5, downvolume5] = request.security_lower_tf(futsym5   , "60" , scripts.getupdnvol())
+[upvolume6, downvolume6] = request.security_lower_tf(futsym6   , "60" , scripts.getupdnvol())
+
+//Current Vol
+float totalUpVolume = 0.0, float totalDnVolume = 0.0, float delta = 0.0, float maxUpVolume = 0.0, float maxDnVolume = 0.0
+totalUpVolume := scripts.GetTotalUpVolume(upvolume), totalDnVolume := scripts.GetTotalDnVolume(downvolume)
+maxUpVolume   := scripts.GetMaxUpVolume(upvolume), maxDnVolume     := scripts.GetMaxDnVolume(downvolume)
+delta         := scripts.GetDelta(totalUpVolume, totalDnVolume)
+
+var float cvd  = scripts.Getcvd()
+float cvdopen  = scripts.Getcvdopen(cvd)
+float cvdhigh  = scripts.Getcvdhigh(cvd, maxUpVolume)
+float cvdlow   = scripts.Getcvdlow(cvd, maxDnVolume)
+float cvdclose = scripts.Getcvdclose(cvd, delta)
+
+//////////////////////////////////Aggregated Volume//////////////////////////////////////////////
+float totalpositivevolume1 = 0.0, float totalpositivevolume2 = 0.0, float totalpositivevolume3 = 0.0, float totalpositivevolume4 = 0.0, float totalpositivevolume5 = 0.0, float totalpositivevolume6 = 0.0
+float totalnegativevolume1 = 0.0, float totalnegativevolume2 = 0.0, float totalnegativevolume3 = 0.0, float totalnegativevolume4 = 0.0, float totalnegativevolume5 = 0.0, float totalnegativevolume6 = 0.0
+float maxpositivevolume1   = 0.0, float maxpositivevolume2   = 0.0, float maxpositivevolume3   = 0.0, float maxpositivevolume4   = 0.0, float maxpositivevolume5   = 0.0, float maxpositivevolume6   = 0.0
+float maxnegativevolume1   = 0.0, float maxnegativevolume2   = 0.0, float maxnegativevolume3   = 0.0, float maxnegativevolume4   = 0.0, float maxnegativevolume5   = 0.0, float maxnegativevolume6   = 0.0
+float delta1               = 0.0, float delta2               = 0.0, float delta3               = 0.0, float delta4               = 0.0, float delta5               = 0.0, float delta6               = 0.0
+
+if symswitch1
+    totalpositivevolume1 := scripts.GetTotalUpVolume(upvolume1), totalnegativevolume1 := scripts.GetTotalDnVolume(downvolume1)
+    maxpositivevolume1   := scripts.GetMaxUpVolume(upvolume1), maxnegativevolume1     := scripts.GetMaxDnVolume(downvolume1)
+    delta1               := scripts.GetDelta(totalpositivevolume1, totalnegativevolume1)
+    
+// if symswitch2
+//     totalpositivevolume2 := scripts.GetTotalUpVolume(upvolume2), totalnegativevolume2 := scripts.GetTotalDnVolume(downvolume2)
+//     maxpositivevolume2   := scripts.GetMaxUpVolume(upvolume2), maxnegativevolume2     := scripts.GetMaxDnVolume(downvolume2)
+//     delta2               := scripts.GetDelta(totalpositivevolume2, totalnegativevolume2)
+    
+if symswitch3
+    totalpositivevolume3 := scripts.GetTotalUpVolume(upvolume3), totalnegativevolume3 := scripts.GetTotalDnVolume(downvolume3)
+    maxpositivevolume3   := scripts.GetMaxUpVolume(upvolume3), maxnegativevolume3     := scripts.GetMaxDnVolume(downvolume3)
+    delta3               := scripts.GetDelta(totalpositivevolume3, totalnegativevolume3)
+    
+if symswitch4
+    totalpositivevolume4 := scripts.GetTotalUpVolume(upvolume4), totalnegativevolume4 := scripts.GetTotalDnVolume(downvolume4)
+    maxpositivevolume4   := scripts.GetMaxUpVolume(upvolume4), maxnegativevolume4     := scripts.GetMaxDnVolume(downvolume4)
+    delta4               := scripts.GetDelta(totalpositivevolume4, totalnegativevolume4)
+    
+if symswitch5
+    totalpositivevolume5 := scripts.GetTotalUpVolume(upvolume5), totalnegativevolume5 := scripts.GetTotalDnVolume(downvolume5)
+    maxpositivevolume5   := scripts.GetMaxUpVolume(upvolume5), maxnegativevolume5     := scripts.GetMaxDnVolume(downvolume5)
+    delta5               := scripts.GetDelta(totalpositivevolume5, totalnegativevolume5)
+    
+if symswitch6
+    totalpositivevolume6 := scripts.GetTotalUpVolume(upvolume6), totalnegativevolume6 := scripts.GetTotalDnVolume(downvolume6)
+    maxpositivevolume6   := scripts.GetMaxUpVolume(upvolume6), maxnegativevolume6     := scripts.GetMaxDnVolume(downvolume6)
+    delta6               := scripts.GetDelta(totalpositivevolume6, totalnegativevolume6)
+    
+//CVD
+var float cvd1 = scripts.Getcvd(), var float cvd2 = scripts.Getcvd(), var float cvd3 = scripts.Getcvd()
+var float cvd4 = scripts.Getcvd(), var float cvd5 = scripts.Getcvd(), var float cvd6 = scripts.Getcvd()
+
+//OPEN
+float cvdopen1 = scripts.Getcvdopen(cvd1), float cvdopen2 = scripts.Getcvdopen(cvd2), float cvdopen3 = scripts.Getcvdopen(cvd3)
+float cvdopen4 = scripts.Getcvdopen(cvd4), float cvdopen5 = scripts.Getcvdopen(cvd5), float cvdopen6 = scripts.Getcvdopen(cvd6)
+
+//HIGH
+float cvdhigh1 = scripts.Getcvdhigh(cvd1, maxpositivevolume1), float cvdhigh2 = scripts.Getcvdhigh(cvd2, maxpositivevolume2)
+float cvdhigh3 = scripts.Getcvdhigh(cvd3, maxpositivevolume3), float cvdhigh4 = scripts.Getcvdhigh(cvd4, maxpositivevolume4)
+float cvdhigh5 = scripts.Getcvdhigh(cvd5, maxpositivevolume5), float cvdhigh6 = scripts.Getcvdhigh(cvd6, maxpositivevolume6)
+
+//LOW
+float cvdlow1 = scripts.Getcvdlow(cvd1, maxnegativevolume1), float cvdlow2 = scripts.Getcvdlow(cvd2, maxnegativevolume2)
+float cvdlow3 = scripts.Getcvdlow(cvd3, maxnegativevolume3), float cvdlow4 =  scripts.Getcvdlow(cvd4, maxnegativevolume4)
+float cvdlow5 = scripts.Getcvdlow(cvd5, maxnegativevolume5), float cvdlow6 = scripts.Getcvdlow(cvd6, maxnegativevolume6)
+
+//CLOSE
+float cvdclose1 = scripts.Getcvdclose(cvd1, delta1), float cvdclose2 = scripts.Getcvdclose(cvd2, delta2)
+float cvdclose3 = scripts.Getcvdclose(cvd3, delta3), float cvdclose4 = scripts.Getcvdclose(cvd4, delta4)
+float cvdclose5 = scripts.Getcvdclose(cvd5, delta5), float cvdclose6 = scripts.Getcvdclose(cvd6, delta6)
+
+cvd1 += delta1, cvd2 += delta2, cvd3 += delta3, cvd4 += delta4, cvd5 += delta5, cvd6 += delta6, cvd += delta
+aggropen = 0.0, aggrhigh = 0.0, aggrlow = 0.0, aggrclose = 0.0
+
+//Color Switch
+enablebodycol = input.bool(true, title = "", inline = "7", group = "Candle Color Settings")
+enablebordercol = input.bool(true, title = "", inline = "8", group = "Candle Color Settings")
+enablewickcol = input.bool(true, title = "", inline = "9", group = "Candle Color Settings")
+
+//Body Color
+bodycolpos = input.color(bullcol, title = "Bodyㅤ", group = "Candle Color Settings", inline = "7", tooltip = "Candle Body Color")
+bodycolneg = input.color(bearcol, title = "", group = "Candle Color Settings", inline = "7")
+
+//Border Color
+bordercolpos = input.color(bullcol, title = "Borders", group = "Candle Color Settings", inline = "8", tooltip = "Candle Border Color")
+bordercolneg = input.color(bearcol, title = "", group = "Candle Color Settings", inline = "8")
+
+//Wick Color
+wickcolpos = input.color(bullcol, title = "Wickㅤ", group = "Candle Color Settings", inline = "9", tooltip = "Candle Wick Color")
+wickcolneg = input.color(bearcol, title = "", group = "Candle Color Settings", inline = "9")
+
+//Candle Color Change Function
+if enablebodycol == false
+    bodycolpos := na
+    bodycolneg := na
+if enablebordercol == false
+    bordercolpos := na
+    bordercolneg := na
+if enablewickcol == false
+    wickcolpos := na
+    wickcolneg := na
+
+bodycolorchange = close > open ? bodycolpos : bodycolneg
+wickcolorchange = close > open ? wickcolpos : wickcolneg
+bordercolorchange = close > open ? bordercolpos : wickcolneg
+
+if plottype == "Line"
+    bodycolorchange := na
+    wickcolorchange := na
+    bordercolorchange := na
+
+//Candle Aggregated OHLC Calculation 
+if plottype == "Candle"
+    aggropen := scripts.CombineData(cvdopen1, cvdopen2, cvdopen3, cvdopen4, cvdopen5, cvdopen6)
+    aggrhigh := scripts.CombineData(cvdhigh1, cvdhigh2, cvdhigh3, cvdhigh4, cvdhigh5, cvdhigh6)
+    aggrlow := scripts.CombineData(cvdlow1, cvdlow2, cvdlow3, cvdlow4, cvdlow5, cvdlow6)
+    aggrclose := scripts.CombineData(cvdclose1, cvdclose2, cvdclose3, cvdclose4, cvdclose5, cvdclose6)
+
+//AGGR Data Calculation
+aggrCVDperp = scripts.CombineData(cvdclose1, cvdclose2, cvdclose3, cvdclose4, cvdclose5, cvdclose6)
+
+//Aggr - Single Function
+chooseopen  = datatype == "Aggregated Data" ? aggropen  : cvdopen
+choosehigh  = datatype == "Aggregated Data" ? aggrhigh  : cvdhigh
+chooselow   = datatype == "Aggregated Data" ? aggrlow   : cvdlow
+chooseclose = datatype == "Aggregated Data" ? aggrclose : cvdclose
+
+//Goes back to single type data when not in BTC Pair
+chooseopenfinal  = scripts.FindData(currentsym, "BTC") ? chooseopen  : cvdopen
+choosehighfinal  = scripts.FindData(currentsym, "BTC") ? choosehigh  : cvdhigh
+chooselowfinal   = scripts.FindData(currentsym, "BTC") ? chooselow   : cvdlow
+chooseclosefinal = scripts.FindData(currentsym, "BTC") ? chooseclose : cvdclose
+chooseaggrfinal = scripts.FindData(currentsym, "BTC") ? aggrCVDperp : cvdclose
+
+//RSI input
+rsilength = input(14, "RSI Length", group = "RSI PLOT SETTINGS")
+upline = input(70, "Upper Line Threshold", group = "RSI PLOT SETTINGS")
+downline = input(30, "Lower Line Threshold", group = "RSI PLOT SETTINGS")
+
+//Plot
+hline(plottype == "RSI" ? upline : na, color = color.gray, linestyle = hline.style_dashed)
+hline(plottype == "RSI" ? downline : na, color = color.gray, linestyle = hline.style_dashed)
+plotcandle(plottype == "Candle" ? chooseopenfinal : na, plottype == "Candle" ? choosehighfinal : na, plottype == "Candle" ? chooselowfinal : na, plottype == "Candle" ? chooseclosefinal : na, "Candle", bodycolorchange, wickcolorchange, bordercolor = bordercolorchange, editable = false)
+plot(plottype == "Line" and datatype == "Aggregated Data" ? chooseaggrfinal : plottype == "Line" and datatype == "Single Data" ? cvdclose : na, title = "CVD", color = color.yellow)
+plot(ta.rsi(plottype == "RSI" and datatype == "Aggregated Data" ? chooseaggrfinal : plottype == "RSI" and datatype == "Single Data" ? cvdclose : na, rsilength), "RSI Plot", color = color.yellow)
+
+
+
+
+

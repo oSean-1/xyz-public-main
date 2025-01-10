@@ -1,0 +1,502 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © KioseffTrading
+
+//@version=5
+indicator("Bull Vs Bear Visible Range", max_lines_count = 500, max_labels_count = 500, overlay= true, max_polylines_count = 100, max_boxes_count = 500)
+
+
+useLTF        = input.bool  (defval = false, title = "Use Lower Timeframe Data") 
+showDelta     = input.bool  (defval = true, title = "Show Delta", group = "Delta", inline = "D") 
+deltaRows     = input.int   (defval = 50,   title = "Rows", group = "Delta", inline = "D", maxval = 250)
+anchor        = input.bool  (defval = true, title = "Anchor Delta Boxes Towards VP")
+showBull      = input.bool  (defval = true, title = "Show Bull VP", inline  = "Show", group = "Profiles To Show")
+showBear      = input.bool  (defval = true, title = "Show Bear VP", inline  = "Show", group = "Profiles To Show")
+ROWS          = input.int   (defval = 2000, maxval = 9998, minval = 10, step = 10, title = "Profile Rows", group = "Profile Settings")
+factor        = input.float (defval = 3 , minval = 1.1, step = 0.1, title = "Scaling Factor", group = "Profile Settings")
+cumu          = input.float (defval = 70, title = "Value Area", minval = 5, maxval = 95)
+offset        = 1 
+curve         = input.bool  (defval = false, title = "Curved Profiles", group = "Profile Settings")
+same          = input.bool  (defval = false, title = "Plot Bull VP and Bear VP At Same X-Point", group = "Profile Settings")
+poc           = input.bool  (defval = false, title = "Show POC", group = "POC Settings")
+poctype       = input.string(defval = "Bull & Bear POC", title = "POC Type", options = ["Bull & Bear POC", "Regular POC"], group = "POC Settings")
+wid           = input.int   (defval = 1, title ="POC Width", minval = 1, group = "POC Settings")
+upCol         = input.color (defval = #14D990, title = "Bull Color", group = "Colors")
+dnCol         = input.color (defval = #F24968, title = "Bear Color", group = "Colors")
+generalPOCcol = input.color (defval = color.yellow, title = "Normal POC Col", group = "Colors")
+transp        = input.int   (defval = 80, minval = 0, maxval = 100, group = "Colors", title = "Pofile Fill Transparency")
+transp2       = input.int   (defval = 0 , minval = 0, maxval = 100, group = "Colors", title = "Pofile Line Transparency")
+transp3       = input.int   (defval = 25, minval = 0, maxval = 100, group = "Colors", title = "POC Line Transparency")
+left          = chart.left_visible_bar_time, right = chart.right_visible_bar_time
+
+import RicardoSantos/MathOperator/2
+
+method Float(int id) => 
+
+    float(id)
+
+strMax( float ) =>
+
+    seconds = timeframe.in_seconds(timeframe.period)
+
+    mult = seconds / 10
+
+    timeframe.from_seconds(seconds - mult * float)
+
+
+req(autoTime) => 
+
+    [sign, volLTF, hLTF, lLTF] = request.security_lower_tf(syminfo.tickerid, strMax(autoTime), [math.sign(close - open), volume, high, low], ignore_invalid_timeframe = true)
+
+[s1, v1,  h1, l1] = req(1), [s2, v2, h2, l2] = req(2), [s3, v3, h3, l3] = req(3) , [s4, v4, h4, l4] = req(4), [s5, v5,   h5,  l5 ] = req(5), 
+[s6, v6,  h6, l6] = req(6), [s7, v7, h7, l7] = req(7), [s8, v8, h8, l8] = req(8) , [s9, v9, h9, l9] = req(9) ,[s10, v10, h10, l10] = req(10)
+  
+[signSP1, volLTFSP1, hLTFSP1, lLTFSP1] = request.security_lower_tf(syminfo.tickerid, "1", [math.sign(close - open), volume, high, low], ignore_invalid_timeframe = true)
+
+ltfFind = array.from(s1 .size() , s2.size() , s3.size() , s4.size() , s5.size() , s6.size(), s7.size() , s8.size( ), s9.size() , s10.size())
+
+
+var rightIndex = 0, var leftIndex = 0
+
+if time > left and leftIndex == 0
+    leftIndex := bar_index - 1
+
+if time == right 
+    rightIndex := bar_index
+
+
+
+findLTF () =>
+
+    if useLTF
+
+        var ltfd = 0    
+
+        if time == left 
+            for i = ltfFind.size() - 1 to 0
+                if ltfFind.get(i) > 0 
+                    ltfd := i 
+                    
+                    break   
+
+        if time >= left and time <= right   
+
+            [signLTF, volLTF, hLTF, lLTF] = switch  
+
+                signSP1.size() > 0 => [signSP1, volLTFSP1, hLTFSP1, lLTFSP1]
+                ltfd == 0          => [s1 , v1 , h1 , l1 ]
+                ltfd == 1          => [s2 , v2 , h2 , l2 ]
+                ltfd == 2          => [s3 , v3 , h3 , l3 ]
+                ltfd == 3          => [s4 , v4 , h4 , l4 ]
+                ltfd == 4          => [s5 , v5 , h5 , l5 ]
+                ltfd == 5          => [s6 , v6 , h6 , l6 ]
+                ltfd == 6          => [s7 , v7 , h7 , l7 ]
+                ltfd == 7          => [s8 , v8 , h8 , l8 ]
+                ltfd == 8          => [s9 , v9 , h9 , l9 ]
+                ltfd == 9          => [s10, v10, h10, l10] 
+
+            [signLTF, volLTF, hLTF, lLTF]   
+
+[signLTF, volLTF, hLTF, lLTF] = findLTF()
+
+if curve 
+    ROWS := 60 
+
+
+type dataStore
+
+    matrix <float> timeVolMat 
+    matrix <float> HLmat
+    array  <int>   retArr 
+    array  <line>  pocs 
+    matrix <float> tickLevels
+
+var data = dataStore.new(matrix.new<float>(2, 0), matrix.new<float>(2, 0), array.new_int(), array.new_line()),                                                                                                                                                                       //kioseff
+tLevels  = dataStore.new(tickLevels = matrix.new<float>(3, ROWS, 0.0)) 
+
+
+method double_binary_search_leftmost_reg(array <float> id, i) =>
+
+
+    n  = id .binary_search_leftmost  (data.HLmat.get(0, i))
+    n1 = id .binary_search_leftmost  (data.HLmat.get(1, i))
+
+    [n, n1]
+
+method double_binary_search_leftmost_ltf(array <float> id, i, LTFh, LTFl) => // broken up for efficiency (hopefully :D)
+
+    n  = id .binary_search_leftmost  (LTFh.get(i))
+    n1 = id .binary_search_leftmost  (LTFl.get(i))
+
+    [n, n1]
+
+method double_binary_search_delta(array<float>id, i, val, val2) => 
+
+    n  = id.binary_search_rightmost(val )
+    n1 = id.binary_search_leftmost (val2)
+
+    [n, n1]
+
+method effSwitchReg(matrix<float> id, i, x, div) => 
+
+    switch data.retArr.get(i)
+
+        1  => id.set(1, x, id.get(1, x) + data.timeVolMat.get(1, i) / div)
+        -1 => id.set(2, x, id.get(2, x) + data.timeVolMat.get(1, i) / div)
+
+method effSwitchLTF(matrix<float> id, i, x, div, LTFvol, LTFsign) => // broken up for efficiency (hopefully :D)
+
+    switch LTFsign.get(i)
+
+        1  => id.set(1, x, id.get(1, x) + LTFvol.get(i) / div)
+        -1 => id.set(2, x, id.get(2, x) + LTFvol.get(i) / div)
+
+
+
+method drawPOC(array<line> id, idrow, newRowUp, newRowDn) => 
+
+    maxUp = idrow.get(newRowUp.indexof(newRowUp.max()))
+    maxDn = idrow.get(newRowDn.indexof(newRowDn.max()))
+
+    if poc 
+
+        if id.size() == 0
+
+            if poctype == "Bull & Bear POC"
+
+                id.push(line.new(left, maxUp, right, maxUp,
+                          color = color.new(upCol, transp3), width = wid, xloc = xloc.bar_time))
+
+                id.push(line.new(left, maxDn, right, maxDn,
+                          color = color.new(dnCol, transp3), width = wid, xloc = xloc.bar_time))
+
+            else 
+
+                for i = 0 to newRowUp.size() - 1
+                    newRowUp.set(i, newRowUp.get(i) + newRowDn.get(i))
+
+                id.push(line.new(left, idrow.get(newRowUp.indexof(newRowUp.max())), right, idrow.get(newRowUp.indexof(newRowUp.max())) ,
+                         color = color.new(generalPOCcol, transp3), width = wid, xloc = xloc.bar_time))
+
+        else 
+
+            if poctype == "Bull & Bear POC"
+
+                switch poctype  
+
+                    "Bull & Bear POC" => id.last().set_xy2(right, maxDn), id.last().set_y1 (maxDn),
+                                         id.get(id.size() - 2).set_xy2(right, maxUp), id.get(id.size() - 2).set_y1(maxUp)
+
+                    =>                   id.last().set_xy2(right, idrow.get(newRowUp.indexof(newRowUp.max()))), 
+                                         id.last().set_y1 (idrow.get(newRowUp.indexof(newRowUp.max())))
+
+
+
+method setLevels(matrix<float> id) =>
+
+    rows = math.abs(data.HLmat.max() - data.HLmat.min()) / (ROWS - 1)
+
+    for i = 0 to ROWS - 1
+        id.set(0, i, data.HLmat.min() + rows * i)
+
+method createPoly(matrix<chart.point> id, array<float> idrow) =>
+
+    index = switch same
+        
+        false => rightIndex
+        =>       leftIndex
+    
+    if showBull
+        polyline.new(id.row(0), fill_color = color.new(upCol, transp), line_color  = color.new(upCol, transp2), curved = curve)
+    if showBear
+        polyline.new(id.row(1), fill_color = color.new(dnCol, transp), line_color  = color.new(dnCol, transp2), curved = curve)
+
+
+norm(newRowUp, newRowDn, oldMin, oldMax, newRange) => 
+
+    calcUp = array.new_float(), calcDn = array.new_float()
+
+    for i = 0 to newRowUp.size() - 1
+
+        calcUp.push(1 + ((newRowUp.get(i) - oldMin) / (oldMax - oldMin)) * (newRange - 1))
+        calcDn.push(1 + ((newRowDn.get(i) - oldMin) / (oldMax - oldMin)) * (newRange - 1))
+
+    [calcUp, calcDn]
+
+
+
+method findValue(matrix <float> id, id2, highest, r1, r2) =>
+
+
+    for i = 1 to id2.size() - 1
+    
+        slice = id2.slice(math.max(highest - i, 0), math.min(highest + i + 1, id2.size()))
+        if slice.sum() / id2.sum() >= cumu /100
+            
+            id.set(r1, 0, math.max(highest - i, 0))
+            id.set(r2, 0, math.min(highest + i, id2.size() - 1))
+            break
+
+method pushShift (array<chart.point> id, valX, valY1, push) => 
+
+    switch push
+
+        true => id.push   (chart.point.from_index(valX, valY1))
+        =>      id.unshift(chart.point.from_index(valX, valY1))
+    
+
+
+
+
+var maxVals = matrix.new<int>(2, 1, 0)
+
+
+method setCoords(matrix<chart.point> id, newRowUp, newRowDn, oldMin, oldMax, newRange, timeRow, idrow) =>
+
+    detPoc  = matrix.new<int>(4, 1) 
+
+    highestUp = newRowUp.indexof(newRowUp.max())
+    highestDn = newRowDn.indexof(newRowDn.max())
+
+    detPoc.findValue(newRowUp, highestUp, 0, 1)
+    detPoc.findValue(newRowDn, highestDn, 2, 3)
+
+    coordsUpUpVal = array.new<chart.point>(), coordsUpDnVal = array.new<chart.point>()
+    coordsDnDnVal = array.new<chart.point>(), coordsDnUpVal = array.new<chart.point>()
+
+    [calcUp, calcDn] = norm(newRowUp, newRowDn, oldMin, oldMax, newRange)
+
+
+
+    for i = 0 to newRowUp.size() - 1
+
+        newSwitchUp      = math.round(leftIndex + offset + calcUp.get(i))
+        newXUp           = math.max(newSwitchUp, math.round(leftIndex + offset))
+
+        newSwitchDn = switch same 
+
+            false => math.round(rightIndex - offset - calcDn.get(i))
+            =>       math.round(leftIndex  + offset + calcDn.get(i))
+
+        newXDn = switch same 
+
+            false => math.min(newSwitchDn, math.round(rightIndex - offset))
+            =>       math.max(newSwitchDn, math.round(leftIndex  + offset))
+
+
+        if detPoc.get(0, 0).Float().not_equal(0)
+
+            if i.Float().under_equal(detPoc.get(0, 0) - 1)
+
+                coordsUpDnVal.push(chart.point.from_index(newXUp, idrow.get(i)))
+
+        if detPoc.get(1, 0).Float().not_equal(newRowUp.size() - 1)
+
+            if i.Float().over_equal(detPoc.get(1, 0) + 1)
+
+                coordsUpUpVal.push(chart.point.from_index(newXUp, idrow.get(i)))
+
+        if i.Float().over_equal(detPoc.get(0, 0)) and i.Float().under_equal(detPoc.get(1, 0))
+    
+            id.set(0, i, chart.point.from_index(newXUp, idrow.get(i)))
+            maxVals.set(0, 0, math.max(maxVals.get(0, 0), int(calcUp.get(i))))
+    
+        if detPoc.get(2, 0).Float().not_equal(0)
+
+            if i.Float().under_equal(detPoc.get(2, 0) - 1)
+
+                coordsDnDnVal.push(chart.point.from_index(newXDn, idrow.get(i)))
+
+
+        if detPoc.get(3, 0).Float().not_equal(newRowDn.size() - 1)
+
+            if i.Float().over_equal(detPoc.get(3, 0) + 1)
+
+                coordsDnUpVal.push(chart.point.from_index(newXDn, idrow.get(i)))
+
+
+        if i.Float().over_equal(detPoc.get(2, 0)) and i.Float().under_equal(detPoc.get(3, 0))
+
+            id.set(1, i, chart.point.from_index(newXDn, idrow.get(i)))
+            maxVals.set(1, 0, math.max(maxVals.get(1, 0), int(calcDn.get(i))))
+        
+
+    index = switch same 
+
+        false => rightIndex 
+        =>       leftIndex
+// 
+
+    coordsUpDnVal.pushShift(leftIndex, idrow.min(), false)
+    coordsUpDnVal.pushShift(leftIndex, idrow.get(detPoc.get(0, 0)), true)
+
+    coordsUpUpVal.pushShift(leftIndex, idrow.max(), true)
+    coordsUpUpVal.pushShift(leftIndex, idrow.get(detPoc.get(1, 0)), false)
+
+    coordsDnDnVal.pushShift(index, idrow.min(), false)
+    coordsDnDnVal.pushShift(index, idrow.get(detPoc.get(2, 0)), true)
+
+    coordsDnUpVal.pushShift(index, idrow.max(), true)
+    coordsDnUpVal.pushShift(index, idrow.get(detPoc.get(3, 0)), false)
+
+
+    id.add_col(id.columns(), 
+             array.from(chart.point.from_index(leftIndex, idrow.get(detPoc.get(1, 0))), chart.point.from_index(index, idrow.get(detPoc.get(3, 0)))))
+    id.add_col(0,
+             array.from(chart.point.from_index(leftIndex, idrow.get(detPoc.get(0, 0))), chart.point.from_index(index, idrow.get(detPoc.get(2, 0)))))
+
+
+
+    bullVAcolor  = input.color(defval = #14D990, title = "Bull NON-VA color", group = "Bull NON-VA Settings")
+    transpBull   = input.int  (defval = 95, minval = 0, maxval = 100, title = "Bull NON-VA Fill Transparency", group = "Bull NON-VA Settings")
+    transpBull2  = input.int  (defval = 25, minval = 0, maxval = 100, title = "Bull NON-VA Line Transparency", group = "Bull NON-VA Settings")
+
+    if showBull
+
+        polyline.new(coordsUpDnVal, fill_color = color.new(bullVAcolor, transpBull), line_color  = color.new(bullVAcolor, transpBull2), curved = curve)
+        polyline.new(coordsUpUpVal, fill_color = color.new(bullVAcolor, transpBull), line_color  = color.new(bullVAcolor, transpBull2), curved = curve)
+
+    bearVAcolor  = input.color(defval = #F24968, title = "Bear NON-VA color", group = "Bear NON-VA Settings")
+    transpBear   = input.int  (defval = 95, minval = 0, maxval = 100, title = "Bear NON-VA Fill Transparency", group = "Bear NON-VA Settings")
+    transpBear2  = input.int  (defval = 25, minval = 0, maxval = 100, title = "Bear NON-VA Line Transparency", group = "Bear NON-VA Settings")
+
+    if showBear
+        
+        polyline.new(coordsDnDnVal, fill_color = color.new(bearVAcolor, transpBear), line_color  = color.new(bearVAcolor, transpBear2), curved = curve)
+        polyline.new(coordsDnUpVal, fill_color = color.new(bearVAcolor, transpBear), line_color  = color.new(bearVAcolor, transpBear2), curved = curve)
+
+
+method updateLTF(array<float> id, id2) => 
+    
+    for i = 0 to id2.size() - 1
+        id.unshift(id2.get(i))
+
+calcDelta(idrow, newRowUp, newRowDn) =>
+
+    if showDelta 
+
+        deltaBoxes  = array.new_box(), start = data.HLmat.min()
+ 
+        rows        = math.abs(data.HLmat.max() - start) / deltaRows
+        middle      = math.round(math.avg(leftIndex, rightIndex))
+ 
+        scale       = (rightIndex - leftIndex) / 30
+        gradientArr = array.new_float()
+
+
+        for i = 0 to deltaRows - 1
+            
+            calc = start + rows * i, calc2 = start + rows * (i + 1)
+
+            [lx1, lx2] = idrow.double_binary_search_delta(i, calc, calc2)
+
+            sum = 0.0
+
+            for x = lx1 to lx2 
+
+                sum += newRowUp.get(x) - newRowDn.get(x)
+
+            gradientArr.push(sum)
+
+            startBox = middle - scale, endBox = middle + scale, cond = math.sign(sum)
+
+            if anchor  
+
+                startBox := switch cond
+
+                    1   => middle - scale
+                    -1  => middle
+
+                endBox   := switch cond
+
+                    1   => middle
+                    -1  => middle + scale 
+
+
+            deltaBoxes.push(box.new(startBox, calc, endBox, calc2,  text = str.tostring(sum, format.volume), 
+                 text_color = chart.fg_color))
+
+        gradientArrCopy = gradientArr.copy()
+        gradientArrCopy.sort(order.ascending)
+
+        gradUp = gradientArrCopy.slice(gradientArr.binary_search_rightmost(0), gradientArrCopy.size())
+        gradDn = gradientArrCopy.slice(0,               gradientArrCopy.binary_search_leftmost (0) + 1)
+
+        botValU = gradUp.min(), topValU = gradUp.max()
+        botValD = gradDn.min(), topValD = gradDn.max()
+
+        for i = 0 to deltaBoxes.size() - 1
+        
+            boxBgcol = switch math.sign(gradientArr.get(i))
+
+                1  => color.from_gradient(gradientArr.get(i), botValU, topValU, color.new(upCol, 75), color.new(upCol, 25))
+                -1 => color.from_gradient(gradientArr.get(i), botValD, topValD, color.new(dnCol, 25), color.new(dnCol, 75))
+                =>    color.new(color.white, 75)
+
+            deltaBoxes.get(i).set_bgcolor(boxBgcol)
+            deltaBoxes.get(i).set_border_color(boxBgcol)
+
+
+method update(matrix<float> id) => 
+
+    var LTFvol = array.new_float(), var LTFsig = array.new_float()
+    var LTFhi  = array.new_float(), var LTFlo  = array.new_float()
+
+    if time >= left and time <= right
+
+        data.timeVolMat.add_col(data.timeVolMat.columns(), array.from(time, volume))
+        data.HLmat     .add_col(data.HLmat.columns(), array.from(high, low))
+        data.retArr    .push(int(math.sign(close - open)))
+
+    if useLTF and time >= left and time <= right
+        
+        LTFvol.updateLTF(volLTF), LTFsig.updateLTF(signLTF)
+        LTFhi .updateLTF(hLTF)  , LTFlo .updateLTF(lLTF)
+
+    if time == right
+
+        id.setLevels()
+
+        timeRow = switch useLTF 
+
+            false => data.timeVolMat.row(0)
+            =>       LTFvol                
+            
+        idrow = id.row(0)
+
+        if not useLTF
+            for i = 0 to data.retArr.size() - 1
+
+                [lx1, lx2] = idrow.double_binary_search_leftmost_reg(i)
+
+                div = math.abs(lx1 - lx2) + 1
+
+                for x = lx1 to lx2 
+
+                    id.effSwitchReg(i, x, div)
+
+        if useLTF
+            for i = 0 to LTFvol.size() - 1
+
+                [lx1, lx2] = idrow.double_binary_search_leftmost_ltf(i, LTFhi, LTFlo)
+
+                div = math.abs(lx1 - lx2) + 1
+
+                for x = lx1 to lx2 
+
+                    id.effSwitchLTF(i, x, div, LTFvol, LTFsig)
+
+
+        newRange = math.floor((rightIndex - leftIndex) / factor)
+        newRowUp = id.row(1), newRowDn = id.row(2)
+
+        oldMin   = math.min(newRowUp.min(), newRowDn.min())  
+        oldMax   = math.max(newRowUp.max(), newRowDn.max())
+
+        coordinates = matrix.new<chart.point>(2, newRowUp.size(), chart.point.from_index(na, na))
+        coordinates.setCoords(newRowUp, newRowDn, oldMin, oldMax, newRange, timeRow, idrow)
+        coordinates.createPoly(idrow)
+        data.pocs  .drawPOC(idrow, newRowUp, newRowDn)
+        calcDelta(idrow, newRowUp, newRowDn)
+
+tLevels.tickLevels.update()
+

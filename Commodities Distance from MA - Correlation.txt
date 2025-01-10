@@ -1,0 +1,256 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © voided
+
+//@version=5
+indicator("comm_idx", overlay = true)
+
+c_len   = input(20, "correlation length")
+m_len   = input(20, "moving average length")
+
+gsci    = request.security("SPGSCI", "D", close)
+zw      = request.security("ZW1!", "D", close)
+ke      = request.security("KE1!", "D", close)
+zc      = request.security("ZC1!", "D", close)
+zs      = request.security("ZS1!", "D", close)
+kc      = request.security("KC1!", "D", close)
+sb      = request.security("SB1!", "D", close)
+cc      = request.security("CC1!", "D", close)
+ct      = request.security("CT1!", "D", close)
+he      = request.security("HE1!", "D", close)
+le      = request.security("LE1!", "D", close)
+gf      = request.security("GF1!", "D", close)
+cl      = request.security("CL1!", "D", close)
+ho      = request.security("HO1!", "D", close)
+b       = request.security("BRN1!", "D", close)
+g       = request.security("GAS1!", "D", close)
+ng      = request.security("NG1!", "D", close)
+lua     = request.security("LUA1!", "D", close)
+luc     = request.security("LUC1!", "D", close)
+lun     = request.security("LUN1!", "D", close)
+lup     = request.security("LUP1!", "D", close)
+luz     = request.security("LUZ1!", "D", close)
+gc      = request.security("GC1!", "D", close)
+si      = request.security("SI1!", "D", close)
+
+gsci_chg  = math.log(gsci / gsci[1]) * 100
+zw_chg    = math.log(zw / zw[1]) * 100
+ke_chg    = math.log(ke / ke[1]) * 100
+zc_chg    = math.log(zc / zc[1]) * 100
+zs_chg    = math.log(zs / zs[1]) * 100
+kc_chg    = math.log(kc / kc[1]) * 100
+sb_chg    = math.log(sb / sb[1]) * 100
+cc_chg    = math.log(cc / cc[1]) * 100
+ct_chg    = math.log(ct / ct[1]) * 100
+he_chg    = math.log(he / he[1]) * 100
+le_chg    = math.log(le / le[1]) * 100
+gf_chg    = math.log(gf / gf[1]) * 100
+cl_chg    = math.log(cl / cl[1]) * 100
+ho_chg    = math.log(ho / ho[1]) * 100
+b_chg     = math.log(b / b[1]) * 100
+g_chg     = math.log(g / g[1]) * 100
+ng_chg    = math.log(ng / ng[1]) * 100
+lua_chg   = math.log(lua / lua[1]) * 100
+luc_chg   = math.log(luc / luc[1]) * 100
+lun_chg   = math.log(lun / lun[1]) * 100
+lup_chg   = math.log(lup / lup[1]) * 100
+luz_chg   = math.log(luz / luz[1]) * 100
+gc_chg    = math.log(gc / gc[1]) * 100
+si_chg    = math.log(si / si[1]) * 100
+
+zw_cor  = ta.correlation(gsci_chg, zw_chg, c_len)
+ke_cor  = ta.correlation(gsci_chg, ke_chg, c_len)
+zc_cor  = ta.correlation(gsci_chg, zc_chg, c_len)
+zs_cor  = ta.correlation(gsci_chg, zs_chg, c_len)
+kc_cor  = ta.correlation(gsci_chg, kc_chg, c_len)
+sb_cor  = ta.correlation(gsci_chg, sb_chg, c_len)
+cc_cor  = ta.correlation(gsci_chg, cc_chg, c_len)
+ct_cor  = ta.correlation(gsci_chg, ct_chg, c_len)
+he_cor  = ta.correlation(gsci_chg, he_chg, c_len)
+le_cor  = ta.correlation(gsci_chg, le_chg, c_len)
+gf_cor  = ta.correlation(gsci_chg, gf_chg, c_len)
+cl_cor  = ta.correlation(gsci_chg, cl_chg, c_len)
+ho_cor  = ta.correlation(gsci_chg, ho_chg, c_len)
+b_cor   = ta.correlation(gsci_chg, b_chg, c_len)
+g_cor   = ta.correlation(gsci_chg, g_chg, c_len)
+ng_cor  = ta.correlation(gsci_chg, ng_chg, c_len)
+lua_cor = ta.correlation(gsci_chg, lua_chg, c_len)
+luc_cor = ta.correlation(gsci_chg, luc_chg, c_len)
+lun_cor = ta.correlation(gsci_chg, lun_chg, c_len)
+lup_cor = ta.correlation(gsci_chg, lup_chg, c_len)
+luz_cor = ta.correlation(gsci_chg, luz_chg, c_len)
+gc_cor  = ta.correlation(gsci_chg, gc_chg, c_len)
+si_cor  = ta.correlation(gsci_chg, si_chg, c_len)
+
+gsci_ma = ta.ema(gsci, m_len)
+zw_ma   = ta.ema(zw, m_len)
+ke_ma   = ta.ema(ke, m_len)
+zc_ma   = ta.ema(zc, m_len)
+zs_ma   = ta.ema(zs, m_len)
+kc_ma   = ta.ema(kc, m_len)
+sb_ma   = ta.ema(sb, m_len)
+cc_ma   = ta.ema(cc, m_len)
+ct_ma   = ta.ema(ct, m_len)
+he_ma   = ta.ema(he, m_len)
+le_ma   = ta.ema(le, m_len)
+gf_ma   = ta.ema(gf, m_len)
+cl_ma   = ta.ema(cl, m_len)
+ho_ma   = ta.ema(ho, m_len)
+b_ma    = ta.ema(b, m_len)
+g_ma    = ta.ema(g, m_len)
+ng_ma   = ta.ema(ng, m_len)
+lua_ma  = ta.ema(lua, m_len)
+luc_ma  = ta.ema(luc, m_len)
+lun_ma  = ta.ema(lun, m_len)
+lup_ma  = ta.ema(lup, m_len)
+luz_ma  = ta.ema(luz, m_len)
+gc_ma   = ta.ema(gc, m_len)
+si_ma   = ta.ema(si, m_len)
+
+gsci_fm = math.log(gsci / gsci_ma) * 100
+zw_fm   = math.log(zw / zw_ma) * 100
+ke_fm   = math.log(ke / ke_ma) * 100
+zc_fm   = math.log(zc / zc_ma) * 100
+zs_fm   = math.log(zs / zs_ma) * 100
+kc_fm   = math.log(kc / kc_ma) * 100
+sb_fm   = math.log(sb / sb_ma) * 100
+cc_fm   = math.log(cc / cc_ma) * 100
+ct_fm   = math.log(ct / ct_ma) * 100
+he_fm   = math.log(he / he_ma) * 100
+le_fm   = math.log(le / le_ma) * 100
+gf_fm   = math.log(gf / gf_ma) * 100
+cl_fm   = math.log(cl / cl_ma) * 100
+ho_fm   = math.log(ho / ho_ma) * 100
+b_fm    = math.log(b / b_ma) * 100
+g_fm    = math.log(g / g_ma) * 100
+ng_fm   = math.log(ng / ng_ma) * 100
+lua_fm  = math.log(lua / lua_ma) * 100
+luc_fm  = math.log(luc / luc_ma) * 100
+lun_fm  = math.log(lun / lun_ma) * 100
+lup_fm  = math.log(lup / lup_ma) * 100
+luz_fm  = math.log(luz / luz_ma) * 100
+gc_fm   = math.log(gc / gc_ma) * 100
+si_fm   = math.log(si / si_ma) * 100
+
+
+if barstate.islast
+
+    var t = table.new(position.top_right, 4, 25)
+
+    pct_fmt     = "#.##"
+    def_clr     = color.new(color.white, 100)
+    header_clr  = #6495ED
+    up_clr      = #95B4CC
+    dn_clr      = #FEC9C9
+    cor_t       = 0.5
+
+    // title col
+
+    table.cell(t, 0, 0)
+    table.cell(t, 0, 1, "gsci")
+    table.cell(t, 0, 2, "chicago wheat")
+    table.cell(t, 0, 3, "kansas wheat")
+    table.cell(t, 0, 4, "corn")
+    table.cell(t, 0, 5, "soybeans")
+    table.cell(t, 0, 6, "coffee c")
+    table.cell(t, 0, 7, "sugar no. 11")
+    table.cell(t, 0, 8, "cocoa")
+    table.cell(t, 0, 9, "cotton #2")
+    table.cell(t, 0, 10, "lean hogs")
+    table.cell(t, 0, 11, "feeder cattle")
+    table.cell(t, 0, 12, "live cattle")
+    table.cell(t, 0, 13, "crude oil")
+    table.cell(t, 0, 14, "heating oil")
+    table.cell(t, 0, 15, "brent crude")
+    table.cell(t, 0, 16, "gasoil")
+    table.cell(t, 0, 17, "natural gas")
+    table.cell(t, 0, 18, "aluminum")
+    table.cell(t, 0, 19, "copper")
+    table.cell(t, 0, 20, "nickel")
+    table.cell(t, 0, 21, "lead")
+    table.cell(t, 0, 22, "zinc")
+    table.cell(t, 0, 23, "gold")
+    table.cell(t, 0, 24, "silver")
+
+    // change col
+
+    table.cell(t, 1, 0, "change")
+    table.cell(t, 1, 1, str.tostring(gsci_chg, pct_fmt), bgcolor = gsci_chg > 0 ? up_clr : gsci_chg < 0 ? dn_clr : def_clr)
+    table.cell(t, 1, 2, str.tostring(zw_chg, pct_fmt), bgcolor = zw_chg > 0 ? up_clr : zw_chg < 0 ? dn_clr : def_clr)
+    table.cell(t, 1, 3, str.tostring(ke_chg, pct_fmt), bgcolor = ke_chg > 0 ? up_clr : ke_chg < 0 ? dn_clr : def_clr)
+    table.cell(t, 1, 4, str.tostring(zc_chg, pct_fmt), bgcolor = zc_chg > 0 ? up_clr : zc_chg < 0 ? dn_clr : def_clr)
+    table.cell(t, 1, 5, str.tostring(zs_chg, pct_fmt), bgcolor = zs_chg > 0 ? up_clr : zs_chg < 0 ? dn_clr : def_clr)
+    table.cell(t, 1, 6, str.tostring(kc_chg, pct_fmt), bgcolor = kc_chg > 0 ? up_clr : kc_chg < 0 ? dn_clr : def_clr)
+    table.cell(t, 1, 7, str.tostring(sb_chg, pct_fmt), bgcolor = sb_chg > 0 ? up_clr : sb_chg < 0 ? dn_clr : def_clr)
+    table.cell(t, 1, 8, str.tostring(cc_chg, pct_fmt), bgcolor = cc_chg > 0 ? up_clr : cc_chg < 0 ? dn_clr : def_clr)
+    table.cell(t, 1, 9, str.tostring(ct_chg, pct_fmt), bgcolor = ct_chg > 0 ? up_clr : ct_chg < 0 ? dn_clr : def_clr)
+    table.cell(t, 1, 10, str.tostring(he_chg, pct_fmt), bgcolor = he_chg > 0 ? up_clr : he_chg < 0 ? dn_clr : def_clr)
+    table.cell(t, 1, 11, str.tostring(le_chg, pct_fmt), bgcolor = le_chg > 0 ? up_clr : le_chg < 0 ? dn_clr : def_clr)
+    table.cell(t, 1, 12, str.tostring(gf_chg, pct_fmt), bgcolor = gf_chg > 0 ? up_clr : gf_chg < 0 ? dn_clr : def_clr)
+    table.cell(t, 1, 13, str.tostring(cl_chg, pct_fmt), bgcolor = cl_chg > 0 ? up_clr : cl_chg < 0 ? dn_clr : def_clr)
+    table.cell(t, 1, 14, str.tostring(ho_chg, pct_fmt), bgcolor = ho_chg > 0 ? up_clr : ho_chg < 0 ? dn_clr : def_clr)
+    table.cell(t, 1, 15, str.tostring(b_chg, pct_fmt), bgcolor = b_chg > 0 ? up_clr : b_chg < 0 ? dn_clr : def_clr)
+    table.cell(t, 1, 16, str.tostring(g_chg, pct_fmt), bgcolor = g_chg > 0 ? up_clr : g_chg < 0 ? dn_clr : def_clr)
+    table.cell(t, 1, 17, str.tostring(ng_chg, pct_fmt), bgcolor = ng_chg > 0 ? up_clr : ng_chg < 0 ? dn_clr : def_clr)
+    table.cell(t, 1, 18, str.tostring(lua_chg, pct_fmt), bgcolor = lua_chg > 0 ? up_clr : lua_chg < 0 ? dn_clr : def_clr)
+    table.cell(t, 1, 19, str.tostring(luc_chg, pct_fmt), bgcolor = luc_chg > 0 ? up_clr : luc_chg < 0 ? dn_clr : def_clr)
+    table.cell(t, 1, 20, str.tostring(lun_chg, pct_fmt), bgcolor = lun_chg > 0 ? up_clr : lun_chg < 0 ? dn_clr : def_clr)
+    table.cell(t, 1, 21, str.tostring(lup_chg, pct_fmt), bgcolor = lup_chg > 0 ? up_clr : lup_chg < 0 ? dn_clr : def_clr)
+    table.cell(t, 1, 22, str.tostring(luz_chg, pct_fmt), bgcolor = luz_chg > 0 ? up_clr : luz_chg < 0 ? dn_clr : def_clr)
+    table.cell(t, 1, 23, str.tostring(gc_chg, pct_fmt), bgcolor = gc_chg > 0 ? up_clr : gc_chg < 0 ? dn_clr : def_clr)
+    table.cell(t, 1, 24, str.tostring(si_chg, pct_fmt), bgcolor = si_chg > 0 ? up_clr : si_chg < 0 ? dn_clr : def_clr)
+
+    // from_ma col
+
+    table.cell(t, 2, 0, "from ma")
+    table.cell(t, 2, 1, str.tostring(gsci_fm, pct_fmt), bgcolor = gsci_fm > 0 ? up_clr : gsci_fm < 0 ? dn_clr : def_clr)
+    table.cell(t, 2, 2, str.tostring(zw_fm, pct_fmt), bgcolor = zw_fm > 0 ? up_clr : zw_fm < 0 ? dn_clr : def_clr)
+    table.cell(t, 2, 3, str.tostring(ke_fm, pct_fmt), bgcolor = ke_fm > 0 ? up_clr : ke_fm < 0 ? dn_clr : def_clr)
+    table.cell(t, 2, 4, str.tostring(zc_fm, pct_fmt), bgcolor = zc_fm > 0 ? up_clr : zc_fm < 0 ? dn_clr : def_clr)
+    table.cell(t, 2, 5, str.tostring(zs_fm, pct_fmt), bgcolor = zs_fm > 0 ? up_clr : zs_fm < 0 ? dn_clr : def_clr)
+    table.cell(t, 2, 6, str.tostring(kc_fm, pct_fmt), bgcolor = kc_fm > 0 ? up_clr : kc_fm < 0 ? dn_clr : def_clr)
+    table.cell(t, 2, 7, str.tostring(sb_fm, pct_fmt), bgcolor = sb_fm > 0 ? up_clr : sb_fm < 0 ? dn_clr : def_clr)
+    table.cell(t, 2, 8, str.tostring(cc_fm, pct_fmt), bgcolor = cc_fm > 0 ? up_clr : cc_fm < 0 ? dn_clr : def_clr)
+    table.cell(t, 2, 9, str.tostring(ct_fm, pct_fmt), bgcolor = ct_fm > 0 ? up_clr : ct_fm < 0 ? dn_clr : def_clr)
+    table.cell(t, 2, 10, str.tostring(he_fm, pct_fmt), bgcolor = he_fm > 0 ? up_clr : he_fm < 0 ? dn_clr : def_clr)
+    table.cell(t, 2, 11, str.tostring(le_fm, pct_fmt), bgcolor = le_fm > 0 ? up_clr : le_fm < 0 ? dn_clr : def_clr)
+    table.cell(t, 2, 12, str.tostring(gf_fm, pct_fmt), bgcolor = gf_fm > 0 ? up_clr : gf_fm < 0 ? dn_clr : def_clr)
+    table.cell(t, 2, 13, str.tostring(cl_fm, pct_fmt), bgcolor = cl_fm > 0 ? up_clr : cl_fm < 0 ? dn_clr : def_clr)
+    table.cell(t, 2, 14, str.tostring(ho_fm, pct_fmt), bgcolor = ho_fm > 0 ? up_clr : ho_fm < 0 ? dn_clr : def_clr)
+    table.cell(t, 2, 15, str.tostring(b_fm, pct_fmt), bgcolor = b_fm > 0 ? up_clr : b_fm < 0 ? dn_clr : def_clr)
+    table.cell(t, 2, 16, str.tostring(g_fm, pct_fmt), bgcolor = g_fm > 0 ? up_clr : g_fm < 0 ? dn_clr : def_clr)
+    table.cell(t, 2, 17, str.tostring(ng_fm, pct_fmt), bgcolor = ng_fm > 0 ? up_clr : ng_fm < 0 ? dn_clr : def_clr)
+    table.cell(t, 2, 18, str.tostring(lua_fm, pct_fmt), bgcolor = lua_fm > 0 ? up_clr : lua_fm < 0 ? dn_clr : def_clr)
+    table.cell(t, 2, 19, str.tostring(luc_fm, pct_fmt), bgcolor = luc_fm > 0 ? up_clr : luc_fm < 0 ? dn_clr : def_clr)
+    table.cell(t, 2, 20, str.tostring(lun_fm, pct_fmt), bgcolor = lun_fm > 0 ? up_clr : lun_fm < 0 ? dn_clr : def_clr)
+    table.cell(t, 2, 21, str.tostring(lup_fm, pct_fmt), bgcolor = lup_fm > 0 ? up_clr : lup_fm < 0 ? dn_clr : def_clr)
+    table.cell(t, 2, 22, str.tostring(luz_fm, pct_fmt), bgcolor = luz_fm > 0 ? up_clr : luz_fm < 0 ? dn_clr : def_clr)
+    table.cell(t, 2, 23, str.tostring(gc_fm, pct_fmt), bgcolor = gc_fm > 0 ? up_clr : gc_fm < 0 ? dn_clr : def_clr)
+    table.cell(t, 2, 24, str.tostring(si_fm, pct_fmt), bgcolor = si_fm > 0 ? up_clr : si_fm < 0 ? dn_clr : def_clr)
+
+    // correlation to index col
+
+    table.cell(t, 3, 0, "corr idx")
+    table.cell(t, 3, 1)
+    table.cell(t, 3, 2, str.tostring(zw_cor, pct_fmt), bgcolor = zw_cor > cor_t ? up_clr : zw_cor < -cor_t ? dn_clr : def_clr)
+    table.cell(t, 3, 3, str.tostring(ke_cor, pct_fmt), bgcolor = ke_cor > cor_t ? up_clr : ke_cor < -cor_t ? dn_clr : def_clr)
+    table.cell(t, 3, 4, str.tostring(zc_cor, pct_fmt), bgcolor = zc_cor > cor_t ? up_clr : zc_cor < -cor_t ? dn_clr : def_clr)
+    table.cell(t, 3, 5, str.tostring(zs_cor, pct_fmt), bgcolor = zs_cor > cor_t ? up_clr : zs_cor < -cor_t ? dn_clr : def_clr)
+    table.cell(t, 3, 6, str.tostring(kc_cor, pct_fmt), bgcolor = kc_cor > cor_t ? up_clr : kc_cor < -cor_t ? dn_clr : def_clr)
+    table.cell(t, 3, 7, str.tostring(sb_cor, pct_fmt), bgcolor = sb_cor > cor_t ? up_clr : sb_cor < -cor_t ? dn_clr : def_clr)
+    table.cell(t, 3, 8, str.tostring(cc_cor, pct_fmt), bgcolor = cc_cor > cor_t ? up_clr : cc_cor < -cor_t ? dn_clr : def_clr)
+    table.cell(t, 3, 9, str.tostring(ct_cor, pct_fmt), bgcolor = ct_cor > cor_t ? up_clr : ct_cor < -cor_t ? dn_clr : def_clr)
+    table.cell(t, 3, 10, str.tostring(he_cor, pct_fmt), bgcolor = he_cor > cor_t ? up_clr : he_cor < -cor_t ? dn_clr : def_clr)
+    table.cell(t, 3, 11, str.tostring(le_cor, pct_fmt), bgcolor = le_cor > cor_t ? up_clr : le_cor < -cor_t ? dn_clr : def_clr)
+    table.cell(t, 3, 12, str.tostring(gf_cor, pct_fmt), bgcolor = gf_cor > cor_t ? up_clr : gf_cor < -cor_t ? dn_clr : def_clr)
+    table.cell(t, 3, 13, str.tostring(cl_cor, pct_fmt), bgcolor = cl_cor > cor_t ? up_clr : cl_cor < -cor_t ? dn_clr : def_clr)
+    table.cell(t, 3, 14, str.tostring(ho_cor, pct_fmt), bgcolor = ho_cor > cor_t ? up_clr : ho_cor < -cor_t ? dn_clr : def_clr)
+    table.cell(t, 3, 15, str.tostring(b_cor, pct_fmt), bgcolor = b_cor > cor_t ? up_clr : b_cor < -cor_t ? dn_clr : def_clr)
+    table.cell(t, 3, 16, str.tostring(g_cor, pct_fmt), bgcolor = g_cor > cor_t ? up_clr : g_cor < -cor_t ? dn_clr : def_clr)
+    table.cell(t, 3, 17, str.tostring(ng_cor, pct_fmt), bgcolor = ng_cor > cor_t ? up_clr : ng_cor < -cor_t ? dn_clr : def_clr)
+    table.cell(t, 3, 18, str.tostring(lua_cor, pct_fmt), bgcolor = lua_cor > cor_t ? up_clr : lua_cor < -cor_t ? dn_clr : def_clr)
+    table.cell(t, 3, 19, str.tostring(luc_cor, pct_fmt), bgcolor = luc_cor > cor_t ? up_clr : luc_cor < -cor_t ? dn_clr : def_clr)
+    table.cell(t, 3, 20, str.tostring(lun_cor, pct_fmt), bgcolor = lun_cor > cor_t ? up_clr : lun_cor < -cor_t ? dn_clr : def_clr)
+    table.cell(t, 3, 21, str.tostring(lup_cor, pct_fmt), bgcolor = lup_cor > cor_t ? up_clr : lup_cor < -cor_t ? dn_clr : def_clr)
+    table.cell(t, 3, 22, str.tostring(luz_cor, pct_fmt), bgcolor = luz_cor > cor_t ? up_clr : luz_cor < -cor_t ? dn_clr : def_clr)
+    table.cell(t, 3, 23, str.tostring(gc_cor, pct_fmt), bgcolor = gc_cor > cor_t ? up_clr : gc_cor < -cor_t ? dn_clr : def_clr)
+    table.cell(t, 3, 24, str.tostring(si_cor, pct_fmt), bgcolor = si_cor > cor_t ? up_clr : si_cor < -cor_t ? dn_clr : def_clr)

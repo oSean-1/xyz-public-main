@@ -1,0 +1,95 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © mks17
+
+//@version=4
+
+
+study("Seasonality", shorttitle="Seasonality", precision=3, overlay=false)
+
+
+var Mon = array.new_float(0, close), var Tue = array.new_float(0, close), var Wed = array.new_float(0, close), var Thu = array.new_float(0, close), var Fri = array.new_float(0, close)
+var change = float(0.0), var percChange = float(0.0), var avgMon = float(na), var avgTue = float(na), var avgWed = float(na), var avgThu = float(na), var avgFri = float(na) 
+var varMon = float(na), var varTue = float(na), var varWed = float(na), var varThu = float(na), var varFri = float(na)
+var cumMon = float(na), var cumTue = float(na), var cumWed = float(na), var cumThu = float(na), var cumFri = float(na)
+
+if dayofweek != dayofweek.monday or dayofweek.tuesday or dayofweek.wednesday or dayofweek.thursday or dayofweek.friday or dayofweek.saturday or dayofweek.sunday
+    change := close
+    percChange := 100 * (change - nz(change[1], 0)) / nz(change[1], 0)
+
+if dayofweek == dayofweek.monday
+    array.insert(Mon, 0, percChange)
+    avgMon := array.avg(Mon)
+    varMon := array.variance(Mon) 
+    cumMon := array.sum(Mon)
+
+if dayofweek == dayofweek.tuesday
+    array.insert(Tue, 0, percChange)
+    avgTue := array.avg(Tue)
+    varTue := array.variance(Tue)
+    cumTue := array.sum(Tue)
+    
+if dayofweek == dayofweek.wednesday
+    array.insert(Wed, 0, percChange)
+    avgWed := array.avg(Wed)
+    varWed := array.variance(Wed) 
+    cumWed := array.sum(Wed)
+    
+if dayofweek == dayofweek.thursday
+    array.insert(Thu, 0, percChange)
+    avgThu := array.avg(Thu)
+    varThu := array.variance(Thu)
+    cumThu := array.sum(Thu) 
+    
+if dayofweek == dayofweek.friday
+    array.insert(Fri, 0, percChange)
+    avgFri := array.avg(Fri)
+    varFri := array.variance(Fri) 
+    cumFri := array.sum(Fri)
+    
+//
+
+plot(percChange, style=plot.style_columns, color=percChange > 0 ? color.green : color.red)
+
+//plot(cumMon, title="Mnday")
+//plot(cumTue, title="Tuesday")  
+//plot(cumWed, title="Wednesday")  
+//plot(cumThu, title="Thursday")  
+//plot(cumFri, title="Friday")  
+
+plot(avgMon, title="Mnday")
+plot(avgTue, title="Tuesday")  
+plot(avgWed, title="Wednesday")  
+plot(avgThu, title="Thursday")  
+plot(avgFri, title="Friday")  
+
+//hline(0)
+
+//plotchar(avgMon, title="Jan Average", char="•", location=location.bottom, size=size.tiny, color=color.white, transp=100)
+//plotchar(avgTue, title="Feb Average", char="•", location=location.bottom, size=size.tiny, color=color.white, transp=100)
+//plotchar(avgWed, title="Mar Average", char="•", location=location.bottom, size=size.tiny, color=color.white, transp=100)
+//plotchar(avgThu, title="Apr Average", char="•", location=location.bottom, size=size.tiny, color=color.white, transp=100)
+//plotchar(avgFri, title="May Average", char="•", location=location.bottom, size=size.tiny, color=color.white, transp=100)
+
+//plotchar(varMon, title="Jan Variance", char="•", location=location.bottom, size=size.tiny, color=color.white, transp=100)
+//plotchar(varTue, title="Feb Variance", char="•", location=location.bottom, size=size.tiny, color=color.white, transp=100)
+//plotchar(varWed, title="Mar Variance", char="•", location=location.bottom, size=size.tiny, color=color.white, transp=100)
+//plotchar(varThu, title="Apr Variance", char="•", location=location.bottom, size=size.tiny, color=color.white, transp=100)
+//plotchar(varFri, title="May Variance", char="•", location=location.bottom, size=size.tiny, color=color.white, transp=100)
+
+table = table.new(position.top_right, 13, 13)
+
+table.cell(table, 0,2,"Avg Returns")
+table.cell(table, 1,1,"Mon")
+table.cell(table, 2,1,"Tue")
+table.cell(table, 3,1,"Wed")
+table.cell(table, 4,1,"Thu")
+table.cell(table, 5,1,"Fri")
+
+
+table.cell(table, 1,2,tostring(round(avgMon,2)))
+table.cell(table, 2,2,tostring(round(avgTue,2)))
+table.cell(table, 3,2,tostring(round(avgWed,2)))
+table.cell(table, 4,2,tostring(round(avgThu,2)))
+table.cell(table, 5,2,tostring(round(avgFri,2)))
+
+    

@@ -1,0 +1,152 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © InvestorUnknown | TRW: @Andrej S.
+
+//@version=5
+
+strategy("DMI ForLoop [InvestorUnknown]", "DMI ForLoop", overlay=false, precision=3, commission_value=0.1, commission_type=strategy.commission.percent, slippage=1, currency=currency.USD, default_qty_type=strategy.percent_of_equity, default_qty_value=10, initial_capital=10000, process_orders_on_close = true)
+
+tradeDirection = input.string("Both", "Trading Direction", options=["Both", "Long", "Short"])
+TPSLCondition = input.string("None", "TPSL Condition", options=["TP", "SL", "Both", "None"])
+takeProfitPerc = input.float(30.0, title="Take Profit (%)")
+stopLossPerc = input.float(20.0, title="Stop Loss (%)")
+
+
+import TradingView/ta/7 as ta
+
+// - - - - - User Inputs - - - - - //{
+a = input.int(10, "Start Length", group = "DMI ForLoop Settings")
+b = input.int(17, "End Length",   group = "DMI ForLoop Settings")
+maType = input.string("EMA", "MA Type", ["EMA", "SMA", "WMA", "VWMA","TMA"], group = "DMI ForLoop Settings", inline = "M")
+c = input.int(4,  "MA Length",   group = "DMI ForLoop Settings", inline = "M")
+
+sigmode = input.string("Fast", "Signal Mode", options = ["Fast", "Slow", "Thresholds Crossing", "Fast Threshold"], group = "Signal Settings")
+longth =  input.float(0.25,   "Long Threshold", step = 0.01, group = "Signal Settings", inline = "T")
+shortth = input.float(-0.25, "Short Threshold", step = 0.01, group = "Signal Settings", inline = "T")
+fastth =  input.float(0.1,  "Fast Threshold",   step = 0.01, group = "Signal Settings")
+
+colup = input.color(color.green,"Bull Color",  group = "Visualisation")
+coldn = input.color(color.red  ,"Bull Color",  group = "Visualisation")
+barcol = input.bool(true,         "Color Bars?", group = "Visualisation")
+
+barconfirm = input.bool(false, "Wait for bar close for Alert?", group = "Alert Settings")
+//}
+
+// - - - - - Custom function - - - - -  {
+
+// Function to calculate an array of DMI values over a range of lengths
+DMIArray(a, b, c) =>
+    var dmiArray = array.new_float(b - a + 1, 0.0) 
+    for x = 0 to (b - a) 
+        alpha = 1.0 / (a + x)
+        float plus = na 
+        float minus = na
+        up = ta.change(high) 
+        down = -ta.change(low) 
+        plusDM = na(up) ? na : (up > down and up > 0 ? up : 0)
+        minusDM = na(down) ? na : (down > up and down > 0 ? down : 0)
+        plus := na(plus[1]) ? ta.sma(plusDM, (a + x)) : alpha * plusDM + (1 - alpha) * nz(plus[1]) 
+        minus := na(minus[1]) ? ta.sma(minusDM, (a + x)) : alpha * minusDM + (1 - alpha) * nz(minus[1]) 
+        trend = plus > minus ? 1 : plus < minus ? -1 : 0 
+        array.set(dmiArray, x, trend) 
+    dmiAvg = array.avg(dmiArray)
+    float DMIma = switch maType
+        "EMA" =>   ta.ema(dmiAvg,    c)
+        "SMA" =>   ta.sma(dmiAvg,    c)
+        "WMA" =>   ta.wma(dmiAvg,    c)
+        "VWMA" =>  ta.vwma(dmiAvg,   c)
+        "TMA" =>   ta.trima(dmiAvg,  c)
+        => 
+            runtime.error("No matching MA type found.")
+            float(na)
+    [dmiArray,dmiAvg, DMIma]
+//}
+
+// - - - - - Variable declaration and Signal calculation - - - - - //{
+
+[dmiArray,dmiAvg, DMIma] = DMIArray(a, b, c)
+
+dmicol1 = DMIma > 0 ? colup : coldn
+var color dmicol2 = na
+if DMIma > DMIma[1] or DMIma > 0.99
+    dmicol2 := colup
+if DMIma < DMIma[1] or DMIma < -0.99
+    dmicol2 := coldn
+var color dmicol3 = na
+if ta.crossover(DMIma,longth)
+    dmicol3 := colup
+if ta.crossunder(DMIma,shortth)
+    dmicol3 := coldn
+var color dmicol4 = na 
+if (DMIma > DMIma[1] + fastth)
+    dmicol4 := colup
+if (DMIma < DMIma[1] - fastth)
+    dmicol4 := coldn
+
+color dmicol = na
+if sigmode == "Slow"
+    dmicol := dmicol1
+if sigmode == "Fast"
+    dmicol := dmicol2
+if sigmode == "Thresholds Crossing"
+    dmicol := dmicol3
+if sigmode == "Fast Threshold"
+    dmicol := dmicol4
+else
+    na
+//}
+
+// - - - - - Visualisation - - - - - //{
+plot(DMIma, color = dmicol, linewidth = 2)
+barcolor(barcol ? dmicol : na)
+hline(0, color = color.gray)
+H0 = plot(1, color = color.new(color.gray,50), display = display.none)
+H1 = plot(0.5, color = color.new(color.gray,50), display = display.none)
+H2 = plot(-0.5, color = color.new(color.gray,50), display = display.none)
+H3 = plot(-1, color = color.new(color.gray,50), display = display.none)
+fill(H0, H1, 1, 0.5, color.new(colup, 80), color.new(chart.bg_color, 30))  
+fill(H2, H3, -0.5, -1, color.new(chart.bg_color, 30), color.new(coldn, 80))  
+//}
+
+// - - - - - Alerts - - - - - //{
+var int alertsignal = na
+if dmicol == colup
+    alertsignal := 1
+if dmicol == coldn
+    alertsignal := -1
+Long  = ta.crossover(alertsignal,  0)
+Short = ta.crossunder(alertsignal, 0)
+alertcondition(barconfirm ? Long[1]  : Long, "LONG",   "DMI ForLoop went Long")
+alertcondition(barconfirm ? Short[1] : Short,"SHORT", "DMI ForLoop went SHORT")
+//}
+
+// Entry/Exit conditions
+LongEntry = Long
+LongExit = Short
+ShortEntry = Short
+ShortExit = Long
+
+// Strategy logic
+if (tradeDirection == "Long" or tradeDirection == "Both")
+    if (LongEntry)
+        strategy.entry("Long Entry", strategy.long)
+
+if (tradeDirection == "Short" or tradeDirection == "Both")
+    if (ShortEntry)
+        strategy.entry("Short Entry", strategy.short)
+
+if (tradeDirection == "Long" or tradeDirection == "Both")
+    if (LongExit)
+        strategy.close("Long Entry")
+
+if (tradeDirection == "Short" or tradeDirection == "Both")
+    if (ShortExit)
+        strategy.close("Short Entry")
+
+// Apply Take Profit and Stop Loss conditions
+if (TPSLCondition == "TP" or TPSLCondition == "Both")
+    strategy.exit("TakeProfit_Long", "Long Entry", limit=close * (1 + takeProfitPerc / 100))
+    strategy.exit("TakeProfit_Short", "Short Entry", limit=close * (1 - takeProfitPerc / 100))
+
+if (TPSLCondition == "SL" or TPSLCondition == "Both")
+    strategy.exit("StopLoss_Long", "Long Entry", stop=close * (1 - stopLossPerc / 100))
+    strategy.exit("StopLoss_Short", "Short Entry", stop=close * (1 + stopLossPerc / 100))

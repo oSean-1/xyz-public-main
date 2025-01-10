@@ -1,0 +1,234 @@
+// This work is licensed under a Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0) https://creativecommons.org/licenses/by-nc-sa/4.0/
+// © EliCobra
+
+//@version=5
+indicator("Crypto Correlation Matrix", overlay = true, scale = scale.none)
+
+swap_asset(input) =>
+    string asset = switch input
+        'Current' => syminfo.ticker
+        'BTC' => 'BINANCE:BTCUSDT'
+        'BNB' => 'BINANCE:BNBUSDT'
+        'ETH' => 'BINANCE:ETHUSDT'
+        'SOL' => 'BINANCE:SOLUSDT'
+        'LINK' => 'BINANCE:LINKUSDT'
+        'DOT' => 'BINANCE:DOTUSDT'
+        'MATIC' => 'BINANCE:MATICUSDT'
+        'LUNA' => 'BINANCE:LUNAUSDT'
+        'AVAX' => 'BINANCE:AVAXUSDT'
+        'ATOM' => 'BINANCE:ATOMUSDT'
+        'LTC' => 'BINANCE:LTCUSDT'
+        'NEAR' => 'BINANCE:NEARUSDT'
+        'FIL' => 'BINANCE:FILUSDT'
+        '1INCH' => 'BINANCE:1INCHUSDT'
+        'AXS' => 'BINANCE:AXSUSDT'
+        'ENJ' => 'BINANCE:ENJUSDT'
+        'ADA' => 'BINANCE:ADAUSDT'
+        'ONE' => 'BINANCE:ONEUSDT'
+        'HNT' => 'BINANCE:HNTUSDT'
+        'XDB' => 'KUCOIN:XDBUSDT'
+        'UOS' => 'KUCOIN:UOSUSDT'
+        'USDT' => 'COINBASE:USDTUSD'
+        'ALGO' => 'BINANCE:ALGOUSDT'
+        'ONT' => 'BINANCE:ONTUSDT'
+        'VET' => 'BINANCE:VETUSDT'
+        'XTZ' => 'BINANCE:XTZUSDT'
+        'XRP' => 'BINANCE:XRPUSDT'
+        'MANA' => 'BINANCE:MANAUSDT'
+        'THETA' => 'BINANCE:THETAUSDT'
+        'DOGE' => 'BINANCE:DOGEUSDT'
+        'TRX' => 'BINANCE:TRXUSDT'
+        'EOS' => 'BINANCE:EOSUSDT'
+        'DENT' => 'BINANCE:DENTUSDT'
+        'ANKR' => 'BINANCE:ANKRUSDT'
+        'ROSN' => 'KUCOIN:ROSNUSDT'
+        'DAG' => 'KUCOIN:DAGUSDT'
+        'GALA' => 'BINANCE:GALAUSDT'
+        'OCEAN' => 'BINANCE:OCEANUSDT'
+        'FTM' => 'BINANCE:FTMUSDT'
+        'MASK' => 'BINANCE:MASKUSDT'
+        'FLUX' => 'BINANCE:FLUXUSDT'
+        'SAND' => 'BINANCE:SANDUSDT'
+        'VRA' => 'KUCOIN:VRAUSDT'
+        'YGG' => 'BINANCE:YGGUSDT'
+        'RUNE' => 'BINANCE:RUNEUSDT'
+        'ALICE' => 'BINANCE:ALICEUSDT'
+        'KDA' => 'KUCOIN:KDAUSDT'
+        'NEO' => 'BINANCE:NEOUSDT'
+        'FXS' => 'BINANCE:FXSUSDT'
+        'YFI' => 'BINANCE:YFIUSDT'
+        'TIME' => 'KUCOIN:TIMEUSDT'
+        'KP3R' => 'BINANCE:KP3RUSDT'
+        'WAVES' => 'BINANCE:WAVESUSDT'
+        'UNIU' => 'BINANCE:UNIUSDT'
+        'SHIB' => 'BINANCE:SHIBUSDT'
+        'QTUM' => 'BINANCE:QTUMUSDT'
+        'PRE' => 'KUCOIN:PREUSDT'
+        'PRQ' => 'KUCOIN:PRQUSDT'
+        'AIOZ' => 'KUCOIN:AIOZUSDT'
+        'PYR' => 'BINANCE:PYRUSDT'
+        'THG' => 'COINEX:THGUSDT'
+        'UFO' => 'KUCOIN:UFOUSDT'
+        'FLUX' => 'KUCOIN:FLUXUSDT'
+        'BNB' => 'BINANCE:BNBUSDT'
+        'XEM' => 'BINANCE:XEMUSDT'
+        => ""
+    
+    asset
+//}//// SWAP ASSET FUNC
+
+rp_security(_symbol, _res, _src) =>
+    request.security(_symbol, _res, _src[barstate.isconfirmed ? 0 : 1])
+
+col_up = #005f0a
+col_dn = #690a0a
+
+f_col(float x) =>
+    col = x > 0 ? color.from_gradient(x, 0, 1, color.rgb(255, 255, 255, 100), col_up) : color.from_gradient(x, -1, 0, col_dn, color.rgb(255, 255, 255, 100))
+
+    col
+
+f_cell(float x) =>
+    string y = ""
+    switch
+        x < -0.8 => y := "\n\n\n\n➖➖➖➖\n\n\n\n\n———◉———"
+        x >= -0.8 and x < -0.6 => y := "\n\n\n\n➖➖➖➖\n\n\n\n———◉———\n"
+        x >= -0.6 and x < -0.4 => y := "\n\n\n\n➖➖➖➖\n\n\n———◉———\n\n"
+        x >= -0.4 and x < -0.2 => y := "\n\n\n\n➖➖➖➖\n\n———◉———\n\n\n"
+        x >= -0.2 and x < 0 => y := "\n\n\n\n———◉———\n\n\n\n\n"
+        x >= 0 and x < 0.2 => y := "\n\n\n\n———◉———\n\n\n\n\n"
+        x >= 0.2 and x < 0.4 => y := "\n\n\n———◉———\n➖➖➖➖\n\n\n\n\n"
+        x >= 0.4 and x < 0.6 => y := "\n\n———◉———\n\n➖➖➖➖\n\n\n\n\n"
+        x >= 0.6 and x < 0.8 => y := "\n———◉———\n\n\n➖➖➖➖\n\n\n\n\n"
+        x >= 0.8 => y := "———◉———\n\n\n\n➖➖➖➖\n\n\n\n\n"
+
+    y
+
+checksymbol(string x) =>
+    y = switch x
+        "BTC" => "₿"
+        "ETH" => "⟠"
+        "LTC" => "Ł"
+        "USDT" => "₮"
+        "ADA" => "₳"
+        "BNB" => "◈"
+        "XRP" => "✕"
+        => x
+    
+    y
+
+truncate(number, decimals) =>
+    factor = math.pow(10, decimals)
+    int(number * factor) / factor
+
+f_pos(string position) =>
+    pos = switch position
+        "Top Left" => position.top_left
+        "Middle Left" => position.middle_left
+        "Bottom Left" => position.bottom_left
+        "Top Right" => position.top_right
+        "Middle Right" => position.middle_right
+        "Bottom Right" => position.bottom_right
+        "Top Center" => position.top_center
+        "Bottom Center" => position.bottom_center
+        "Center" => position.middle_center
+
+    pos
+
+pos_table = input.string("Top Right", "Table Position", options = ["Top Left", "Middle Left", "Bottom Left", "Top Right", "Middle Right", "Bottom Right", "Top Center", "Center", "Bottom Center"])
+src = input.source(hlc3, "Source")
+length = input.string("30D", "Length", options = ["7D", "30D", "1Y"])
+input_base_1 = input.string ("BTC", options = ["Current","BTC","ETH","ADA","ALGO","ALICE","ANKR","ATOM","AIOZ","AVAX","AXS","BNB","DAG","DENT","DOGE","DOT","ENJ","EOS","KP3R","FIL","FLUX","FTM","FXS","GALA","HNT","KDA","LINK","LUNA","LTC","MANA","MASK","MATIC","MBS","NEAR","NEO","OCEAN","ONE","ONT","PRE","PRQ","PYR","QTUM","ROSN","RUNE","SAND","SHIB","SOL","THETA","THG","TIME","TRX","USDT","UFO","UNI","UOS","VET","VRA", "WAVES","XDB","XEM","XRP","XTZ","YFI","YGG","1INCH"],title="Asset 1")
+input_base_2 = input.string ("ETH", options = ["Current","BTC","ETH","ADA","ALGO","ALICE","ANKR","ATOM","AIOZ","AVAX","AXS","BNB","DAG","DENT","DOGE","DOT","ENJ","EOS","KP3R","FIL","FLUX","FTM","FXS","GALA","HNT","KDA","LINK","LUNA","LTC","MANA","MASK","MATIC","MBS","NEAR","NEO","OCEAN","ONE","ONT","PRE","PRQ","PYR","QTUM","ROSN","RUNE","SAND","SHIB","SOL","THETA","THG","TIME","TRX","USDT","UFO","UNI","UOS","VET","VRA", "WAVES","XDB","XEM","XRP","XTZ","YFI","YGG","1INCH"],title="Asset 2")
+input_base_3 = input.string ("BNB", options = ["Current","BTC","ETH","ADA","ALGO","ALICE","ANKR","ATOM","AIOZ","AVAX","AXS","BNB","DAG","DENT","DOGE","DOT","ENJ","EOS","KP3R","FIL","FLUX","FTM","FXS","GALA","HNT","KDA","LINK","LUNA","LTC","MANA","MASK","MATIC","MBS","NEAR","NEO","OCEAN","ONE","ONT","PRE","PRQ","PYR","QTUM","ROSN","RUNE","SAND","SHIB","SOL","THETA","THG","TIME","TRX","USDT","UFO","UNI","UOS","VET","VRA", "WAVES","XDB","XEM","XRP","XTZ","YFI","YGG","1INCH"],title="Asset 3")
+input_base_4 = input.string ("XRP", options = ["Current","BTC","ETH","ADA","ALGO","ALICE","ANKR","ATOM","AIOZ","AVAX","AXS","BNB","DAG","DENT","DOGE","DOT","ENJ","EOS","KP3R","FIL","FLUX","FTM","FXS","GALA","HNT","KDA","LINK","LUNA","LTC","MANA","MASK","MATIC","MBS","NEAR","NEO","OCEAN","ONE","ONT","PRE","PRQ","PYR","QTUM","ROSN","RUNE","SAND","SHIB","SOL","THETA","THG","TIME","TRX","USDT","UFO","UNI","UOS","VET","VRA", "WAVES","XDB","XEM","XRP","XTZ","YFI","YGG","1INCH"],title="Asset 4")
+input_base_5 = input.string ("ADA", options = ["Current","BTC","ETH","ADA","ALGO","ALICE","ANKR","ATOM","AIOZ","AVAX","AXS","BNB","DAG","DENT","DOGE","DOT","ENJ","EOS","KP3R","FIL","FLUX","FTM","FXS","GALA","HNT","KDA","LINK","LUNA","LTC","MANA","MASK","MATIC","MBS","NEAR","NEO","OCEAN","ONE","ONT","PRE","PRQ","PYR","QTUM","ROSN","RUNE","SAND","SHIB","SOL","THETA","THG","TIME","TRX","USDT","UFO","UNI","UOS","VET","VRA", "WAVES","XDB","XEM","XRP","XTZ","YFI","YGG","1INCH"],title="Asset 5")
+var drkmode = input.bool(true, "Dark Mode")
+
+var txtcol = switch drkmode
+    true => #ffffff
+    false => #000000
+
+var bordercol = switch drkmode
+    true => #ffffff80
+    false => #000000
+
+len = switch length
+    "7D" => 7
+    "30D" => 30
+    "1Y" => 365
+    => 7
+
+var float corr = 0
+data_asset_1 = ta.sma(rp_security(swap_asset(input_base_1), timeframe.period, src), 1)
+data_asset_2 = ta.sma(rp_security(swap_asset(input_base_2), timeframe.period, src), 1)
+data_asset_3 = ta.sma(rp_security(swap_asset(input_base_3), timeframe.period, src), 1)
+data_asset_4 = ta.sma(rp_security(swap_asset(input_base_4), timeframe.period, src), 1)
+data_asset_5 = ta.sma(rp_security(swap_asset(input_base_5), timeframe.period, src), 1)
+
+corr1 = truncate(ta.correlation(data_asset_1, data_asset_2, len), 2), corr2 = truncate(ta.correlation(data_asset_1, data_asset_3, len), 2)
+corr3 = truncate(ta.correlation(data_asset_1, data_asset_4, len), 2), corr4 = truncate(ta.correlation(data_asset_1, data_asset_5, len), 2)
+corr5 = truncate(ta.correlation(data_asset_2, data_asset_3, len), 2), corr6 = truncate(ta.correlation(data_asset_2, data_asset_4, len), 2)
+corr7 = truncate(ta.correlation(data_asset_2, data_asset_5, len), 2), corr8 = truncate(ta.correlation(data_asset_3, data_asset_4, len), 2)
+corr9 = truncate(ta.correlation(data_asset_3, data_asset_5, len), 2), corr10 = truncate(ta.correlation(data_asset_4, data_asset_5, len), 2)
+
+var table Main = table.new(f_pos(pos_table), 6, 7, border_width = 1, border_color = bordercol, frame_color = bordercol, frame_width = 1)
+string stralert = na
+
+for j = 0 to 5
+    name = switch j
+        0 => ""
+        1 => input_base_1
+        2 => input_base_2
+        3 => input_base_3
+        4 => input_base_4
+        5 => input_base_5
+
+    table.cell(Main, j, 0, " \n  " + name + "  \n ", text_color = txtcol, bgcolor = color.new(#000000, 100))
+
+    for i = 1 to 5
+        name2 = switch i
+            1 => input_base_1
+            2 => input_base_2
+            3 => input_base_3
+            4 => input_base_4
+            5 => input_base_5
+
+        corr := switch i * j
+            2 => corr1
+            3 => corr2
+            4 => corr3
+            5 => corr4
+            6 => corr5
+            8 => corr6
+            12 => corr7
+            10 => corr8
+            15 => corr9
+            20 => corr10 
+
+        switch
+            j == 0 => table.cell(Main, 0, i, " \n  " + name2 + "  \n ", text_color = txtcol, bgcolor = color.new(#000000, 100))
+            i > j and j != 0 => table.cell(Main, j, i, str.tostring(corr), text_color = txtcol, bgcolor = f_col(corr))
+            i < j and j != 0 => table.cell(Main, j, i, f_cell(corr), text_color = txtcol, bgcolor = f_col(corr), text_size = size.tiny)
+            i == j and j != 0 => table.cell(Main, j, i, checksymbol(name), text_color = txtcol, bgcolor = color.new(#000000, 100), text_size = size.large)
+
+table.merge_cells(Main, 0, 6, 5, 6)
+table.cell(Main, 0, 6, "Ｃｏｒｒｅｌａｔｉｏｎｓ         Ｍａｔｒｉｘ", text_color = txtcol, bgcolor = color.new(#000000, 100), text_size = size.normal), table.cell(Main, 0, 0, '🐍', text_size = size.large)
+
+for i = 1 to 10
+    str = switch i
+        1 => str.tostring(corr1)
+        2 => str.tostring(corr2)
+        3 => str.tostring(corr3)
+        4 => str.tostring(corr4)
+        5 => str.tostring(corr5)
+        6 => str.tostring(corr6)
+        7 => str.tostring(corr7)
+        8 => str.tostring(corr8)
+        9 => str.tostring(corr9)
+        10 => str.tostring(corr10)
+    
+    stralert += i < 10 ? str + ", " : str
+
+if close
+    alert(stralert)

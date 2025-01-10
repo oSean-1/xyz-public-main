@@ -1,0 +1,88 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Cmo22
+
+
+//@version=5
+indicator("Bernoulli Price Dynamics with Intrabar Volume (Bidirectional)", overlay=false)
+
+// ————— Inputs —————
+N = input.int(title="Period for Constant (N)", defval=100, minval=1)
+lowerTimeframe = input.string(title="Lower Timeframe for Intrabar Data", defval="1", tooltip="Enter the lower timeframe (e.g., '1', '5', '15')")
+
+// ————— Constants and Variables —————
+
+// Gravity (using ATR over N periods for market analogy)
+g = ta.atr(N)
+
+// ————— Intrabar Volume Processing —————
+
+// Function to accumulate intrabar up and down volume
+f_intrabar_volume() =>
+    var float upVolume = 0.0
+    var float downVolume = 0.0
+    // Reset accumulators at the start of each higher timeframe bar
+    if barstate.isfirst or barstate.isnew
+        upVolume := 0.0
+        downVolume := 0.0
+    // Accumulate up and down volume
+    volume_curr = volume
+    close_prev = close[1]
+    close_curr = close
+    if close_curr > close_prev
+        upVolume := upVolume + volume_curr
+    else if close_curr < close_prev
+        downVolume := downVolume + volume_curr
+    else
+        upVolume := upVolume + volume_curr / 2
+        downVolume := downVolume + volume_curr / 2
+    [upVolume, downVolume]
+
+// Request lower timeframe data and get accumulated up and down volumes
+[upVolume, downVolume] = request.security(syminfo.tickerid, lowerTimeframe, f_intrabar_volume(), gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
+
+// ————— Bernoulli's Equation Adaptation (Bidirectional) —————
+
+// Price velocity (v)
+price_velocity = close - close[1]  // Price change between current and previous bar
+
+// Separate price velocity into up and down components
+price_velocity_up = price_velocity > 0 ? price_velocity : 0
+price_velocity_down = price_velocity < 0 ? -price_velocity : 0  // Use absolute value for downward movement
+
+// Volume density (ρ)
+volume_density_up = upVolume
+volume_density_down = downVolume
+
+// Kinetic Energy per unit volume (KE = 0.5 * ρ * v^2)
+KE_up = 0.5 * volume_density_up * math.pow(price_velocity_up, 2)
+KE_down = 0.5 * volume_density_down * math.pow(price_velocity_down, 2)
+
+// Potential Energy per unit volume (PE = ρ * g * h)
+price_level = close  // Using the closing price as the height
+PE_up = volume_density_up * g * price_level
+PE_down = volume_density_down * g * price_level
+
+// Total Mechanical Energy per unit volume (E = KE + PE)
+total_energy_up = KE_up + PE_up
+total_energy_down = KE_down + PE_down
+
+// Constant total energy along the 'streamline' (we use the highest observed total energy over N periods)
+constant_up = ta.highest(total_energy_up, N)
+constant_down = ta.highest(total_energy_down, N)
+
+// Market pressure (analogous to fluid pressure, P)
+market_pressure_up = constant_up - total_energy_up
+market_pressure_down = constant_down - total_energy_down
+
+// ————— Plotting —————
+
+// Plot the Bernoulli-based market pressure
+plot(market_pressure_up, color=color.green, linewidth=2, title="Market Pressure Up")
+plot(market_pressure_down, color=color.red, linewidth=2, title="Market Pressure Down")
+hline(0, title="Zero Line", color=color.gray)
+
+// Plot the individual components for analysis
+plot(KE_up, color=color.blue, linewidth=1, title="Kinetic Energy Up (KE Up)")
+plot(KE_down, color=color.orange, linewidth=1, title="Kinetic Energy Down (KE Down)")
+plot(PE_up, color=color.purple, linewidth=1, title="Potential Energy Up (PE Up)")
+plot(PE_down, color=color.yellow, linewidth=1, title="Potential Energy Down (PE Down)")

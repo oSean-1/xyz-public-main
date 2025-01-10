@@ -1,0 +1,25 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © butterflow
+
+//@version=5
+indicator("BF_CBOE_COR_DeltaSkew")
+
+COR90D_Color = input(defval = color.blue, title="COR90D Color")
+COR70D_Color = input(defval = color.red, title="COR70D Color")
+COR3M_Color = input(defval = color.yellow, title="COR3M Color")
+COR30D_Color = input(defval = color.green, title="COR30D Color")
+COR10D_Color = input(defval = color.orange, title="COR10D Color")
+Transparency = input(defval = 1, title="Transparency")
+
+resolution = "1"
+COR90D = request.security('CBOE:COR90D', resolution, close)
+COR70D = request.security('CBOE:COR70D', resolution, close)
+COR3M = request.security('CBOE:COR3M', resolution, close)
+COR30D = request.security('CBOE:COR30D', resolution, close)
+COR10D = request.security('CBOE:COR10D', resolution, close)
+
+plot(COR90D, color=color.new(COR90D_Color, Transparency))
+plot(COR70D, color=color.new(COR70D_Color, Transparency))
+plot(COR3M, color=color.new(COR3M_Color, Transparency))
+plot(COR30D, color=color.new(COR30D_Color, Transparency))
+plot(COR10D, color=color.new(COR10D_Color, Transparency))

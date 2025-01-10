@@ -1,0 +1,44 @@
+    // ____  __    ___   ________ ___________  ___________ __  ____ ___ 
+   // / __ )/ /   /   | / ____/ //_/ ____/   |/_  __<  / // / / __ |__ \
+  // / __  / /   / /| |/ /   / ,< / /   / /| | / /  / / // /_/ / / __/ /
+ // / /_/ / /___/ ___ / /___/ /| / /___/ ___ |/ /  / /__  __/ /_/ / __/ 
+// /_____/_____/_/  |_\____/_/ |_\____/_/  |_/_/  /_/  /_/  \____/____/                                              
+
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © blackcat1402
+//@version=4
+
+study("Banker Entry Indicator", overlay=false)
+
+//functions
+xrf(values, length) =>
+    r_val = float(na)
+    if length >= 1
+        for i = 0 to length by 1
+            if na(r_val) or not na(values[i])
+                r_val  :=  values[i]
+                r_val
+    r_val
+xsa(src,len,wei) =>
+    sumf = 0.0
+    ma = 0.0
+    out = 0.0
+    sumf  :=  nz(sumf[1]) - nz(src[len]) + src
+    ma  :=  na(src[len]) ? na : sumf/len
+    out  :=  na(out[1]) ? ma : (src*wei+out[1]*(len-wei))/len
+    out
+
+
+//model of banker model with customized input threshold
+bankerthreshold = input(3, title="banker entry threshold", type=input.integer, minval = 1)
+bankermodel = (3)*(xsa(((close - lowest(low,27))/(highest(high,27) - lowest(low,27)))*(100),5,1)) - (2)*(xsa(xsa(((close - lowest(low,27))/(highest(high,27) - lowest(low,27)))*(100),5,1),3,1))
+pumpdumpsoon = iff(crossover(bankermodel,bankerthreshold),100,0)
+longshortentry = iff((bankermodel <= 3),50,0)
+bankermove = iff((bankermodel < 5),25,0)
+
+//model banker pump or dump start soon
+ppumpdumpsoon = plot(pumpdumpsoon,color=color.green, linewidth=3,style=plot.style_area, transp=30)
+//model long short entry
+plongshortentry = plot(longshortentry,color=color.orange, linewidth=3,style=plot.style_area, transp=30)
+//model banker move
+pbankermove = plot(bankermove,color=color.yellow, linewidth=3,style=plot.style_area, transp=70)

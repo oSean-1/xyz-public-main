@@ -1,0 +1,128 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © e2e4mfck for tradingview.com
+//@version=4
+title	= "Color Gradient"
+version	= " 1.05"
+
+study (title = title+version, overlay = false)
+
+// - - - - - Inputs - - - - - // 	
+rsiLen		= input(377,	"RSI Length",				input.integer)
+rsiOb		= input(80,		"RSI ob",					input.integer)
+rsiOs		= input(20,		"RSI os",					input.integer)
+bbLen		= input(1400,	"BB Length",				input.integer)
+bbMult		= input(2.618,	"BB stDev multiplier",		input.float)
+
+
+// - - - - - Source - - - - - //
+rsi = rsi(close, rsiLen)
+
+//bb function:
+f_bb (_src, _len, _mult) =>
+	_base = sma(_src, _len)
+	_bbdev = _mult * stdev(_src, _len)
+	_up = _base + _bbdev
+	_dn = _base - _bbdev
+	[_up , _dn]
+//bb out
+[rsiBandsUp , rsiBandsDn] = f_bb(rsi, bbLen, bbMult)
+
+
+
+
+// - - - - - Color Gradient - - - - - //
+// - - - - - Inputs - - - - - //
+
+colFlip		= input(false,	"flip?", 		input.bool)
+colBar		= input(false,	"barcolor?",	input.bool)
+colTheme	= input(defval = "Red and Green", 
+				  title = "Gradient theme",
+				  options=[
+				  "Red and Green", 
+				  "Red and Blue", 
+				  "Blue and White", 
+				  "Rainbow"
+				  ])
+
+// - - - - - Function - - - - - //
+
+f_colGrad (_src , _minSrc, _maxSrc, _theme, _flip) =>
+	_col1	= _theme == "Red and Green" ? #E50003 : _theme == "Red and Blue" ? #E50000 : _theme == "Blue and White" ? #002DBF : _theme == "Rainbow" ? #E50000 : #E50003
+	_col2	= _theme == "Red and Green" ? #E30D00 : _theme == "Red and Blue" ? #D8020A : _theme == "Blue and White" ? #0D38C2 : _theme == "Rainbow" ? #E6023B : #E50003
+	_col3	= _theme == "Red and Green" ? #E12100 : _theme == "Red and Blue" ? #CC0414 : _theme == "Blue and White" ? #1A43C5 : _theme == "Rainbow" ? #E70579 : #E50003
+	_col4	= _theme == "Red and Green" ? #DF3500 : _theme == "Red and Blue" ? #C0071E : _theme == "Blue and White" ? #284EC9 : _theme == "Rainbow" ? #E908B7 : #E50003
+	_col5	= _theme == "Red and Green" ? #DD4800 : _theme == "Red and Blue" ? #B40928 : _theme == "Blue and White" ? #3559CC : _theme == "Rainbow" ? #E00BEA : #E50003
+	_col6	= _theme == "Red and Green" ? #DB5B00 : _theme == "Red and Blue" ? #A80B32 : _theme == "Blue and White" ? #4364CF : _theme == "Rainbow" ? #A70DEB : #E50003
+	_col7	= _theme == "Red and Green" ? #D96E00 : _theme == "Red and Blue" ? #9C0E3C : _theme == "Blue and White" ? #506FD3 : _theme == "Rainbow" ? #6E10ED : #E50003
+	_col8	= _theme == "Red and Green" ? #D78000 : _theme == "Red and Blue" ? #901046 : _theme == "Blue and White" ? #5D7AD6 : _theme == "Rainbow" ? #3613EE : #E50003
+	_col9	= _theme == "Red and Green" ? #D59200 : _theme == "Red and Blue" ? #841250 : _theme == "Blue and White" ? #6B85D9 : _theme == "Rainbow" ? #162DEF : #E50003
+	_col10	= _theme == "Red and Green" ? #D3A400 : _theme == "Red and Blue" ? #78155A : _theme == "Blue and White" ? #7890DD : _theme == "Rainbow" ? #1969F1 :#E50003
+	_col11	= _theme == "Red and Green" ? #D1B500 : _theme == "Red and Blue" ? #6C1764 : _theme == "Blue and White" ? #869BE0 : _theme == "Rainbow" ? #1CA4F2 :#E50003
+	_col12	= _theme == "Red and Green" ? #CFC600 : _theme == "Red and Blue" ? #601A6E : _theme == "Blue and White" ? #93A6E4 : _theme == "Rainbow" ? #1FDFF4 :#E50003
+	_col13	= _theme == "Red and Green" ? #C2CD00 : _theme == "Red and Blue" ? #541C78 : _theme == "Blue and White" ? #A1B1E7 : _theme == "Rainbow" ? #22F5D2 :#E50003
+	_col14	= _theme == "Red and Green" ? #AECB00 : _theme == "Red and Blue" ? #481E82 : _theme == "Blue and White" ? #AEBCEA : _theme == "Rainbow" ? #25F69C :#E50003
+	_col15	= _theme == "Red and Green" ? #9AC900 : _theme == "Red and Blue" ? #3C218C : _theme == "Blue and White" ? #BBC7EE : _theme == "Rainbow" ? #28F867 :#E50003
+	_col16	= _theme == "Red and Green" ? #87C700 : _theme == "Red and Blue" ? #302396 : _theme == "Blue and White" ? #C9D2F1 : _theme == "Rainbow" ? #2CF933 :#E50003
+	_col17	= _theme == "Red and Green" ? #74C500 : _theme == "Red and Blue" ? #2425A0 : _theme == "Blue and White" ? #D6DDF4 : _theme == "Rainbow" ? #5DFA2F :#E50003
+	_col18	= _theme == "Red and Green" ? #61C300 : _theme == "Red and Blue" ? #1828AA : _theme == "Blue and White" ? #E4E8F8 : _theme == "Rainbow" ? #96FC32 :#E50003
+	_col19	= _theme == "Red and Green" ? #4FC100 : _theme == "Red and Blue" ? #0C2AB4 : _theme == "Blue and White" ? #F1F3FB : _theme == "Rainbow" ? #CDFD35 :#E50003
+	_col20	= _theme == "Red and Green" ? #3DBF00 : _theme == "Red and Blue" ? #002DBF : _theme == "Blue and White" ? #FFFFFF : _theme == "Rainbow" ? #FFF938 :#E50003
+	_max	= _maxSrc
+	_min	= _minSrc
+	_v1		= abs(_max - _min)
+	_v2		= _v1 / 20
+	_c1		= _min + _v2
+	_c2		= _c1 + _v2
+	_c3		= _c2 + _v2
+	_c4		= _c3 + _v2
+	_c5		= _c4 + _v2
+	_c6		= _c5 + _v2
+	_c7		= _c6 + _v2
+	_c8		= _c7 + _v2
+	_c9		= _c8 + _v2
+	_c10	= _c9 + _v2
+	_c11	= _c10 + _v2
+	_c12	= _c11 + _v2
+	_c13	= _c12 + _v2
+	_c14	= _c13 + _v2
+	_c15	= _c14 + _v2
+	_c16	= _c15 + _v2
+	_c17	= _c16 + _v2
+	_c18	= _c17 + _v2
+	_c19	= _c18 + _v2
+	_c20	= _c19 + _v2
+	_result =
+      _src <= _c1				   ? _flip == false ? _col1  : _col20 :
+      _src <= _c2 and _src > _c1   ? _flip == false ? _col2  : _col19 :
+      _src <= _c3 and _src > _c2   ? _flip == false ? _col3  : _col18 :
+      _src <= _c4 and _src > _c3   ? _flip == false ? _col4  : _col17 :
+      _src <= _c5 and _src > _c4   ? _flip == false ? _col5  : _col16 :
+      _src <= _c6 and _src > _c5   ? _flip == false ? _col6  : _col15 :
+      _src <= _c7 and _src > _c6   ? _flip == false ? _col7  : _col14 :
+      _src <= _c8 and _src > _c7   ? _flip == false ? _col8  : _col13 :
+      _src <= _c9 and _src > _c8   ? _flip == false ? _col9  : _col12 :
+      _src <= _c10 and _src > _c9  ? _flip == false ? _col10 : _col11 :
+      _src <= _c11 and _src > _c10 ? _flip == false ? _col11 : _col10 :
+      _src <= _c12 and _src > _c11 ? _flip == false ? _col12 : _col9  :
+      _src <= _c13 and _src > _c12 ? _flip == false ? _col13 : _col8  :
+      _src <= _c14 and _src > _c13 ? _flip == false ? _col14 : _col7  :
+      _src <= _c15 and _src > _c14 ? _flip == false ? _col15 : _col6  :
+      _src <= _c16 and _src > _c15 ? _flip == false ? _col16 : _col5  :
+      _src <= _c17 and _src > _c16 ? _flip == false ? _col17 : _col4  :
+      _src <= _c18 and _src > _c17 ? _flip == false ? _col18 : _col3  :
+      _src <= _c19 and _src > _c18 ? _flip == false ? _col19 : _col2  :
+      _src <= _c20 and _src > _c19 ? _flip == false ? _col20 : _col1  : 
+								     _flip == false ? _col20 : _col1
+
+
+// - - - - - Output - - - - - // 
+rsiCol		= f_colGrad (rsi , rsiBandsDn, rsiBandsUp, colTheme, colFlip)
+rsiBarCol	= colBar == true ? rsiCol : na
+
+
+// - - - - - Plot - - - - - // 
+plot(rsi,			title="RSI",		color=rsiCol,	style=plot.style_columns,	linewidth=3,    editable=true,	histbase=50)
+plot(rsiBandsUp,	title="RSI bb dn",	color=rsiCol,	style=plot.style_line,		linewidth=3,    editable=true)
+plot(rsiBandsDn,	 title="RSI bb up",	color=rsiCol,	style=plot.style_line,		linewidth=3,    editable=true)
+
+barcolor(rsiBarCol)

@@ -1,0 +1,70 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © bysdxt
+
+//@version=5
+
+//Simple implementation of Discrete Fourier Transform, not FFT
+
+// 参考 http://reference.wolfram.com/language/ref/Fourier.html
+indicator("Discrete Fourier Transform", overlay = false, precision = 5)
+
+source = input.source(ohlc4)
+Length = input.int(54, minval = 1)
+N1 = Length - 1
+a = input.float(-1, "parameter a", tooltip = "参考 https://reference.wolfram.com/language/ref/FourierParameters.html")
+b = input.float(1, "parameter b", tooltip = "参考 https://reference.wolfram.com/language/ref/FourierParameters.html")
+
+K = math.pow(Length, (a - 1) / 2)
+
+float NaN = na
+
+make_ks(simple int i, float[] re, float[] im) =>
+    if i < Length
+        for j = 0 to N1 by 1
+            arg = 2 * math.pi * b * i * j / Length
+            array.set(re, j, math.cos(arg))
+            array.set(im, j, math.sin(arg))
+    i
+
+//  结果是模/result is modulus (https://reference.wolfram.com/language/ref/Abs.html)
+calc(simple int i) =>
+    var re = array.new<float>(Length, NaN)
+    var im = array.new<float>(Length, NaN)
+    var ii = make_ks(i, re, im)
+    float _re = 0.0
+    float _im = 0.0
+    for p = 0 to N1 by 1
+        v = source[p]
+        _re := _re + v * array.get(re, p)
+        _im := _im + v * array.get(im, p)
+    K * math.sqrt(_re * _re + _im * _im)
+
+plot(0, title = "０", color = color.black)
+
+plot(calc(input.int( 1, "Line01", minval = 0, inline = "Line01")), title = "Line01", color = input.color(#FFFFFF, title = "", inline = "Line01"), style = plot.style_linebr)
+plot(calc(input.int( 2, "Line02", minval = 0, inline = "Line02")), title = "Line02", color = input.color(#FFFFD0, title = "", inline = "Line02"), style = plot.style_linebr)
+plot(calc(input.int( 3, "Line03", minval = 0, inline = "Line03")), title = "Line03", color = input.color(#FFFF93, title = "", inline = "Line03"), style = plot.style_linebr)
+plot(calc(input.int( 4, "Line04", minval = 0, inline = "Line04")), title = "Line04", color = input.color(#FFD0FF, title = "", inline = "Line04"), style = plot.style_linebr)
+plot(calc(input.int( 5, "Line05", minval = 0, inline = "Line05")), title = "Line05", color = input.color(#FFD0D0, title = "", inline = "Line05"), style = plot.style_linebr)
+plot(calc(input.int( 6, "Line06", minval = 0, inline = "Line06")), title = "Line06", color = input.color(#FFD093, title = "", inline = "Line06"), style = plot.style_linebr)
+plot(calc(input.int( 7, "Line07", minval = 0, inline = "Line07")), title = "Line07", color = input.color(#FF93FF, title = "", inline = "Line07"), style = plot.style_linebr)
+plot(calc(input.int( 8, "Line08", minval = 0, inline = "Line08")), title = "Line08", color = input.color(#FF93D0, title = "", inline = "Line08"), style = plot.style_linebr)
+plot(calc(input.int( 9, "Line09", minval = 0, inline = "Line09")), title = "Line09", color = input.color(#FF9393, title = "", inline = "Line09"), style = plot.style_linebr)
+plot(calc(input.int(10, "Line10", minval = 0, inline = "Line10")), title = "Line10", color = input.color(#D0FFFF, title = "", inline = "Line10"), style = plot.style_linebr)
+plot(calc(input.int(11, "Line11", minval = 0, inline = "Line11")), title = "Line11", color = input.color(#D0FFD0, title = "", inline = "Line11"), style = plot.style_linebr)
+plot(calc(input.int(12, "Line12", minval = 0, inline = "Line12")), title = "Line12", color = input.color(#D0FF93, title = "", inline = "Line12"), style = plot.style_linebr)
+plot(calc(input.int(13, "Line13", minval = 0, inline = "Line13")), title = "Line13", color = input.color(#D0D0FF, title = "", inline = "Line13"), style = plot.style_linebr)
+plot(calc(input.int(14, "Line14", minval = 0, inline = "Line14")), title = "Line14", color = input.color(#D0D0D0, title = "", inline = "Line14"), style = plot.style_linebr)
+plot(calc(input.int(15, "Line15", minval = 0, inline = "Line15")), title = "Line15", color = input.color(#D0D093, title = "", inline = "Line15"), style = plot.style_linebr)
+plot(calc(input.int(16, "Line16", minval = 0, inline = "Line16")), title = "Line16", color = input.color(#D093FF, title = "", inline = "Line16"), style = plot.style_linebr)
+plot(calc(input.int(17, "Line17", minval = 0, inline = "Line17")), title = "Line17", color = input.color(#D093D0, title = "", inline = "Line17"), style = plot.style_linebr)
+plot(calc(input.int(18, "Line18", minval = 0, inline = "Line18")), title = "Line18", color = input.color(#D09393, title = "", inline = "Line18"), style = plot.style_linebr)
+plot(calc(input.int(19, "Line19", minval = 0, inline = "Line19")), title = "Line19", color = input.color(#93FFFF, title = "", inline = "Line19"), style = plot.style_linebr)
+plot(calc(input.int(20, "Line20", minval = 0, inline = "Line20")), title = "Line20", color = input.color(#93FFD0, title = "", inline = "Line20"), style = plot.style_linebr)
+plot(calc(input.int(21, "Line21", minval = 0, inline = "Line21")), title = "Line21", color = input.color(#93FF93, title = "", inline = "Line21"), style = plot.style_linebr)
+plot(calc(input.int(22, "Line22", minval = 0, inline = "Line22")), title = "Line22", color = input.color(#93D0FF, title = "", inline = "Line22"), style = plot.style_linebr)
+plot(calc(input.int(23, "Line23", minval = 0, inline = "Line23")), title = "Line23", color = input.color(#93D0D0, title = "", inline = "Line23"), style = plot.style_linebr)
+plot(calc(input.int(24, "Line24", minval = 0, inline = "Line24")), title = "Line24", color = input.color(#93D093, title = "", inline = "Line24"), style = plot.style_linebr)
+plot(calc(input.int(25, "Line25", minval = 0, inline = "Line25")), title = "Line25", color = input.color(#9393FF, title = "", inline = "Line25"), style = plot.style_linebr)
+plot(calc(input.int(26, "Line26", minval = 0, inline = "Line26")), title = "Line26", color = input.color(#9393D0, title = "", inline = "Line26"), style = plot.style_linebr)
+plot(calc(input.int(27, "Line27", minval = 0, inline = "Line27")), title = "Line27", color = input.color(#939393, title = "", inline = "Line27"), style = plot.style_linebr)

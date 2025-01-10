@@ -1,0 +1,52 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © gotbeatz26107
+
+//@version=5
+indicator("Market Activity Risk", shorttitle = 'MAR', overlay = false, precision = 1)
+
+// Sum of all fees paid in a day
+fee_usd             = request.security("COINMETRICS:" + syminfo.basecurrency + "_FEEUSD", 'D', close, ignore_invalid_symbol = true)
+
+// MA and BB settings
+fee_ma              = input(730, title = "MA length", group = "Indicator settings")
+bb_mult             = input(1.2, title = "Bollinger Bands Multiplier", group = "Indicator settings")
+
+//--------------------------------------------------------------------------------------------------------------------//
+//-------------------------------------------------Calculation--------------------------------------------------------//
+//--------------------------------------------------------------------------------------------------------------------//
+
+fee_30              = ta.sma(fee_usd, 30)
+fee_diff            = ta.change(fee_usd)
+
+// Identify days with increasing fee pressure (1 if increase, 0 otherwise)
+increasing_pressure = fee_diff > 0 ? 1 : 0
+
+// Sum of increasing pressure days over the last 30 days
+increasing_days_sum = math.sum(increasing_pressure, 30)
+
+// Calculate indicator
+mar                 = increasing_days_sum / 30 * 100
+
+mar_ma              = ta.sma(mar, fee_ma)
+mar_std             = bb_mult * ta.stdev(mar, fee_ma)
+mar_upper           = mar_ma + mar_std
+mar_lower           = mar_ma - mar_std
+
+// Determine risk level and color
+var color risk_color = color.white
+if mar > mar_upper
+    risk_color := color.red       // Very High Risk
+else if mar > mar_ma
+    risk_color := color.orange    // High Risk
+else if mar > mar_lower
+    risk_color := color.yellow    // Low Risk
+else
+    risk_color := color.green     // Very Low Risk
+
+// Plot MFR-BI
+plot(mar, title="MAR", color = risk_color, linewidth=1)
+
+// Plot risk levels as horizontal lines for reference
+plot(mar_upper, "Very High Risk", color.red)
+plot(mar_ma, "High Risk", color.gray)
+plot(mar_lower, "Low Risk", color.teal)

@@ -1,0 +1,162 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Benni_R
+
+//@version=5
+indicator('Divergence in US-Stock Market')
+amp = 1
+Filter = input.int(title='Ignore Signals < ', defval=1, tooltip='Signal below the chosen value will be ignored!', group='General Settings')
+len2 = input.int(title='Smooth Signal lines by MA lengh', defval=5, tooltip='Moving Averag lengh of the adjusted Stocks Above MA50-line, the ADL-Line and the current Index line! The lengh = 1 represents the original lines adjusted to a scale of 0%-100%.', group='Look back Periods')
+len = input.int(title='Analyse Divergence within last', defval=60, tooltip='Lookback period to find High/Low as base for Signal adjustment to 0%-100%.', group='Look back Periods')
+Cons_ADL_Bull = input.bool(title='Advane/Decline-line / Symbol    |    ', defval=true, group='BULLISH Divergence', inline='ADL_Bull')
+Cons_ADL_Bear = input.bool(title='Advane/Decline-line / Symbol    |    ', defval=true, group='BEARISH Divergence', inline='ADL_Bear')
+Comp_ADL_Bull = input.string(title='Compare rising: ', defval='highs', options=['highs', 'lows', 'highs_or_lows', 'highs_&_lows'], group='BULLISH Divergence', inline='ADL_Bull')
+Comp_ADL_Bear = input.string(title='Compare falling: ', defval='highs', options=['highs', 'lows', 'highs_or_lows', 'highs_&_lows'], group='BEARISH Divergence', inline='ADL_Bear')
+Cons_MA50_Bull = input.bool(title='Stocks Above MA50 / Symbol     |    ', defval=true, group='BULLISH Divergence', inline='MA50_Bull')
+Cons_MA50_Bear = input.bool(title='Stocks Above MA50 / Symbol     |    ', defval=true, group='BEARISH Divergence', inline='MA50_Bear')
+Comp_MA50_Bull = input.string(title='Compare rising: ', defval='highs', options=['highs', 'lows', 'highs_or_lows', 'highs_&_lows'], group='BULLISH Divergence', inline='MA50_Bull')
+Comp_MA50_Bear = input.string(title='Compare falling: ', defval='highs', options=['highs', 'lows', 'highs_or_lows', 'highs_&_lows'], group='BEARISH Divergence', inline='MA50_Bear')
+
+Col_MA50 = input.color(defval=color.blue, title='Above MA50: ', group='General Settings', inline='Color')
+Col_ADL = input.color(defval=color.orange, title='  Advane/Decline: ', group='General Settings', inline='Color')
+Col_Symbol = input.color(defval=color.red, title='  Adjusted Symbol: ', group='General Settings', inline='Color')
+
+Adjust_MA50 = input.bool(title='Adjust MA50 line? ', defval=false, group='General Settings', inline='MA50', tooltip='The \'\'Above MA50\'\'-line is naturaly oscilating between 0% and 100%. To make the lines comparible, the Symbol and the ADL Line have to be recalculated to a value between 0% and 100% based on there recent highs and lows within the las XX days, which are set up with the parameter \'\'Analyse Divergence within last\'\' in Section LOOK BACK PERIODS. If activated, the Above MA50 line is recalculated the same way as Symbol- and Advance/Decline-Line. The Signals get stronger and produce more failing signals.')
+Dist_to_high = input.int(title='Underlying Distance [%] to local high', defval=15, tooltip='Define within wich distance to local high the price of the current Symbol should be, looking for bearish divergence. The local high is calculatet based on the lengh of the Parameter \'\'Analyse Divergence within last\'\' in Section LOOK BACK PERIODS. A Value of 100% means, that the divergence is calculatet independently from the current price value of the underlying.', group='BEARISH Divergence')
+Dist_to_low = input.int(title='Underlying Distance [%] to local low', defval=15, tooltip='Define within wich distance to local low the price of the current Symbol should be, looking bullish divergence. The local low is calculatet based on the lengh of the Parameter \'\'Analyse Divergence within last\'\' in Section LOOK BACK PERIODS. A Value of 100% means, that the divergence is calculatet independently from the current price value of the underlying.', group='BULLISH Divergence')
+src_hl = input.int(title='Lookback period to find 1st High/Low', defval=10, tooltip='Divergences are calculated by subtracting the last high of the index from the previous one. This difference is compared with that of the ADL or \'\'Above MA50\'\'. Define in which range the last high/low should be searched. The 2nd high/low for comparison is automatically searched within the double range.', group='Look back Periods')
+
+
+
+Symbol = syminfo.ticker
+symb50 = Symbol == 'SPX' or Symbol == 'SPY' or Symbol == 'ES1!' or Symbol == 'US500' ? 'INDEX:S5FI' : Symbol == 'IWM' or Symbol == 'US2000' or Symbol == 'RTY1!' or Symbol == 'RUT' or Symbol == 'IWO' ? 'INDEX:R2FI' : Symbol == 'NDX' or Symbol == 'NAS100' or Symbol == 'NQ1!' or Symbol == 'US100' or Symbol == 'QQQ' ? 'INDEX:NDFI' : Symbol == 'IXIC' or Symbol == 'ONEQ' or Symbol == 'QCN1!' or Symbol == 'NDAQ' ? 'INDEX:NCFI' : Symbol == 'XAX' or Symbol == 'NYA' ? 'INDEX:MMFI' : Symbol == 'DJX' or Symbol == 'DJI' or Symbol == 'DIA' or Symbol == 'MYM1!' or Symbol == 'YM1!' ? 'INDEX:DIFI' : Symbol == 'DOW' or Symbol == 'IYY' ? 'INDEX:DCFI' : 'nope'
+ADL = ta.cum(request.security('ADVDEC.NY', timeframe.period, close, barmerge.gaps_on, barmerge.lookahead_on))
+
+AboveMA_50 = request.security(symb50, timeframe.period, close, barmerge.gaps_on, barmerge.lookahead_on)
+
+hoch = ta.highest(high, len)
+tief = ta.lowest(low, len)
+
+hoch_ADL = ta.highest(ADL, len)
+tief_ADL = ta.lowest(ADL, len)
+
+hoch_MA = ta.highest(AboveMA_50, len)
+tief_MA = ta.lowest(AboveMA_50, len)
+
+SYMBOL_Line = (1 - (hoch - close) / (hoch - tief)) * 100
+ADL_Line = (1 - (hoch_ADL - ADL) / (hoch_ADL - tief_ADL)) * 100
+MA_Line = Adjust_MA50 ? (1 - (hoch_MA - AboveMA_50) / (hoch_MA - tief_MA)) * 100 : AboveMA_50
+
+Durchschnitt_MA = Cons_MA50_Bull or Cons_MA50_Bear ? ta.sma(MA_Line, len2) : na
+Durchschnitt_SYMBOL = ta.sma(SYMBOL_Line, len2)
+Durchschnitt_ADL = Cons_ADL_Bull or Cons_ADL_Bear ? ta.sma(ADL_Line, len2) : na
+
+Hoechst_MA_1 = ta.highest(Durchschnitt_MA, src_hl)
+Hoechst_MA_2 = ta.highest(Durchschnitt_MA, src_hl * 2)
+
+Hoechst_SY_1 = ta.highest(Durchschnitt_SYMBOL, src_hl)
+Hoechst_SY_2 = ta.highest(Durchschnitt_SYMBOL, src_hl * 2)
+
+Hoechst_AD_1 = ta.highest(Durchschnitt_ADL, src_hl)
+Hoechst_AD_2 = ta.highest(Durchschnitt_ADL, src_hl * 2)
+
+Tiefst_MA_1 = ta.lowest(Durchschnitt_MA, src_hl)
+Tiefst_MA_2 = ta.lowest(Durchschnitt_MA, src_hl * 2)
+
+Tiefst_SY_1 = ta.lowest(Durchschnitt_SYMBOL, src_hl)
+Tiefst_SY_2 = ta.lowest(Durchschnitt_SYMBOL, src_hl * 2)
+
+Tiefst_AD_1 = ta.lowest(Durchschnitt_ADL, src_hl)
+Tiefst_AD_2 = ta.lowest(Durchschnitt_ADL, src_hl * 2)
+
+Compare_Highs_MA50 = (Hoechst_MA_2 - Hoechst_MA_1 - (Hoechst_SY_2 - Hoechst_SY_1)) * amp
+Compare_Lows_MA50 = (Tiefst_MA_2 - Tiefst_MA_1 - (Tiefst_SY_2 - Tiefst_SY_1)) * amp
+Compare_Highs_ADL = (Hoechst_AD_2 - Hoechst_AD_1 - (Hoechst_SY_2 - Hoechst_SY_1)) * amp
+Compare_Lows_ADL = (Tiefst_AD_2 - Tiefst_AD_1 - (Tiefst_SY_2 - Tiefst_SY_1)) * amp
+
+Divergence_1 = Cons_MA50_Bear and Comp_MA50_Bear != 'lows' and Durchschnitt_SYMBOL > 100 - Dist_to_high and Compare_Highs_MA50 > Filter and Durchschnitt_MA[0] < Durchschnitt_MA[1] and Durchschnitt_MA[1] < Durchschnitt_MA[2] ? Compare_Highs_MA50 : 0
+Divergence_2 = Cons_MA50_Bear and Comp_MA50_Bear != 'highs' and Durchschnitt_SYMBOL > 100 - Dist_to_high and Compare_Lows_MA50 > Filter and Durchschnitt_MA[0] < Durchschnitt_MA[1] and Durchschnitt_MA[1] < Durchschnitt_MA[2] ? Compare_Lows_MA50 : 0
+Divergence_3 = Cons_ADL_Bear and Comp_ADL_Bear != 'lows' and Durchschnitt_SYMBOL > 100 - Dist_to_high and Compare_Highs_ADL > Filter and Durchschnitt_ADL < Durchschnitt_SYMBOL and Durchschnitt_ADL[0] < Durchschnitt_ADL[1] and Durchschnitt_ADL[1] < Durchschnitt_ADL[2] ? Compare_Highs_ADL : 0
+Divergence_4 = Cons_ADL_Bear and Comp_ADL_Bear != 'highs' and Durchschnitt_SYMBOL > 100 - Dist_to_high and Compare_Lows_ADL > Filter and Durchschnitt_ADL < Durchschnitt_SYMBOL and Durchschnitt_ADL[0] < Durchschnitt_ADL[1] and Durchschnitt_ADL[1] < Durchschnitt_ADL[2] ? Compare_Lows_ADL : 0
+Divergence_5 = Cons_MA50_Bull and Comp_MA50_Bull != 'highs' and Durchschnitt_SYMBOL < Dist_to_low and Compare_Lows_MA50 < -Filter ? Compare_Lows_MA50 : 0
+Divergence_6 = Cons_MA50_Bull and Comp_MA50_Bull != 'lows' and Durchschnitt_SYMBOL < Dist_to_low and Compare_Highs_MA50 < -Filter ? Compare_Highs_MA50 : 0
+Divergence_7 = Cons_ADL_Bull and Comp_ADL_Bull != 'highs' and Durchschnitt_SYMBOL < Dist_to_low and Compare_Lows_ADL < -Filter ? Compare_Lows_ADL : 0
+Divergence_8 = Cons_ADL_Bull and Comp_ADL_Bull != 'lows' and Durchschnitt_SYMBOL < Dist_to_low and Compare_Highs_ADL < -Filter ? Compare_Highs_ADL : 0
+
+float Div_Bear = 0
+float Div_Bull = 0
+
+color Farbe_HG_Bear = na
+color Farbe_HG_Bull = na
+
+// Bearish Checkup
+
+if Comp_MA50_Bear == 'highs_&_lows' and Divergence_1 > 0 and Divergence_2 > 0
+    Div_Bear := Divergence_1 + Divergence_2
+    Farbe_HG_Bear := color.new(color.red, 75)
+    Farbe_HG_Bear
+
+if Comp_ADL_Bear == 'highs_&_lows' and Divergence_3 > 0 and Divergence_4 > 0
+    Div_Bear += Divergence_3 + Divergence_4
+    Farbe_HG_Bear := color.new(color.red, 75)
+    Farbe_HG_Bear
+
+if (Comp_MA50_Bear == 'lows' or Comp_MA50_Bear == 'highs' or Comp_MA50_Bear == 'highs_or_lows') and (Divergence_1 > 0 or Divergence_2 > 0)
+    Div_Bear := Divergence_1 + Divergence_2
+    Farbe_HG_Bear := color.new(color.red, 75)
+    Farbe_HG_Bear
+
+if (Comp_ADL_Bear == 'lows' or Comp_ADL_Bear == 'highs' or Comp_ADL_Bear == 'highs_or_lows') and (Divergence_3 > 0 or Divergence_4 > 0)
+    Div_Bear += Divergence_3 + Divergence_4
+    Farbe_HG_Bear := color.new(color.red, 75)
+    Farbe_HG_Bear
+
+// Bullish Checkup
+
+if Comp_MA50_Bull == 'highs_&_lows' and Divergence_5 < 0 and Divergence_6 < 0
+    Div_Bull := math.abs(Divergence_5 + Divergence_6)
+    Farbe_HG_Bull := color.new(color.green, 75)
+    Farbe_HG_Bull
+
+if Comp_ADL_Bull == 'highs_&_lows' and Divergence_7 < 0 and Divergence_8 < 0
+    Div_Bull := math.abs(-Div_Bull + Divergence_7 + Divergence_8)
+    Farbe_HG_Bull := color.new(color.green, 75)
+    Farbe_HG_Bull
+
+if (Comp_MA50_Bull == 'lows' or Comp_MA50_Bull == 'highs' or Comp_MA50_Bull == 'highs_or_lows') and (Divergence_5 < 0 or Divergence_6 < 0)
+    Div_Bull := math.abs(Divergence_5 + Divergence_6)
+    Farbe_HG_Bull := color.new(color.green, 75)
+    Farbe_HG_Bull
+
+if (Comp_ADL_Bull == 'lows' or Comp_ADL_Bull == 'highs' or Comp_ADL_Bull == 'highs_or_lows') and (Divergence_7 < 0 or Divergence_8 < 0)
+    Div_Bull := math.abs(-Div_Bull + Divergence_7 + Divergence_8)
+    Farbe_HG_Bull := color.new(color.green, 75)
+    Farbe_HG_Bull
+
+//bgcolor(Farbe_HG_Bear)
+//bgcolor(Farbe_HG_Bull)
+
+//plot(Durchschnitt_ADL, title= "Advance Decline Line (adj. to 100% Scale)", color=Col_ADL)
+//plot(Durchschnitt_MA, title= "Stocks above MA50 (adj. to 100% Scale)", color=Col_MA50)
+//plot(Durchschnitt_SYMBOL, title="Indexline (adj. to 100% Scale)", color=Col_Symbol)
+
+
+
+diffx = Div_Bull > 0 ? +0.50 : 0
+diffy = Div_Bear > 0 ? 0.50 : 1
+
+//diff = diffx - diffy 
+
+//plot(Div_Bear, title="Bearish Divergence", color=color.new(color.red,50), style=plot.style_histogram, linewidth=3)
+//plot(Div_Bull, title="Bullish Divergence", color=color.new(color.green, 50), style=plot.style_histogram, linewidth=3)
+
+//colorUp = diff > 0 ? #00FF00FF : diff > 0.1 ? #00E114FF : diff > 0.2 ? #00C328FF : diff > 0.3 ? #00A53CFF : diff > 0.4 ? #008750FF : diff > 0.5? #006964FF : diff > 0.6 ? #004B78FF : #002D8CFF
+//colorDn = diff < -0.85 ? #FF0000FF : diff < -0.82 ? #E10014FF : diff < -0.79 ? #C30028FF : diff < -0.66 ? #A5003CFF : diff < -0.53 ? #870050FF : diff < -0.40 ? #690064FF : diff < -0.27 ? #4B0078FF : #2D008CFF
+
+plot(diffx, color=color.new(color.lime, 0), linewidth=1, style=plot.style_line)
+plot(diffy, color=color.new(color.red, 0), linewidth=1, style=plot.style_line)
+
+
+
+
+
+

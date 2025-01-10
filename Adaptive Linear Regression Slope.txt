@@ -1,0 +1,239 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © simwai
+
+//@version=5
+indicator('Adaptive Linear Regression Slope', max_bars_back=5000, overlay=true)
+
+// -- Inputs --
+string resolution = input.timeframe(defval='', title='Choose Resolution')
+float src = input.source(close, 'Choose Source')
+int linregLength = input.int(50, 'Length', tooltip='Acts as max length when a adaptive mode is set')
+string adaptiveMode = input.string('Median', 'Choose Adaptive Mode', options=['Hilbert Transform', 'Inphase-Quadrature Transform', 'Median', 'Homodyne Discriminator', 'None'], tooltip='Used for Z-Score and MA length calculation', group='General', inline='5')
+
+// -- Functions --
+// Get Dominant Cyber Cycle – Inphase-Quadrature -- Credits to @DasanC
+getIq(float src, int min, int max) =>
+    PI = 3.14159265359
+    P = src - src[7]
+    lenIQ = 0.0
+    lenC = 0.0
+    imult = 0.635
+    qmult = 0.338
+    inphase = 0.0
+    quadrature = 0.0
+    re = 0.0
+    im = 0.0
+    deltaIQ = 0.0
+    instIQ = 0.0
+    V = 0.0
+
+    inphase := 1.25 * (P[4] - imult * P[2]) + imult * nz(inphase[3])
+    quadrature := P[2] - qmult * P + qmult * nz(quadrature[2])
+    re := 0.2 * (inphase * inphase[1] + quadrature * quadrature[1]) + 0.8 * nz(re[1])
+    im := 0.2 * (inphase * quadrature[1] - inphase[1] * quadrature) + 0.8 * nz(im[1])
+    if re != 0.0
+        deltaIQ := math.atan(im / re)
+        deltaIQ
+    for i = 0 to max by 1
+        V += deltaIQ[i]
+        if V > 2 * PI and instIQ == 0.0
+            instIQ := i
+            instIQ
+    if instIQ == 0.0
+        instIQ := nz(instIQ[1])
+        instIQ
+    lenIQ := 0.25 * instIQ + 0.75 * nz(lenIQ[1], 1)
+	lenIQ < min ? min : lenIQ
+
+// Get Dominant Cyber Cycle – Hilbert Transform -- Credits to @DasanC
+getHt(float src) =>
+    Imult = .635
+    Qmult = .338
+    PI = 3.14159
+    InPhase = 0.0
+    Quadrature = 0.0
+    Phase = 0.0
+    DeltaPhase = 0.0
+    InstPeriod = 0.0
+    Period = 0.0
+    Value4 = 0.0
+
+    if bar_index > 5
+        // Detrend src
+        Value3 = src - src[7]
+        // Compute InPhase and Quadrature components
+        InPhase := 1.25 * (Value3[4] - Imult * Value3[2]) + Imult * nz(InPhase[3])
+        Quadrature := Value3[2] - Qmult * Value3 + Qmult * nz(Quadrature[2])
+        // Use ArcTangent to compute the current phase
+        if math.abs(InPhase + InPhase[1]) > 0
+            Phase := 180 / PI * math.atan(math.abs((Quadrature + Quadrature[1]) / (InPhase + InPhase[1])))
+            Phase
+        // Resolve the ArcTangent ambiguity
+        if InPhase < 0 and Quadrature > 0
+            Phase := 180 - Phase
+            Phase
+        if InPhase < 0 and Quadrature < 0
+            Phase := 180 + Phase
+            Phase
+        if InPhase > 0 and Quadrature < 0
+            Phase := 360 - Phase
+            Phase
+        // Compute a differential phase, resolve phase wraparound, and limit delta phase errors
+        DeltaPhase := Phase[1] - Phase
+        if Phase[1] < 90 and Phase > 270
+            DeltaPhase := 360 + Phase[1] - Phase
+            DeltaPhase
+        if DeltaPhase < 1
+            DeltaPhase := 1
+            DeltaPhase
+        if DeltaPhase > 60
+            DeltaPhase := 60
+            DeltaPhase
+        // Sum DeltaPhases to reach 360 degrees. The sum is the instantaneous period.
+        for i = 0 to 50 by 1
+            Value4 += DeltaPhase[i]
+            if Value4 > 360 and InstPeriod == 0
+                InstPeriod := i
+                InstPeriod
+        // Resolve Instantaneous Period errors and smooth
+        if InstPeriod == 0
+			nz(InstPeriod[1])
+        Period := .25 * InstPeriod + .75 * Period[1]
+        Period
+    Period
+
+// Get Dominant Cyber Cycle – Median -- Credits to @blackcat1402
+getMedianDc(float Price, float alpha=0.07, simple float CycPart=0.5) =>
+    Smooth = 0.00
+    Cycle = 0.00
+    Q1 = 0.00
+    I1 = 0.00
+    DeltaPhase = 0.00
+    MedianDelta = 0.00
+    DC = 0.00
+    InstPeriod = 0.00
+    Period = 0.00
+    I2 = 0.00
+    Q2 = 0.00
+    IntPeriod = 0
+
+    Smooth := (Price + 2 * nz(Price[1]) + 2 * nz(Price[2]) + nz(Price[3])) / 6
+    Cycle := (1 - .5 * alpha) * (1 - .5 * alpha) * (Smooth - 2 * nz(Smooth[1]) + nz(Smooth[2])) + 2 * (1 - alpha) * nz(Cycle[1]) - (1 - alpha) * (1 - alpha) * nz(Cycle[2])
+    Cycle := bar_index < 7 ? (Price - 2 * nz(Price[1]) + nz(Price[2])) / 4 : Cycle
+
+    Q1 := (.0962 * Cycle + .5769 * nz(Cycle[2]) - .5769 * nz(Cycle[4]) - .0962 * nz(Cycle[6])) * (.5 + .08 * nz(InstPeriod[1]))
+    I1 := nz(Cycle[3])
+    DeltaPhase := Q1 != 0 and nz(Q1[1]) != 0 ? (I1 / Q1 - nz(I1[1]) / nz(Q1[1])) / (1 + I1 * nz(I1[1]) / (Q1 * nz(Q1[1]))) : DeltaPhase
+    DeltaPhase := DeltaPhase < 0.1 ? 0.1 : DeltaPhase
+    DeltaPhase := DeltaPhase > 1.1 ? 1.1 : DeltaPhase
+
+    MedianDelta := ta.median(DeltaPhase, 5)
+    DC := MedianDelta == 0.00 ? 15.00 : 6.28318 / MedianDelta + .5
+    InstPeriod := .33 * DC + .67 * nz(InstPeriod[1])
+    Period := .15 * InstPeriod + .85 * nz(Period[1])
+    IntPeriod := math.round(Period * CycPart)
+    IntPeriod
+
+sma(float _src, int _period) =>
+    sum = 0.0
+    for i = 0 to _period - 1
+        sum := sum + _src[i] / _period
+    sum
+
+// Get Dominant Cyber Cycle – Homodyne Discriminator With Hilbert Dominant Cycle – Credits to @blackcat1402
+getHdDc(float Price, int min, int max, simple float CycPart = 0.5) =>
+    Smooth = 0.00
+    Detrender = 0.00
+    I1 = 0.00
+    Q1 = 0.00
+    jI = 0.00
+    jQ = 0.00
+    I2 = 0.00
+    Q2 = 0.00
+    Re = 0.00
+    Im = 0.00
+    Period = 0.00
+    SmoothPeriod = 0.00
+    pi = 2 * math.asin(1)
+    DomCycle = 0.0
+
+    //Hilbert Transform
+    Smooth := bar_index > 7 ? (4 * Price + 3 * nz(Price[1]) + 2 * nz(Price[2]) + nz(Price[3])) / 10 : Smooth
+    Detrender := bar_index > 7 ? (.0962 * Smooth + .5769 * nz(Smooth[2]) - .5769 * nz(Smooth[4]) - .0962 * nz(Smooth[6])) * (.075 * nz(Period[1]) + .54) : Detrender
+    //Compute InPhase and Quadrature components
+    Q1 := bar_index > 7 ? (.0962 * Detrender + .5769 * nz(Detrender[2]) - .5769 * nz(Detrender[4]) - .0962 * nz(Detrender[6])) * (.075 * nz(Period[1]) + .54) : Q1
+    I1 := bar_index > 7 ? nz(Detrender[3]) : I1
+
+    //Advance the phase of I1 and Q1 by 90 degrees
+    jI := (.0962 * I1 + .5769 * nz(I1[2]) - .5769 * nz(I1[4]) - .0962 * nz(I1[6])) * (.075 * nz(Period[1]) + .54)
+    jQ := (.0962 * Q1 + .5769 * nz(Q1[2]) - .5769 * nz(Q1[4]) - .0962 * nz(Q1[6])) * (.075 * nz(Period[1]) + .54)
+
+    //Phasor addition for 3 bar averaging
+    I2 := I1 - jQ
+    Q2 := Q1 + jI
+
+    //Smooth the I and Q components before applying the discriminator
+    I2 := .2 * I2 + .8 * nz(I2[1])
+    Q2 := .2 * Q2 + .8 * nz(Q2[1])
+
+    //Homodyne Discriminator
+    Re := I2 * nz(I2[1]) + Q2 * nz(Q2[1])
+    Im := I2 * nz(Q2[1]) - Q2 * nz(I2[1])
+    Re := .2 * Re + .8 * nz(Re[1])
+    Im := .2 * Im + .8 * nz(Im[1])
+
+    Period := Im != 0 and Re != 0 ? 2 * pi / math.atan(Im / Re) : Period
+    Period := Period > 1.5 * nz(Period[1]) ? 1.5 * nz(Period[1]) : Period
+    Period := Period < .67 * nz(Period[1]) ? .67 * nz(Period[1]) : Period
+
+    Period := Period < min ? min : Period
+    Period := Period > max ? max : Period
+    Period := .2 * Period + .8 * nz(Period[1])
+    SmoothPeriod := .33 * Period + .67 * nz(SmoothPeriod[1])
+
+    DomCycle := math.ceil(CycPart * SmoothPeriod)
+    // Limit dominant cycle
+    DomCycle := DomCycle < min ? min : DomCycle
+    DomCycle := DomCycle > max ? max : DomCycle
+
+getAlpha(float _length) => 2 / (_length + 1)
+
+linReg(src, len)=>
+    mid = math.sum(src, len) / len
+
+normalize(_src, _min, _max) =>
+    var float _historicMin = 1.0
+    var float _historicMax = -1.0
+    _historicMin := math.min(nz(_src, _historicMin), _historicMin)
+    _historicMax := math.max(nz(_src, _historicMax), _historicMax)
+    _min + (_max - _min) * (_src - _historicMin) / math.max(_historicMax - _historicMin, 1)
+
+angle(_src) =>
+    rad2degree = 180 / math.pi
+    ang = rad2degree * math.atan(_src - _src[3]) 
+
+// -- Calculation --
+[_src, _close, _high, _low] = request.security(syminfo.tickerid, resolution, [src[1], close[1], high[1], low[1]], barmerge.gaps_off, barmerge.lookahead_on)
+
+float alpha = getAlpha(linregLength)
+float cyclePart = 0.5
+int minLength = 2
+int maxLength = linregLength
+
+int length = switch adaptiveMode
+    'Hilbert Transform' => math.round(getHt(_src))
+    'Inphase-Quadrature Transform' => math.round(getIq(_src, minLength, maxLength))
+    'Median' => math.round(getMedianDc(_src, alpha, cyclePart))
+    'Homodyne Discriminator' => math.round(getHdDc(_src, minLength, maxLength))
+
+if (nz(length, 1) < minLength and (adaptiveMode != 'None'))
+    length := minLength
+
+if (nz(length, 1) > maxLength and (adaptiveMode != 'None'))
+    length := maxLength
+
+float mid = linReg(_src, length)
+float nSlope = normalize(angle(mid), -1, 1)
+nSlope := math.round(nSlope, 2)
+plot(mid, color=nSlope > ta.stdev(nSlope, length) ? color.aqua : nSlope < -ta.stdev(nSlope, length) ? color.purple : color.yellow)
+log.info(str.tostring(nSlope))

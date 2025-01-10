@@ -1,0 +1,578 @@
+// This source code is subject to the terms of the Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0)
+// © TheSocialCryptoClub
+
+//@version=5
+indicator("Bias Analyzer", overlay=true)
+
+// -----------------------------------------------------------------------------
+// Initialization
+// -----------------------------------------------------------------------------
+
+alert_message = "Bias Analyzer:\nSelect the right timeframe for the analysis:\n For the Hourly Analysis use 1H\nFor the Daily Analysis is 1D"
+
+var candle_count = 0
+
+// Variables for hourly analysis
+var hours_equity = array.new_float(24, 0.0)
+var hours_count_total = array.new_float(24, 0.0)
+var hours_count_positive = array.new_float(24, 0.0)
+
+var days_equity = array.new_float(8, 0.0)
+var day_count = 0
+
+var sunday_count = 0
+var sunday_equity = array.new_float(24, 0.0)
+var sunday_count_total = array.new_float(24, 0.0)
+var sunday_count_positive = array.new_float(24, 0.0)
+
+var monday_count = 0
+var monday_equity = array.new_float(24, 0.0)
+var monday_count_total = array.new_float(24, 0.0)
+var monday_count_positive = array.new_float(24, 0.0)
+
+var tuesday_count = 0
+var tuesday_equity = array.new_float(24, 0.0)
+var tuesday_count_total = array.new_float(24, 0.0)
+var tuesday_count_positive = array.new_float(24, 0.0)
+
+var wednesday_count = 0
+var wednesday_equity = array.new_float(24, 0.0)
+var wednesday_count_total = array.new_float(24, 0.0)
+var wednesday_count_positive = array.new_float(24, 0.0)
+
+var thursday_count = 0
+var thursday_equity = array.new_float(24, 0.0)
+var thursday_count_total = array.new_float(24, 0.0)
+var thursday_count_positive = array.new_float(24, 0.0)
+
+var friday_count = 0
+var friday_equity = array.new_float(24, 0.0)
+var friday_count_total = array.new_float(24, 0.0)
+var friday_count_positive = array.new_float(24, 0.0)
+
+var saturday_count = 0
+var saturday_equity = array.new_float(24, 0.0)
+var saturday_count_total = array.new_float(24, 0.0)
+var saturday_count_positive = array.new_float(24, 0.0)
+
+var hours_count = 0
+var hours_count_nofilter = 0
+
+// variables for daily analysis
+var monthly_equity = array.new_float(32, 0.0)
+var monthly_count_total = array.new_float(32, 0.0)
+var monthly_count_positive = array.new_float(32, 0.0)
+
+var jan_equity = array.new_float(32, 0.0)
+var jan_count_total = array.new_float(32, 0.0)
+var jan_count_positive = array.new_float(32, 0.0)
+
+var feb_equity = array.new_float(32, 0.0)
+var feb_count_total = array.new_float(32, 0.0)
+var feb_count_positive = array.new_float(32, 0.0)
+
+var mar_equity = array.new_float(32, 0.0)
+var mar_count_total = array.new_float(32, 0.0)
+var mar_count_positive = array.new_float(32, 0.0)
+
+var apr_equity = array.new_float(32, 0.0)
+var apr_count_total = array.new_float(32, 0.0)
+var apr_count_positive = array.new_float(32, 0.0)
+
+var may_equity = array.new_float(32, 0.0)
+var may_count_total = array.new_float(32, 0.0)
+var may_count_positive = array.new_float(32, 0.0)
+
+var jun_equity = array.new_float(32, 0.0)
+var jun_count_total = array.new_float(32, 0.0)
+var jun_count_positive = array.new_float(32, 0.0)
+
+var jul_equity = array.new_float(32, 0.0)
+var jul_count_total = array.new_float(32, 0.0)
+var jul_count_positive = array.new_float(32, 0.0)
+
+var aug_equity = array.new_float(32, 0.0)
+var aug_count_total = array.new_float(32, 0.0)
+var aug_count_positive = array.new_float(32, 0.0)
+
+var sep_equity = array.new_float(32, 0.0)
+var sep_count_total = array.new_float(32, 0.0)
+var sep_count_positive = array.new_float(32, 0.0)
+
+var oct_equity = array.new_float(32, 0.0)
+var oct_count_total = array.new_float(32, 0.0)
+var oct_count_positive = array.new_float(32, 0.0)
+
+var nov_equity = array.new_float(32, 0.0)
+var nov_count_total = array.new_float(32, 0.0)
+var nov_count_positive = array.new_float(32, 0.0)
+
+var dec_equity = array.new_float(32, 0.0)
+var dec_count_total = array.new_float(32, 0.0)
+var dec_count_positive = array.new_float(32, 0.0)
+
+
+
+// -----------------------------------------------------------------------------
+// Input declaration
+// -----------------------------------------------------------------------------
+
+analysis_type_input  = input.string(defval = "Close to Open", options=["Close to Open"], group="Analysis", title="Calulate from ")
+
+analysis_type = 1
+switch
+	analysis_type_input == "Close to Open" => analysis_type := 1
+
+cash_value_input = input.string(defval="Percentage", options=["Percentage", "Cash"], group="Analysis", title="Calculate in")  
+cash_value = false
+switch
+	cash_value_input == "Percentage" => cash_value := false
+	cash_value_input == "Cash" =>cash_value := true
+
+show_weekly_summary = input.bool(defval=true, title="Show Hourly Summary", group="Analsysis on 1 HOUR TIMEFRAME", inline="hourlysummary")
+hourly_table_position = input.string(defval="top_right", options=["top_right", "top_left", "top_center", "middle_left", "middle_center", "middle_right", "bottom_left", "bottom_center", "bottom_right"], group="Analsysis on 1 HOUR TIMEFRAME", title="on", inline="hourlysummary")
+show_daily_details = input.bool(defval=false, title="Show Hourly Details of",  group="Analsysis on 1 HOUR TIMEFRAME", inline="detail")
+show_details_input = input.string(defval="All days", options=["All days", "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"], title="",  group="Analsysis on 1 HOUR TIMEFRAME", inline="detail")
+hourly_detail_table_position = input.string(defval="top_right", options=["top_right", "top_left", "top_center", "middle_left", "middle_center", "middle_right", "bottom_left", "bottom_center", "bottom_right"], group="Analsysis on 1 HOUR TIMEFRAME", title="on", inline="detail")
+
+show_details_array = hours_equity
+switch
+	show_details_input == "All days" => show_details_array := hours_equity
+	show_details_input == "Sunday" => show_details_array := sunday_equity
+	show_details_input == "Monday" => show_details_array := monday_equity
+	show_details_input == "Tuesday" => show_details_array := tuesday_equity
+	show_details_input == "Wednesday" => show_details_array := wednesday_equity
+	show_details_input == "Thursday" => show_details_array := thursday_equity
+	show_details_input == "Friday" => show_details_array := friday_equity
+	show_details_input == "Saturday" => show_details_array := saturday_equity
+
+show_monthly_summary = input.bool(defval=false, title="Show Daily Summary", group="Analsysis on 1 DAY TIMEFRAME", inline="monthlysummary")
+monthly_table_position = input.string(defval="top_right", options=["top_right","top_left",  "top_center", "middle_left", "middle_center", "middle_right", "bottom_left", "bottom_center", "bottom_right"], group="Analsysis on 1 DAY TIMEFRAME", title="on", inline="monthlysummary")
+show_monthly_details = input.bool(defval=false, title="Show Daily Details of ", group="Analsysis on 1 DAY TIMEFRAME" , inline="detail_month")
+show_monthly_details_input = input.string(defval="All Months", options=["All Months", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Set", "Oct", "Nov", "Dec"], title="",  group="Analsysis on 1 DAY TIMEFRAME", inline="detail_month")
+monthly_detail_table_position = input.string(defval="top_right", options=["top_right", "top_left","top_center", "middle_left", "middle_center", "middle_right", "bottom_left", "bottom_center", "bottom_right"], group="Analsysis on 1 DAY TIMEFRAME", title="on", inline="detail_month")
+
+
+show_monthly_details_array = monthly_equity
+
+switch
+	show_monthly_details_input == "All Months" => show_monthly_details_array := monthly_equity
+	show_monthly_details_input == "Jan" => show_monthly_details_array := jan_equity
+	show_monthly_details_input == "Feb" => show_monthly_details_array := feb_equity
+	show_monthly_details_input == "Mar" => show_monthly_details_array := mar_equity
+	show_monthly_details_input == "Apr" => show_monthly_details_array := apr_equity
+	show_monthly_details_input == "May" => show_monthly_details_array := may_equity
+	show_monthly_details_input == "Jun" => show_monthly_details_array := jun_equity
+	show_monthly_details_input == "Jul" => show_monthly_details_array := jul_equity
+	show_monthly_details_input == "Aug" => show_monthly_details_array := aug_equity
+	show_monthly_details_input == "Sep" => show_monthly_details_array := sep_equity
+	show_monthly_details_input == "Oct" => show_monthly_details_array := oct_equity
+	show_monthly_details_input == "Nov" => show_monthly_details_array := nov_equity
+	show_monthly_details_input == "Dec" => show_monthly_details_array := dec_equity
+
+	
+table_size_input = input.string(defval="Small", options=["Auto", "Tiny", "Small", "Normal", "Large","Huge"], title="Size", group="Table Layout")
+table_size = size.small
+switch
+	table_size_input == "Auto" => table_size := size.auto
+	table_size_input == "Tiny" =>table_size :=  size.tiny
+	table_size_input == "Small" => table_size := size.small
+	table_size_input == "Normal" => table_size := size.normal
+	table_size_input == "Large" => table_size := size.large
+	table_size_input == "Huge" => table_size := size.huge
+
+table_output_round = input(2, title = "Precision", group="Table Layout")
+colorize_factor = input.float(1, step=0.2,title="Transparency Factor", group="Table Layout", tooltip="In Detail Tables, it is possible to change the transparency factor to have a better Heatmap")
+
+color_profit = input.color(color.green, title="Colors: Profit", group="Table Layout", inline="color")
+color_loss = input.color(color.red, title="Loss", group="Table Layout", inline="color")
+color_neutral = input.color(#555555, title="Neutral", group="Table Layout", inline="color")
+
+table_dark_mode = input.bool(defval=true, title="Dark Mode", group="Table Layout", inline="color")
+cell_hr_bg_color = table_dark_mode ? #0F0F0F : #F5F5F5
+cell_hr_text_color = table_dark_mode ? #D3D3D3 : #555555
+cell_border_color = table_dark_mode ? #000000 : #FFFFFF
+
+// Volatility Filter
+volatility_filter_enable = input(defval=false, group="Volatility Filter", inline="VF", title="Filter:", tooltip="Filter using Average True Range (ATR) of different periods. Filter changes the background color to gray when it is filtering.")
+volatility_filter_min_atr = input.int(defval=2,minval=0, group="Volatility Filter", inline="VF", title="ATR of ")
+volatility_filter_max_atr = input.int(defval=14,minval=0, group="Volatility Filter", inline="VF", title="periods <= of ATR of")
+volatility_filter_codition = volatility_filter_enable ? ta.atr(volatility_filter_min_atr)<=ta.atr(volatility_filter_max_atr) : true 
+bgcolor(volatility_filter_codition ? na: color.new(color.gray, 90))
+
+
+// Backtesting filter
+backtest_start = input.time(defval = timestamp("01 Jan 2015 00:00 +0000"), title = "Start", group="Backtest Dates")
+backtest_end = input.time(defval = timestamp("01 Jan 2025 23:59 +0000"), title = "End", group="Backtest Dates")  
+
+backtest_filter  = time >= backtest_start and time <= backtest_end ? true : false     
+// -----------------------------------------------------------------------------
+
+
+// -----------------------------------------------------------------------------
+// User-defined functions
+// -----------------------------------------------------------------------------
+
+colorize_primitive(value, profit, loss, neutral) => value > 0 ? profit : value < 0 ? loss: neutral
+colorize(value) => colorize_primitive(value, color_profit, color_loss,color_neutral)
+
+str_round_primitive(value, round) => str.tostring(math.round(value,round))
+str_round(value) => str_round_primitive(value, table_output_round)
+
+str_analyze_count_primitive(value, positive_count, total_count) => value > 0 ? str_round(nz(positive_count/total_count*100)) : str_round(nz((total_count-positive_count)/total_count*100))
+
+int_analyze_count_primitive(value, positive_count, total_count) => value > 0 ? int(positive_count/total_count*100) : int((total_count-positive_count)/total_count*100)
+
+int_next_hour(myhour) => myhour == 23 ? 0 : myhour + 1
+
+
+// -----------------------------------------------------------------------------
+// Controller: Calculation
+// -----------------------------------------------------------------------------
+
+if backtest_filter and volatility_filter_codition
+    // horuly analyis
+    price_delta = 0.0
+    if analysis_type == 1
+        price_delta := cash_value ? close-open : ((close-open)/open)*100
+
+    if timeframe.period == "60"
+
+        // candle counter
+        candle_count := candle_count + 1
+        
+        // incrementing virtual equity for days
+        array.set(days_equity, dayofweek, array.get(days_equity, dayofweek) + price_delta)
+        
+        // incrementing hours count
+        array.set(hours_count_total, hour, array.get(hours_count_total, hour) + 1)
+        
+        switch
+        	dayofweek == 1   => array.set(sunday_count_total, hour, array.get(sunday_count_total, hour) + 1)
+        	dayofweek == 2   => array.set(monday_count_total, hour, array.get(monday_count_total, hour) + 1)
+        	dayofweek == 3   => array.set(tuesday_count_total, hour, array.get(tuesday_count_total, hour) + 1)
+        	dayofweek == 4   => array.set(wednesday_count_total, hour, array.get(wednesday_count_total, hour) + 1)
+        	dayofweek == 5   => array.set(thursday_count_total, hour, array.get(thursday_count_total, hour) + 1)
+        	dayofweek == 6   => array.set(friday_count_total, hour, array.get(friday_count_total, hour) + 1)
+        	dayofweek == 7   => array.set(saturday_count_total, hour, array.get(saturday_count_total, hour) + 1)
+        
+        // incrementing array for positive days
+        if price_delta > 0
+            array.set(hours_count_positive, hour, array.get(hours_count_positive, hour) + 1)
+            switch
+            	dayofweek == 1   => array.set(sunday_count_positive, hour, array.get(sunday_count_positive, hour) + 1)
+            	dayofweek == 2   => array.set(monday_count_positive, hour, array.get(monday_count_positive, hour) + 1)
+            	dayofweek == 3   => array.set(tuesday_count_positive, hour, array.get(tuesday_count_positive, hour) + 1)
+            	dayofweek == 4   => array.set(wednesday_count_positive, hour, array.get(wednesday_count_positive, hour) + 1)
+            	dayofweek == 5   => array.set(thursday_count_positive, hour, array.get(thursday_count_positive, hour) + 1)
+            	dayofweek == 6   => array.set(friday_count_positive, hour, array.get(friday_count_positive, hour) + 1)
+            	dayofweek == 7   => array.set(saturday_count_positive, hour, array.get(saturday_count_positive, hour) + 1)
+        
+        // incrementing virtual equity for hours
+        array.set(hours_equity, hour, array.get(hours_equity, hour) + price_delta)
+        
+        switch
+        	dayofweek == 1   => array.set(sunday_equity, hour, array.get(sunday_equity, hour) + price_delta)
+        	dayofweek == 2   => array.set(monday_equity, hour, array.get(monday_equity, hour) + price_delta)
+        	dayofweek == 3   => array.set(tuesday_equity, hour, array.get(tuesday_equity, hour) + price_delta)
+        	dayofweek == 4   => array.set(wednesday_equity, hour, array.get(wednesday_equity, hour) + price_delta)
+        	dayofweek == 5   => array.set(thursday_equity, hour, array.get(thursday_equity, hour) + price_delta)
+        	dayofweek == 6   => array.set(friday_equity, hour, array.get(friday_equity, hour) + price_delta)
+        	dayofweek == 7   => array.set(saturday_equity, hour, array.get(saturday_equity, hour) + price_delta)
+        
+        
+        // incrementing dayofweek counter, selecting the corrent one
+        if dayofweek != dayofweek[1]
+            day_count := day_count +1
+            switch
+            	dayofweek == 1   => sunday_count := sunday_count + 1 
+            	dayofweek == 2   => monday_count := monday_count + 1 
+            	dayofweek == 3   => tuesday_count := tuesday_count + 1 
+            	dayofweek == 4   => wednesday_count := wednesday_count + 1 
+            	dayofweek == 5   => thursday_count := thursday_count + 1 
+            	dayofweek == 6   => friday_count := friday_count + 1 
+            	dayofweek == 7   => saturday_count := saturday_count + 1 
+            	
+        // incrementing hours
+        if hour != hour[1]
+            hours_count := hours_count +1
+
+    // dayofmonth analysis
+    if timeframe.period == "D"
+        array.set(monthly_equity, dayofmonth, array.get(monthly_equity,dayofmonth)+price_delta)
+        
+        switch
+        	month == 1 => array.set(jan_equity, dayofmonth, array.get(jan_equity,dayofmonth)+price_delta)
+        	month == 2 => array.set(feb_equity, dayofmonth, array.get(feb_equity,dayofmonth)+price_delta) 
+        	month == 3 => array.set(mar_equity, dayofmonth, array.get(mar_equity,dayofmonth)+price_delta) 
+        	month == 4 => array.set(apr_equity, dayofmonth, array.get(jan_equity,dayofmonth)+price_delta) 
+        	month == 5 => array.set(may_equity, dayofmonth, array.get(apr_equity,dayofmonth)+price_delta) 
+        	month == 6 => array.set(jun_equity, dayofmonth, array.get(may_equity,dayofmonth)+price_delta) 
+        	month == 7 => array.set(jul_equity, dayofmonth, array.get(jun_equity,dayofmonth)+price_delta)
+        	month == 8 => array.set(aug_equity, dayofmonth, array.get(aug_equity,dayofmonth)+price_delta) 
+        	month == 9 => array.set(sep_equity, dayofmonth, array.get(sep_equity,dayofmonth)+price_delta) 
+        	month == 10 => array.set(oct_equity, dayofmonth, array.get(oct_equity,dayofmonth)+price_delta) 
+        	month == 11 => array.set(nov_equity, dayofmonth, array.get(nov_equity,dayofmonth)+price_delta)
+        	month == 12 => array.set(dec_equity, dayofmonth, array.get(dec_equity,dayofmonth)+price_delta)
+        
+        switch
+        	month == 1 => array.set(jan_count_total, dayofmonth, array.get(jan_count_total,dayofmonth)+price_delta)
+        	month == 2 => array.set(feb_count_total, dayofmonth, array.get(feb_count_total,dayofmonth)+price_delta) // actual_month_count_total := feb_count_total
+        	month == 3 => array.set(mar_count_total, dayofmonth, array.get(mar_count_total,dayofmonth)+price_delta) // actual_month_count_total := mar_count_total
+        	month == 4 => array.set(apr_count_total, dayofmonth, array.get(apr_count_total,dayofmonth)+price_delta) // actual_month_count_total := apr_count_total
+        	month == 5 => array.set(may_count_total, dayofmonth, array.get(may_count_total,dayofmonth)+price_delta) // actual_month_count_total := may_count_total
+        	month == 6 => array.set(jun_count_total, dayofmonth, array.get(jun_count_total,dayofmonth)+price_delta) // actual_month_count_total := jun_count_total
+        	month == 7 => array.set(jul_count_total, dayofmonth, array.get(jul_count_total,dayofmonth)+price_delta) // actual_month_count_total := jul_count_total
+        	month == 8 => array.set(aug_count_total, dayofmonth, array.get(aug_count_total,dayofmonth)+price_delta) // actual_month_count_total := aug_count_total
+        	month == 9 => array.set(sep_count_total, dayofmonth, array.get(sep_count_total,dayofmonth)+price_delta)// actual_month_count_total := sep_count_total
+        	month == 10 => array.set(oct_count_total, dayofmonth, array.get(oct_count_total,dayofmonth)+price_delta)// actual_month_count_total := oct_count_total
+        	month == 11 => array.set(nov_count_total, dayofmonth, array.get(nov_count_total,dayofmonth)+price_delta) // actual_month_count_total := nov_count_total
+        	month == 12 => array.set(dec_count_total, dayofmonth, array.get(dec_count_total,dayofmonth)+price_delta) // actual_month_count_total := dec_count_total
+    
+        if price_delta > 0    	
+            switch
+            	month == 1 => array.set(jan_count_positive, dayofmonth, array.get(jan_count_positive,dayofmonth)+price_delta)
+            	month == 2 => array.set(feb_count_positive, dayofmonth, array.get(feb_count_positive,dayofmonth)+price_delta)
+            	month == 3 => array.set(mar_count_positive, dayofmonth, array.get(mar_count_positive,dayofmonth)+price_delta)
+            	month == 4 => array.set(apr_count_positive, dayofmonth, array.get(apr_count_positive,dayofmonth)+price_delta)
+            	month == 5 => array.set(may_count_positive, dayofmonth, array.get(may_count_positive,dayofmonth)+price_delta)
+            	month == 6 => array.set(jun_count_positive, dayofmonth, array.get(jun_count_positive,dayofmonth)+price_delta)
+            	month == 7 => array.set(jul_count_positive, dayofmonth, array.get(jul_count_positive,dayofmonth)+price_delta)
+            	month == 8 => array.set(aug_count_positive, dayofmonth, array.get(aug_count_positive,dayofmonth)+price_delta)
+            	month == 9 => array.set(sep_count_positive, dayofmonth, array.get(sep_count_positive,dayofmonth)+price_delta)
+            	month == 10 => array.set(oct_count_positive, dayofmonth, array.get(oct_count_positive,dayofmonth)+price_delta)
+            	month == 11 => array.set(nov_count_positive, dayofmonth, array.get(nov_count_positive,dayofmonth)+price_delta)
+            	month == 12 => array.set(dec_count_positive, dayofmonth, array.get(dec_count_positive,dayofmonth)+price_delta)
+        
+// calculating candles used
+if backtest_filter
+    hours_count_nofilter := hours_count_nofilter + 1
+
+// -----------------------------------------------------------------------------
+// View: Table
+// -----------------------------------------------------------------------------
+
+if barstate.islast
+    // weekly summary table
+    if show_weekly_summary
+
+        summary_table = table.new(hourly_table_position, columns=50, rows=29, bgcolor=cell_hr_bg_color,border_width=1,border_color=cell_border_color)
+        
+        // table header - table title
+        table.cell(summary_table,0,0,"Bias Analyzer\n" + analysis_type_input + "\nHourly Summary\n",  text_color=cell_hr_text_color, bgcolor=cell_hr_bg_color, text_size=table_size)
+        table.cell(summary_table,0,1,syminfo.tickerid,  text_color=cell_hr_text_color, bgcolor=cell_hr_bg_color, text_size=table_size)
+        
+        // table header - sub-header
+        for _i = 0 to 7  
+            table.cell(summary_table,1+(4*_i),1,"Sin",  text_color=cell_hr_text_color, bgcolor=cell_hr_bg_color, text_size=table_size)
+            table.cell(summary_table,3+(4*_i),1,"Occ",  text_color=cell_hr_text_color, bgcolor=cell_hr_bg_color, text_size=table_size)
+            table.cell(summary_table,4+(4*_i),1,"",  text_color=cell_hr_text_color, bgcolor=cell_hr_bg_color, text_size=table_size)
+
+        // table header - day of week
+        table.cell(summary_table, 1,0,"Sum", text_color=cell_hr_text_color, text_size=table_size)
+        table.cell(summary_table, 5,0,"1.\nSun",  text_color=cell_hr_text_color, text_size=table_size)
+        table.cell(summary_table, 9,0,"2.\nMon",  text_color=cell_hr_text_color, text_size=table_size)
+        table.cell(summary_table,13,0,"3.\nTue",  text_color=cell_hr_text_color, text_size=table_size)
+        table.cell(summary_table,17,0,"4.\nWed",  text_color=cell_hr_text_color, text_size=table_size)
+        table.cell(summary_table,21,0,"5.\nThu",  text_color=cell_hr_text_color, text_size=table_size)
+        table.cell(summary_table,25,0,"6.\nFri",  text_color=cell_hr_text_color, text_size=table_size)
+        table.cell(summary_table,29,0,"7.\nSat",  text_color=cell_hr_text_color, text_size=table_size)
+        
+        
+        // initialize counters
+        
+        hours_cumulative = 0.0
+        sunday_cumulative = 0.0
+        monday_cumulative = 0.0
+        tuesday_cumulative = 0.0
+        wednesday_cumulative = 0.0
+        thursday_cumulative = 0.0
+        friday_cumulative = 0.0
+        saturday_cumulative = 0.0
+        
+        // foreach our
+        for _i = 0 to 23
+    
+            // print column with hours
+            table.cell(summary_table,0,_i+2,str.tostring(_i) + " to " + str.tostring(int_next_hour(_i)), text_color=cell_hr_text_color, text_size=table_size)
+            
+            // print hourly summary
+            hours_cumulative := hours_cumulative + array.get(hours_equity, _i)
+            cumulative_color = color.new(colorize(hours_cumulative), (100-int_analyze_count_primitive(array.get(hours_equity, _i),array.get(hours_count_positive, _i), array.get(hours_count_total, _i))))
+            single_color = color.new(colorize(array.get(hours_equity, _i)), (100-int_analyze_count_primitive(array.get(hours_equity, _i),array.get(hours_count_positive, _i), array.get(hours_count_total, _i))))
+            occurence_color = color.new(color_neutral, (100-int_analyze_count_primitive(array.get(hours_equity, _i),array.get(hours_count_positive, _i), array.get(hours_count_total, _i))))
+    
+            table.cell(summary_table, 1, _i+2, str_round(array.get(hours_equity, _i)), text_color=cell_hr_text_color, bgcolor=single_color, text_size=table_size)
+            table.cell(summary_table, 3, _i+2, str_analyze_count_primitive(array.get(hours_equity, _i),array.get(hours_count_positive, _i), array.get(hours_count_total, _i)) + "%", text_color=#FFFFFF, bgcolor=occurence_color, text_size=table_size)
+            table.cell(summary_table, 4, _i+2, " ", text_color=cell_hr_bg_color, bgcolor=cell_hr_bg_color, text_size=table_size)
+         
+
+            // initializing cumulative dayofweek
+            sunday_cumulative := sunday_cumulative + array.get(sunday_equity, _i)
+            monday_cumulative := monday_cumulative + array.get(monday_equity, _i)
+            tuesday_cumulative := tuesday_cumulative + array.get(tuesday_equity, _i)
+            wednesday_cumulative := wednesday_cumulative + array.get(wednesday_equity, _i)
+            thursday_cumulative := thursday_cumulative + array.get(thursday_equity, _i)
+            friday_cumulative := friday_cumulative + array.get(friday_equity, _i)
+            saturday_cumulative :=saturday_cumulative + array.get( saturday_equity, _i)
+            
+            // print sunday (1)
+            sunday_cumulative_color = color.new(colorize(sunday_cumulative), (100-int_analyze_count_primitive(array.get(sunday_equity, _i),array.get(sunday_count_positive, _i), array.get(sunday_count_total, _i))))
+            sunday_single_color = color.new(colorize(array.get(sunday_equity, _i)), (100-int_analyze_count_primitive(array.get(sunday_equity, _i),array.get(sunday_count_positive, _i), array.get(sunday_count_total, _i))))
+            sunday_occurence_color = color.new(color_neutral, (100-int_analyze_count_primitive(array.get(sunday_equity, _i),array.get(sunday_count_positive, _i), array.get(sunday_count_total, _i))))      
+            
+            table.cell(summary_table, 5, _i+2, str_round(array.get(sunday_equity, _i)), text_color=cell_hr_text_color, bgcolor=sunday_single_color, text_size=table_size)
+            table.cell(summary_table, 7, _i+2, str_analyze_count_primitive(array.get(sunday_equity, _i),array.get(sunday_count_positive, _i), array.get(sunday_count_total, _i)) + "%", text_color=#FFFFFF, bgcolor=sunday_occurence_color, text_size=table_size)
+            table.cell(summary_table, 8, _i+2, " ", text_color=cell_hr_bg_color, bgcolor=cell_hr_bg_color, text_size=table_size)    
+            
+            // print monday (2)
+            monday_cumulative_color = color.new(colorize(monday_cumulative), (100-int_analyze_count_primitive(array.get(monday_equity, _i),array.get(monday_count_positive, _i), array.get(monday_count_total, _i))))
+            monday_single_color = color.new(colorize(array.get(monday_equity, _i)), (100-int_analyze_count_primitive(array.get(monday_equity, _i),array.get(monday_count_positive, _i), array.get(monday_count_total, _i))))
+            monday_occurence_color = color.new(color_neutral, (100-int_analyze_count_primitive(array.get(monday_equity, _i),array.get(monday_count_positive, _i), array.get(monday_count_total, _i))))      
+            
+            table.cell(summary_table, 9, _i+2, str_round(array.get(monday_equity, _i)), text_color=cell_hr_text_color, bgcolor=monday_single_color, text_size=table_size)
+            table.cell(summary_table, 11, _i+2, str_analyze_count_primitive(array.get(monday_equity, _i),array.get(monday_count_positive, _i), array.get(monday_count_total, _i)) + "%", text_color=#FFFFFF, bgcolor=monday_occurence_color, text_size=table_size)
+            table.cell(summary_table, 12, _i+2, " ", text_color=cell_hr_bg_color, bgcolor=cell_hr_bg_color, text_size=table_size)    
+    
+            // print tuesday (3)
+            tuesday_cumulative_color = color.new(colorize(tuesday_cumulative), (100-int_analyze_count_primitive(array.get(tuesday_equity, _i),array.get(tuesday_count_positive, _i), array.get(tuesday_count_total, _i))))
+            tuesday_single_color = color.new(colorize(array.get(tuesday_equity, _i)), (100-int_analyze_count_primitive(array.get(tuesday_equity, _i),array.get(tuesday_count_positive, _i), array.get(tuesday_count_total, _i))))
+            tuesday_occurence_color = color.new(color_neutral, (100-int_analyze_count_primitive(array.get(tuesday_equity, _i),array.get(tuesday_count_positive, _i), array.get(tuesday_count_total, _i))))      
+            
+            table.cell(summary_table, 13, _i+2, str_round(array.get(tuesday_equity, _i)), text_color=cell_hr_text_color, bgcolor=tuesday_single_color, text_size=table_size)
+            table.cell(summary_table, 15, _i+2, str_analyze_count_primitive(array.get(tuesday_equity, _i),array.get(tuesday_count_positive, _i), array.get(tuesday_count_total, _i)) + "%", text_color=#FFFFFF, bgcolor=tuesday_occurence_color, text_size=table_size)
+            table.cell(summary_table, 16, _i+2, " ", text_color=cell_hr_bg_color, bgcolor=cell_hr_bg_color, text_size=table_size)    
+    
+            // print wednesday (4)
+            wednesday_cumulative_color = color.new(colorize(wednesday_cumulative), (100-int_analyze_count_primitive(array.get(wednesday_equity, _i),array.get(wednesday_count_positive, _i), array.get(wednesday_count_total, _i))))
+            wednesday_single_color = color.new(colorize(array.get(wednesday_equity, _i)), (100-int_analyze_count_primitive(array.get(wednesday_equity, _i),array.get(wednesday_count_positive, _i), array.get(wednesday_count_total, _i))))
+            wednesday_occurence_color = color.new(color_neutral, (100-int_analyze_count_primitive(array.get(wednesday_equity, _i),array.get(wednesday_count_positive, _i), array.get(wednesday_count_total, _i))))      
+            
+            table.cell(summary_table, 17, _i+2, str_round(array.get(wednesday_equity, _i)), text_color=cell_hr_text_color, bgcolor=wednesday_single_color, text_size=table_size)
+            table.cell(summary_table, 19, _i+2, str_analyze_count_primitive(array.get(wednesday_equity, _i),array.get(wednesday_count_positive, _i), array.get(wednesday_count_total, _i)) + "%", text_color=#FFFFFF, bgcolor=wednesday_occurence_color, text_size=table_size)
+            table.cell(summary_table, 20, _i+2, " ", text_color=cell_hr_bg_color, bgcolor=cell_hr_bg_color, text_size=table_size)    
+            
+            // print thursday (5)
+            thursday_cumulative_color = color.new(colorize(thursday_cumulative), (100-int_analyze_count_primitive(array.get(thursday_equity, _i),array.get(thursday_count_positive, _i), array.get(thursday_count_total, _i))))
+            thursday_single_color = color.new(colorize(array.get(thursday_equity, _i)), (100-int_analyze_count_primitive(array.get(thursday_equity, _i),array.get(thursday_count_positive, _i), array.get(thursday_count_total, _i))))
+            thursday_occurence_color = color.new(color_neutral, (100-int_analyze_count_primitive(array.get(thursday_equity, _i),array.get(thursday_count_positive, _i), array.get(thursday_count_total, _i))))      
+            
+            table.cell(summary_table, 21, _i+2, str_round(array.get(thursday_equity, _i)), text_color=cell_hr_text_color, bgcolor=thursday_single_color, text_size=table_size)
+            table.cell(summary_table, 23, _i+2, str_analyze_count_primitive(array.get(thursday_equity, _i),array.get(thursday_count_positive, _i), array.get(thursday_count_total, _i)) + "%", text_color=#FFFFFF, bgcolor=thursday_occurence_color, text_size=table_size)
+            table.cell(summary_table, 24, _i+2, " ", text_color=cell_hr_bg_color, bgcolor=cell_hr_bg_color, text_size=table_size)    
+    
+            // print friday (6)
+            friday_cumulative_color = color.new(colorize(friday_cumulative), (100-int_analyze_count_primitive(array.get(friday_equity, _i),array.get(friday_count_positive, _i), array.get(friday_count_total, _i))))
+            friday_single_color = color.new(colorize(array.get(friday_equity, _i)), (100-int_analyze_count_primitive(array.get(friday_equity, _i),array.get(friday_count_positive, _i), array.get(friday_count_total, _i))))
+            friday_occurence_color = color.new(color_neutral, (100-int_analyze_count_primitive(array.get(friday_equity, _i),array.get(friday_count_positive, _i), array.get(friday_count_total, _i))))      
+            
+            table.cell(summary_table, 25, _i+2, str_round(array.get(friday_equity, _i)), text_color=cell_hr_text_color, bgcolor=friday_single_color, text_size=table_size)
+            table.cell(summary_table, 27, _i+2, str_analyze_count_primitive(array.get(friday_equity, _i),array.get(friday_count_positive, _i), array.get(friday_count_total, _i)) + "%", text_color=#FFFFFF, bgcolor=friday_occurence_color, text_size=table_size)
+            table.cell(summary_table, 28, _i+2, " ", text_color=cell_hr_bg_color, bgcolor=cell_hr_bg_color, text_size=table_size)    
+    
+            // stampo saturday (7)
+            saturday_cumulative_color = color.new(colorize(saturday_cumulative), (100-int_analyze_count_primitive(array.get(saturday_equity, _i),array.get(saturday_count_positive, _i), array.get(saturday_count_total, _i))))
+            saturday_single_color = color.new(colorize(array.get(saturday_equity, _i)), (100-int_analyze_count_primitive(array.get(saturday_equity, _i),array.get(saturday_count_positive, _i), array.get(saturday_count_total, _i))))
+            saturday_occurence_color = color.new(color_neutral, (100-int_analyze_count_primitive(array.get(saturday_equity, _i),array.get(saturday_count_positive, _i), array.get(saturday_count_total, _i))))      
+            
+            table.cell(summary_table, 29, _i+2, str_round(array.get(saturday_equity, _i)), text_color=cell_hr_text_color, bgcolor=saturday_single_color, text_size=table_size)
+            table.cell(summary_table, 31, _i+2, str_analyze_count_primitive(array.get(saturday_equity, _i),array.get(saturday_count_positive, _i), array.get(saturday_count_total, _i)) + "%", text_color=#FFFFFF, bgcolor=saturday_occurence_color, text_size=table_size)
+            table.cell(summary_table, 32, _i+2, " ", text_color=cell_hr_bg_color, bgcolor=cell_hr_bg_color, text_size=table_size)    
+    
+        // print daily summary
+        table.cell(summary_table,0,27,"Daily Cumulative",  text_color=cell_hr_text_color, text_size=table_size)
+        for _i = 1 to 7
+            table.cell(summary_table, 1+(4*_i), 27,str.tostring(str.tostring(math.round(array.get(days_equity, _i),table_output_round))), text_color=cell_hr_text_color, bgcolor=colorize(array.get(days_equity, _i)), text_size=table_size)
+
+        table.cell(summary_table, 0, 28, "Candles used\n" + " " +str.tostring(math.round(hours_count/(hours_count_nofilter-1)*100,2)) +  "%\n" + str.tostring(hours_count) + "/" + str.tostring(hours_count_nofilter-1),  text_color=cell_hr_text_color, text_size=table_size)
+    
+        if timeframe.period != "60"
+            table.delete(summary_table)
+            alert_table = table.new(position=hourly_table_position,columns=1, rows=1, bgcolor=color_neutral,border_width=1,border_color=cell_border_color)
+    	    table.cell(alert_table, 0, 0, alert_message, bgcolor=cell_hr_bg_color, text_color=cell_hr_text_color, text_size=size.large)
+
+    // print daily table
+    if show_daily_details
+        equitona_table = table.new(position=hourly_detail_table_position,columns=26, rows=26, bgcolor=color_neutral,border_width=1,border_color=cell_border_color)
+    	table.cell(equitona_table, 0, 0, "Bias Analyzer\n" + analysis_type_input + "\Daily Analysis\n" + show_details_input, bgcolor=cell_hr_bg_color, text_color=cell_hr_text_color, text_size=table_size)
+    
+        for _start = 0 to 23
+            table.cell(equitona_table, 0, _start+1, str.tostring(_start), bgcolor=cell_hr_bg_color, text_color=cell_hr_text_color, text_size=table_size)
+            for _end = 0 to 23
+                table.cell(equitona_table, _end+1, 0, str.tostring(_end), bgcolor=cell_hr_bg_color, text_color=cell_hr_text_color, text_size=table_size)
+                equity_sliding = 0.0
+    
+                for _count = _start to _end
+                    if _start <= _end
+                        equity_sliding := equity_sliding + array.get(show_details_array,_count)
+                        table.cell(equitona_table, _end+1, _start+1, str_round(equity_sliding),bgcolor=color.new(colorize(equity_sliding),100-(math.abs(equity_sliding)*colorize_factor)), text_color=color.white, text_size=table_size)
+
+        // check if timeframe is correct or send an error
+        if timeframe.period != "60"
+            table.delete(equitona_table)
+            alert_table = table.new(position=hourly_detail_table_position,columns=1, rows=1, bgcolor=color_neutral,border_width=1,border_color=cell_border_color)
+    	    table.cell(alert_table, 0, 0, alert_message, bgcolor=cell_hr_bg_color, text_color=cell_hr_text_color, text_size=size.large)
+
+    // print monthly summary table
+    if show_monthly_summary
+        monthly_table = table.new(monthly_table_position,columns=32, rows=26, bgcolor=color_neutral,border_width=1,border_color=cell_border_color)
+    	table.cell(monthly_table, 0, 0, "Bias Analyzer\n" + analysis_type_input + "\nDaily Summary\n" + show_details_input, bgcolor=cell_hr_bg_color, text_color=cell_hr_text_color, text_size=table_size)
+    	table.cell(monthly_table, 0, 1, "All Months", bgcolor=cell_hr_bg_color, text_color=cell_hr_text_color, text_size=table_size)
+    	table.cell(monthly_table, 0, 1+1, "Jan", bgcolor=cell_hr_bg_color, text_color=cell_hr_text_color, text_size=table_size)
+    	table.cell(monthly_table, 0, 1+2, "Feb", bgcolor=cell_hr_bg_color, text_color=cell_hr_text_color, text_size=table_size)
+    	table.cell(monthly_table, 0, 1+3, "Mar", bgcolor=cell_hr_bg_color, text_color=cell_hr_text_color, text_size=table_size)
+    	table.cell(monthly_table, 0, 1+4, "Apr", bgcolor=cell_hr_bg_color, text_color=cell_hr_text_color, text_size=table_size)
+    	table.cell(monthly_table, 0, 1+5, "May", bgcolor=cell_hr_bg_color, text_color=cell_hr_text_color, text_size=table_size)
+    	table.cell(monthly_table, 0, 1+6, "Jun", bgcolor=cell_hr_bg_color, text_color=cell_hr_text_color, text_size=table_size)
+    	table.cell(monthly_table, 0, 1+7, "Jul", bgcolor=cell_hr_bg_color, text_color=cell_hr_text_color, text_size=table_size)
+    	table.cell(monthly_table, 0, 1+8, "Aug", bgcolor=cell_hr_bg_color, text_color=cell_hr_text_color, text_size=table_size)
+    	table.cell(monthly_table, 0, 1+9, "Sep", bgcolor=cell_hr_bg_color, text_color=cell_hr_text_color, text_size=table_size)
+    	table.cell(monthly_table, 0, 1+10, "Oct", bgcolor=cell_hr_bg_color, text_color=cell_hr_text_color, text_size=table_size)
+    	table.cell(monthly_table, 0, 1+11, "Nov", bgcolor=cell_hr_bg_color, text_color=cell_hr_text_color, text_size=table_size)
+    	table.cell(monthly_table, 0, 1+12, "Dec", bgcolor=cell_hr_bg_color, text_color=cell_hr_text_color, text_size=table_size)
+
+        // print the data
+        for _day = 1 to 31
+            table.cell(monthly_table, _day, 0, str_round(_day), bgcolor=cell_hr_bg_color, text_color=cell_hr_text_color, text_size=table_size)
+            table.cell(monthly_table, _day, 1, str_round(array.get(monthly_equity,_day)),bgcolor=colorize(array.get(monthly_equity,_day)), text_color=color.white, text_size=table_size)
+            
+            table.cell(monthly_table, _day, 1+1, str_round(array.get(jan_equity,_day)),bgcolor=colorize(array.get(jan_equity,_day)), text_color=color.white, text_size=table_size)
+            table.cell(monthly_table, _day, 2+1, str_round(array.get(feb_equity,_day)),bgcolor=colorize(array.get(feb_equity,_day)), text_color=color.white, text_size=table_size)
+            table.cell(monthly_table, _day, 3+1, str_round(array.get(mar_equity,_day)),bgcolor=colorize(array.get(mar_equity,_day)), text_color=color.white, text_size=table_size)
+            table.cell(monthly_table, _day, 4+1, str_round(array.get(apr_equity,_day)),bgcolor=colorize(array.get(apr_equity,_day)), text_color=color.white, text_size=table_size)
+            table.cell(monthly_table, _day, 5+1, str_round(array.get(may_equity,_day)),bgcolor=colorize(array.get(may_equity,_day)), text_color=color.white, text_size=table_size)
+            table.cell(monthly_table, _day, 6+1, str_round(array.get(jun_equity,_day)),bgcolor=colorize(array.get(jun_equity,_day)), text_color=color.white, text_size=table_size)
+            table.cell(monthly_table, _day, 7+1, str_round(array.get(jul_equity,_day)),bgcolor=colorize(array.get(jul_equity,_day)), text_color=color.white, text_size=table_size)
+            table.cell(monthly_table, _day, 8+1, str_round(array.get(aug_equity,_day)),bgcolor=colorize(array.get(aug_equity,_day)), text_color=color.white, text_size=table_size)
+            table.cell(monthly_table, _day, 9+1, str_round(array.get(sep_equity,_day)),bgcolor=colorize(array.get(sep_equity,_day)), text_color=color.white, text_size=table_size)
+            table.cell(monthly_table, _day, 10+1, str_round(array.get(oct_equity,_day)),bgcolor=colorize(array.get(oct_equity,_day)), text_color=color.white, text_size=table_size)
+            table.cell(monthly_table, _day, 11+1, str_round(array.get(nov_equity,_day)),bgcolor=colorize(array.get(nov_equity,_day)), text_color=color.white, text_size=table_size)
+            table.cell(monthly_table, _day, 12+1, str_round(array.get(dec_equity,_day)),bgcolor=colorize(array.get(dec_equity,_day)), text_color=color.white, text_size=table_size)
+
+        // check if timeframe is correct or send an error
+        if timeframe.period != "D"
+            table.delete(monthly_table)
+            alert_table = table.new(position=monthly_table_position,columns=1, rows=1, bgcolor=color_neutral,border_width=1,border_color=cell_border_color)
+    	    table.cell(alert_table, 0, 0, alert_message, bgcolor=cell_hr_bg_color, text_color=cell_hr_text_color, text_size=size.large)
+
+    // montly details       
+    if show_monthly_details       
+        monthly_table_details = table.new(position=monthly_detail_table_position,columns=50, rows=50, bgcolor=color_neutral,border_width=1,border_color=cell_border_color)
+    	table.cell(monthly_table_details, 0, 0, "Bias Analyzer\n" + analysis_type_input + "\nDaily Details\n" + show_details_input, bgcolor=cell_hr_bg_color, text_color=cell_hr_text_color, text_size=table_size)
+    
+        for _start = 1 to 31
+            table.cell(monthly_table_details, 0, _start+1, str.tostring(_start), bgcolor=cell_hr_bg_color, text_color=cell_hr_text_color, text_size=table_size)
+            for _end = 1 to 31
+                table.cell(monthly_table_details, _end+1, 0, str.tostring(_end), bgcolor=cell_hr_bg_color, text_color=cell_hr_text_color, text_size=table_size)
+                equity_sliding = 0.0
+                for _count = _start to _end
+                    if _start <= _end
+                        equity_sliding := equity_sliding + array.get(show_monthly_details_array,_count)
+                        table.cell(monthly_table_details, _end+1, _start+1, str_round(equity_sliding),bgcolor=color.new(colorize(equity_sliding),100-(math.abs(equity_sliding)*colorize_factor)), text_color=color.white, text_size=table_size)
+
+        // check if timeframe is correct or send an error
+        if timeframe.period != "D"
+            table.delete(monthly_table_details)
+            alert_table = table.new(position=monthly_detail_table_position,columns=1, rows=1, bgcolor=color_neutral,border_width=1,border_color=cell_border_color)
+    	    table.cell(alert_table, 0, 0, alert_message, bgcolor=cell_hr_bg_color, text_color=cell_hr_text_color, text_size=size.large)
+// -----------------------------------------------------------------------------

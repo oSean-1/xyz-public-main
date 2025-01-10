@@ -1,0 +1,25 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © gosangmom
+
+//@version=5
+indicator("BF_CBOE_COR_TermStructure")
+
+COR1M_Color = input(defval = color.blue, title="COR1M Color")
+COR3M_Color = input(defval = color.red, title="COR3M Color")
+COR6M_Color = input(defval = color.yellow, title="COR6M Color")
+COR9M_Color = input(defval = color.green, title="COR9M Color")
+COR1Y_Color = input(defval = color.orange, title="COR1Y Color")
+Transparency = input(defval = 1, title="Transparency")
+
+resolution = "1"
+COR1M = request.security('CBOE:COR1M', resolution, close)
+COR3M = request.security('CBOE:COR3M', resolution, close)
+COR6M = request.security('CBOE:COR6M', resolution, close)
+COR9M = request.security('CBOE:COR9M', resolution, close)
+COR1Y = request.security('CBOE:COR1Y', resolution, close)
+
+plot(COR1M, color=color.new(COR1M_Color, Transparency))
+plot(COR3M, color=color.new(COR3M_Color, Transparency))
+plot(COR6M, color=color.new(COR6M_Color, Transparency))
+plot(COR9M, color=color.new(COR9M_Color, Transparency))
+plot(COR1Y, color=color.new(COR1Y_Color, Transparency))

@@ -1,0 +1,90 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Crunchster1
+
+//@version=5
+indicator(title="Daily Spot BTC ETF flows", format=format.volume)
+
+// BTC Spot ETF List
+string aa = 'AMEX:ARKB'
+string bb = 'AMEX:GBTC'
+string cc = 'AMEX:FBTC'
+string dd = 'AMEX:HODL'
+string ee = 'NASDAQ:IBIT'
+string ff = 'NASDAQ:BRRR'
+string hh = 'AMEX:EZBC'
+string ii = 'AMEX:BTCO'
+string jj = 'AMEX:BTCW'
+string kk = 'AMEX:BITB'
+
+//Pull daily average price for the BTC spot ETFs
+ra = request.security("AMEX:ARKB", 'D', hlc3, barmerge.gaps_on)
+rb = request.security("AMEX:GBTC", 'D', hlc3, barmerge.gaps_on)
+rc = request.security("AMEX:FBTC", 'D', hlc3, barmerge.gaps_on)
+rd = request.security("AMEX:HODL", 'D', hlc3, barmerge.gaps_on)
+re = request.security("NASDAQ:IBIT", 'D', hlc3, barmerge.gaps_on)
+rf = request.security("NASDAQ:BRRR", 'D', hlc3, barmerge.gaps_on)
+rh = request.security("AMEX:EZBC", 'D', hlc3, barmerge.gaps_on)
+ri = request.security("AMEX:BTCO", 'D', hlc3, barmerge.gaps_on)
+rj = request.security("AMEX:BTCW", 'D', hlc3, barmerge.gaps_on)
+rk = request.security("AMEX:BITB", 'D', hlc3, barmerge.gaps_on)
+
+//Input
+lowerTimeframeTooltip = "The indicator scans lower timeframe data to approximate Up/Down volume. By default, the timeframe is chosen automatically. These inputs override this with a custom timeframe.
+ \n\nHigher timeframes provide more historical data, but the data will be less precise."
+useCustomTimeframeInput = input.bool(false, "Use custom timeframe", tooltip = lowerTimeframeTooltip)
+lowerTimeframeInput = input.timeframe("720", "Timeframe")
+
+//Auto switching of data input lower timeframes and custom input
+lowerTimeframe = switch
+    useCustomTimeframeInput => lowerTimeframeInput
+    timeframe.isseconds     => "1S"
+    timeframe.isintraday    => "1"
+    timeframe.isdaily       => "5"
+    => "60"
+
+//Define paramters
+close(C) =>
+    request.security(C, lowerTimeframe, close, barmerge.gaps_on)
+open(C) =>
+    request.security(C, lowerTimeframe, open, barmerge.gaps_on)
+
+upAndDownVolume(C) =>                       //calculates the up and down volume from the lower time frame, and populates the arrays
+    posVol = 0.0
+    negVol = 0.0
+    s = request.security(C, lowerTimeframe, volume, barmerge.gaps_on)
+    switch
+        close(C) >  open(C)     => posVol += s
+        close(C) <  open(C)     => negVol -= s
+        close(C) >= close(C)[1] => posVol += s
+        close(C) <  close(C)[1] => negVol -= s
+
+    [posVol, negVol]
+
+
+_array(C) =>
+    [upVolumeArray, downVolumeArray] = request.security_lower_tf(C, lowerTimeframe, upAndDownVolume(C))
+
+    upVolume = array.sum(upVolumeArray)
+    downVolume = array.sum(downVolumeArray)
+    upVolume + downVolume                   //sums the array data and calculates the net volume
+
+//Calculate net capital flows for each instrument
+fa = ra * _array(aa)
+fb = rb * _array(bb)
+fc = rc * _array(cc)
+fd = rd * _array(dd)
+fe = re * _array(ee)
+//_ff = rf * _array(ff)
+fh = rh * _array(hh)
+fi = ri * _array(ii)
+//fj = rj * _array(jj)
+fk = rk * _array(kk)
+
+net_flow = fa+fb+fc+fd+fe+fh+fi+fk //Sum of net flows
+cum_flow = ta.cum(net_flow) //Total cumulative flows since ETF launches launch
+
+
+//Display the data
+sysColor = net_flow >= 0 ? (net_flow[1] <= net_flow ? #00a030 : #00a03071) : (net_flow[1] <= net_flow ? #d6000071 : #d60000)
+plot(net_flow, color = sysColor, title="Net BTC ETF flow", style = plot.style_columns)
+plot(cum_flow, color=color.rgb(0, 0, 0), title="Cumulative BTC ETF flow")

@@ -1,0 +1,104 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Julien_Eche
+//@version=5
+strategy("AI Machine Learning Strategy", overlay=true, initial_capital=1000000, currency=currency.USD, default_qty_type=strategy.cash, default_qty_value=50000)
+
+// Strategy Inputs
+InitialValue = input.string("Simple", options = ["Simple","Weighted"], group="", inline="Base")
+MarketMovement = input.string("Market Action", options = ["Market Action", "Volatility"], group="", inline="Target")
+ValueCount = input.int(10, "Data Points", 2, 500) 
+SmoothingInterval = input.int(30, "Smoothing", 2, 500) 
+DataWindow = math.max(ValueCount, 50) 
+
+// AI Classifier
+ValueInput = switch InitialValue
+    "Simple"  => close
+
+// Nearest Neighbor Algorithm for AI Classification
+AIKNearest(target) => 
+    // Initialize arrays to store distances and corresponding values.
+    Dists = array.new_float(ValueCount, 1e10) 
+    Vals = array.new_float(ValueCount, 0.0) 
+
+    // Loop through historical data to calculate distances.
+    for i = 1 to DataWindow 
+        V = ValueInput[i] 
+        // Calculate the distance between the target and the data point.
+        Dist = math.abs(target - V) 
+
+        // Find the index with the maximum distance.
+        MaxDistIdx = 0 
+        MaxDistVal = array.get(Dists, 0) 
+        for j = 1 to ValueCount - 1 
+            if array.get(Dists, j) > MaxDistVal
+                MaxDistIdx := j
+                MaxDistVal := array.get(Dists, j)
+        
+        // If the calculated distance is less than the maximum distance,
+        // update the arrays with the new values.
+        if Dist < MaxDistVal 
+            array.set(Dists, MaxDistIdx, Dist)
+            array.set(Vals, MaxDistIdx, V)
+    
+    // Calculate the average of the closest values.
+    Vals.sum() / ValueCount 
+
+// Target Selection
+// Selecting the target based on user's preference, which may represent market action or volatility.
+Target = switch MarketMovement
+    "Market Action"  => ta.rma(close, 2) 
+    "Volatility"    => ta.atr(14)
+
+// Initialize the AI Moving Average
+AIMA = AIKNearest(Target)
+
+// AI Prediction
+// Employing machine learning techniques to make predictions.
+AveragePrice = math.avg(AIMA, close) 
+MA1 = ta.rma(AIMA[1], SmoothingInterval) 
+MA2 = ta.rma(AIMA, SmoothingInterval) 
+
+// Nearest Neighbor-based AI Prediction
+AI(price) => 
+    // Initialize counters and variables for the AI prediction.
+    PosCount = 0 
+    NegCount = 0 
+    MinDist = 10e10 
+    NearestIdx = 0 
+
+    // Loop through historical data to calculate distances.
+    for j = 1 to 10 
+        // Calculate the Euclidean distance between the predicted value and actual price.
+        Dist = math.sqrt(math.pow(AveragePrice[j] - price, 2)) 
+
+        // Find the index with the minimum distance.
+        if Dist < MinDist 
+            MinDist := Dist
+            NearestIdx := j
+
+            // Assess whether conditions for positive and negative counts are met.
+            Neg = MA1[NearestIdx] > MA2[NearestIdx] 
+            Pos = MA1[NearestIdx] < MA2[NearestIdx] 
+            if Pos 
+                PosCount += 1
+            if Neg 
+                NegCount += 1
+    
+    // Determine the final AI prediction.
+    Result = PosCount > NegCount ? 1 : -1 
+
+PredictionRaw = AI(AveragePrice) 
+Prediction = ta.wma(PredictionRaw, 3) 
+
+// Buy condition: AI prediction is increasing
+BuySignal = ta.crossover(Prediction, Prediction[1])
+
+// Close condition: AI prediction is decreasing
+CloseSignal = ta.crossunder(Prediction, Prediction[1])
+
+// Strategy orders
+// Executing long entry and close orders based on AI predictions.
+if BuySignal
+    strategy.entry("Long", strategy.long)
+if CloseSignal
+    strategy.close("Long")
