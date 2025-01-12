@@ -1,0 +1,187 @@
+// Wick Strategy Analyzer
+//
+// Overview
+// This indicator analyzes candle wick patterns and evaluates their outcomes over a user-defined range.
+// Labels are rendered on the chart marking key events.
+// 
+// Features
+//  Customizable Bar Range:
+//    Allows users to specify a range of bars for analysis, starting from the most recent bar.
+// Visual Indicators:
+//   Labels are rendered to mark conditions & outcomes.
+//   Wick Condition Met - an Orange label below the wick candle displaying the wick’s percentage size.
+//   Outcome Labels - rendered above the candle after wick condition met candles  
+//     P (Green): Pass
+//     F (Red): Fail
+//     N (Navy): Neutral
+//     I (Blue): Indicates the current candle has not yet closed, so the outcome is undetermined.
+//
+// Input Parameters
+//   Wick Threshold [default 0.05 (5%), range 0.0 to 1.0] - minimum wick size required to qualify as a wick condition.
+//   Success Margin [default 0.0, range 0.0 to 1.0)] - Defines the margin for classifying outcomes as Pass, Fail, or Neutral. E.g., a success margin of 0.01 requires the next candle's close to exceed the wick candle's close by 1% in order to be a Pass.
+//   Bar Offset Start [default 0] - starting offset from the last bar for analysis. A value of -1 will include all bars.
+//   Bar Offset End [default 365] - ending offset from the last bar for analysis. Bars outside this range are excluded.
+// 
+// Example Scenario
+//   Goal - Analyze how candles with a wick size of at least 3.5% perform within a success margin of 1% over the past 540 days.
+//     Set Wick Threshold to 0.035
+//     Set Success Margin to 0.01
+//     Set Bar Range Start to 0
+//     Set Bar Range End to 540.
+//     Expected Output
+//       Candles with a wick of at least 3.5% are labeled.
+//       Outcome labels (P, F, or N) indicate performance.
+//
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © foosmoo
+
+//@version=6
+indicator("Wick Strategy Analyzer", shorttitle="Wick Analyzer", overlay=true, max_labels_count = 500, max_bars_back = 5000)
+
+// -- User defined variavles & Types -- //
+
+float wickThreshold = input.float(0.05, title = "Wick Threshold", minval = 0.0, maxval = 1.0, group ="Analysis", tooltip = "The minimum wick size required to qualify as a wick condition. Default is 0.05 (5%), range is 0.0 to 1.0.")
+float successMargin = input.float(0.00, title = "Sucess Margin", minval=0.0, maxval=1.0, group ="Analysis", tooltip = "Expressed as a percentage (0 to 1). A vaule of 0 (the default) implies success is 'this close > wick candle close'. The Success Margin defines the margin for classifying outcomes as Pass, Fail, or Neutral. E.g., a success margin of 0.01 requires the candle's close to exceed the wick candle's close (i.e., the prior candle) by 1% in order to be a Pass.")
+int offsetFromLastBarStart = input.int(0, title = "Analysis Range Offset Start", group ="Analysis", tooltip = "The start offset of the bar range for the analysis. A value of -1 will include all bars. A value of 0 (the default) will start the range at the last bar. Start offset must be <= end offset")
+int offsetFromLastBarEnd = input.int(365, title = "Analysis range Offset End", group ="Analysis", tooltip = "The end offset of the bar range for the analysis. Default is 365. Bars outside this range are excluded. End offset must be >= start offset")
+float labelOffset = input.float(0.001, title = "Label Offset", group ="UI", tooltip = "Specifies and offset to be applied to label positioning")
+string paramInfoTableLocation = input.string("bottom_center", "Parameter table location", group="UI", options=["bottom_center", "top_right", "bottom_left"])
+
+var table resultsTable = table.new(position=position.bottom_right, columns=4, rows=3, border_width=0)
+var table parameterInfoTable = table.new(position=paramInfoTableLocation, columns=5, rows=3, border_width=0)
+
+// -- Objects & Types -- //
+
+type Pass
+    int count = 0
+    string marker = "P"
+    float labelOffset = 0.0
+
+type Fail
+    int count = 0
+    string marker = "F"
+    float labelOffset = 0.0
+
+type Neutral
+    int count = 0
+    string marker = "N"
+    float labelOffset = 0.0
+
+type ConditionManager
+    Pass pass
+    Fail fail
+    Neutral neutral
+    float successMargin = 0.0
+    int count = 0
+    float labelOffset = 0.0
+    int startDate
+    int endDate
+
+// -- Functions -- //
+
+percentFromClose(float priceLow, float priceClose) => (priceClose - priceLow) / priceClose
+ 
+isWickConditionMet() => 
+    percentFromClose(low[1], close[1]) >= wickThreshold and close[1] < open[1]
+
+// answer a color based on the `inColor` but with transparency as specified by the `transparency` parameter
+colorCopyWithTransparency(color inColor, int transparency) =>
+    int r = int(color.r(inColor)), g = int(color.g(inColor)), b = int(color.b(inColor))
+    color.rgb(r, g, b, transparency > 100 or transparency < 1 ? 0 : transparency)
+
+addLabel(int xPos, float yPos, string labelText, string labelStyle, color labelColor, color textColor) =>
+    label.new(
+      x=xPos, y=yPos, text=labelText,
+      color = labelColor, style=labelStyle, textcolor=textColor, size = size.tiny)
+
+addLabelTop(string labelText, color labelColor, color textColor, float yOffset) =>
+    addLabel(bar_index, high + (high * yOffset), labelText, label.style_label_down, labelColor, textColor)
+    line.new(x1 = bar_index, y1 = high + (high * yOffset), x2 = bar_index, y2 = high + (high * 0.001), xloc = xloc.bar_index, style = line.style_dotted , color = colorCopyWithTransparency(labelColor, 65), width = 1)
+
+addLabelBottom(string labelText, color labelColor, color textColor, float yOffset) =>
+    addLabel(bar_index -1, low[1] - (low[1] * yOffset), labelText, label.style_label_up, labelColor, textColor)
+    line.new(x1 = bar_index -1, y1 = low[1] - (low[1] * yOffset), x2 = bar_index -1, y2 = low[1] - (low[1] * 0.001), xloc = xloc.bar_index, style = line.style_dotted , color = colorCopyWithTransparency(labelColor, 65), width = 1)
+
+// -- Methods -- //
+
+method update(Pass this) =>
+    addLabelTop(this.marker, color.green, color.white, this.labelOffset)
+    this.count := this.count +1
+    
+method update(Fail this) => 
+    addLabelTop(this.marker, color.red, color.white, this.labelOffset)
+    this.count := this.count +1
+
+method update(Neutral this) => 
+    addLabelTop(this.marker, color.navy, color.white, this.labelOffset)
+    this.count := this.count +1
+
+method passRate(ConditionManager this) => this.pass.count / this.count
+method failRate(ConditionManager this) => this.fail.count / this.count
+method neutralRate(ConditionManager this) => this.neutral.count / this.count
+
+// Initialize counters
+var Pass pass = Pass.new(labelOffset = labelOffset)
+var Fail fail = Fail.new(labelOffset = labelOffset)
+var Neutral neutral = Neutral.new(labelOffset = labelOffset)
+var ConditionManager manager = ConditionManager.new(pass, fail, neutral, successMargin, 0, labelOffset)
+
+// determines if close for candle after wick condition match is greater than,
+// less than or equal to the current close. The prior candle is the wick match candle
+// Answers the count of matched conditions up to and including the current candle.
+method renderMatchedCondition(ConditionManager this) =>
+    if barstate.isconfirmed
+        if close > close[1] * (1 + this.successMargin)
+            this.pass.update()
+        else if close < close[1] * (1 - this.successMargin)
+            this.fail.update()
+        else
+            this.neutral.update()
+    else
+        addLabelTop("I", color.blue, color.white, this.labelOffset) // candle not closed yet
+    this.count
+
+method update(ConditionManager this) =>
+    this.renderMatchedCondition()
+    addLabelBottom(str.format("{0,number,#.##}%",percentFromClose(low[1], close[1]) *100), color.orange, color.black, this.labelOffset)
+    this.count := this.count +1
+
+// Function determines a brightness value between 0 and 255 basedd on the chart background color.
+// Answer true if brightness is < 128
+isBackgroundDark() =>
+    color c = chart.bg_color
+    float brightness = (0.299 * color.r(c)) + (0.587 * color.g(c)) + (0.114 * color.b(c))
+    brightness < 128
+
+addTableCellContent(table t, int col, string rowtext1, rowText2, rowText3) => 
+    table.cell(t, col, 0, rowtext1, text_color=isBackgroundDark() ? color.new(#F8F8FF, 0) : color.navy, text_valign = text.align_center, text_halign=text.align_right, text_size = size.small)
+    table.cell(t, col, 1, rowText2, text_color=isBackgroundDark() ? color.new(#F8F8FF, 0) : color.navy, text_valign = text.align_center, text_halign=text.align_right, text_size = size.small)
+    table.cell(t, col, 2, rowText3, text_color=isBackgroundDark() ? color.new(#F8F8FF, 0) : color.navy, text_valign = text.align_center, text_halign=text.align_right, text_size = size.small)
+
+updateResultsTable(table t) =>
+    addTableCellContent(t, 0, "Pass", str.tostring(pass.count), str.format("{0,number,percent}", manager.passRate()))
+    addTableCellContent(t, 1, "Fail", str.tostring(fail.count), str.format("{0,number,percent}", manager.failRate()))
+    addTableCellContent(t, 2, "Neutral", str.tostring(neutral.count), str.format("{0,number,percent}", manager.neutralRate()))
+    addTableCellContent(t, 3, "Total", str.tostring(manager.count), str.format("{0,number,percent}", manager.passRate() + manager.failRate() + manager.neutralRate()))
+
+updateParameterInfoTable(table t) =>
+    manager.startDate := time_close("", offsetFromLastBarStart == -1 ? last_bar_index : offsetFromLastBarEnd)
+    manager.endDate := time_close("", offsetFromLastBarStart == -1 ? 0 : offsetFromLastBarStart)
+
+    addTableCellContent(t, 0, "Period From", str.format("Bar #{0,number}", offsetFromLastBarEnd), str.format_time(manager.startDate, "dd MMM yy"))
+    addTableCellContent(t, 1, " ", " ", " ") // filler
+    addTableCellContent(t, 2, "Period To",  str.format("Bar #{0,number}", offsetFromLastBarStart), str.format_time(manager.endDate, "dd MMM yy"))
+    addTableCellContent(t, 3, "Wick Threshold", str.tostring(wickThreshold), str.format("{0,number,percent}", wickThreshold))
+    addTableCellContent(t, 4, "Success Margin", str.tostring(successMargin), str.format("{0,number,percent}", successMargin))
+ 
+// -- UI/Presentation -- //
+
+if bar_index > 0 and (bar_index <= last_bar_index - offsetFromLastBarStart and bar_index >= last_bar_index - offsetFromLastBarEnd) or offsetFromLastBarStart == -1
+    if isWickConditionMet()
+        manager.update()
+
+if barstate.islast
+    updateResultsTable(resultsTable)
+    updateParameterInfoTable(parameterInfoTable)
+
+// EOF //

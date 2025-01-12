@@ -1,0 +1,480 @@
+// License: CopyLEFT - Do whatever the muck you want with it... EOL
+
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © ImmortalFreedom
+
+
+//@version=5
+indicator('[Pandora] Error Function Treasure Trove - ERF/ERFI/Sigmoids+', 'ERF+', false, precision=12)
+
+
+perf(float Value, int Terms=67) =>
+    // Precise Error Function (Computationally Demanding)
+    const float TWO_DIV_SQRTPI = 2.0 / math.sqrt(math.pi)
+    if Value == 0.0
+        0.0
+    else
+        int   odds = 1
+        float    E = 0.0
+        float  pow =  Value
+        float nsqr = -Value * Value
+        for int i=0 to Terms-1
+            int decrement = i
+            int factorial = 1
+            while decrement > 0
+                factorial *= decrement
+                decrement -= 1
+            E    += pow / (factorial * odds)
+            pow  *= nsqr
+            odds += 2
+        math.max(-1.0, math.min(1.0, E * TWO_DIV_SQRTPI))
+
+cerf(float Value) =>
+    // Error Function (Crude Speedy Estimate)
+    if Value == 0.0
+        0.0
+    else
+        float squared = Value * Value
+        math.sqrt(1.0 - math.exp(-squared) / (math.sqrt(3.1220805000607339 + squared) - 0.76694100073)) * math.sign(Value)
+
+serf(float Value) =>
+    // Error Function (Simple Estimate)
+    if Value == 0.0
+        0.0
+    else
+        float normTransf = 1.0 / (0.470487 * math.abs(Value) + 1.0)
+        float polynomial = ((0.7477910  * normTransf -
+                             0.0958255) * normTransf +
+                             0.3480345) * normTransf
+        float exponentia = math.exp(-Value * Value) * polynomial
+        if Value > 0.0
+            1.0 - exponentia
+        else
+            exponentia - 1.0
+
+xerf(float Value) =>
+    // Error Function (Excellent Estimate)
+    const float SQRT2 = math.sqrt(2.0)
+    if Value == 0.0
+        0.0
+    else
+        abs = math.abs(Value)
+        exponentia = math.exp(-0.9959175 * abs * abs) / (SQRT2 * abs + math.exp(-0.7454078 * abs) * 0.7546908) * 0.7546908
+        if Value > 0.0
+            1.0 - exponentia
+        else
+            exponentia - 1.0
+
+ferf(float Value) =>
+    // Error Function (Fast Approximation)
+    if Value == 0.0
+        0.0
+    else
+        float normTransf = 1.0 / (0.3275911 * math.abs(Value) + 1.0)
+        float polynomial = ((((1.061405429  *
+                  normTransf - 1.453152027) *
+                  normTransf + 1.421413741) *
+                  normTransf - 0.284496736) *
+                  normTransf + 0.254829593) *
+                  normTransf
+        float exponentia = math.exp(-Value * Value) * polynomial
+        if Value > 0.0
+            1.0 - exponentia
+        else
+            exponentia - 1.0
+
+aerf(float Value) =>
+    // Error Function (Accurate Approximation)
+    if Value == 0.0
+        0.0
+    else
+        float normTransf = 2.0 / (math.abs(Value) + 2.0)
+        float polynomial =  -1.26551229  + normTransf *
+                     ((((((((0.17085932  * normTransf -
+                             0.82212920) * normTransf +
+                             1.48850502) * normTransf -
+                             1.13520176) * normTransf +
+                             0.27886843) * normTransf -
+                             0.18628823) * normTransf +
+                             0.09678047) * normTransf +
+                             0.37409574) * normTransf +
+                             1.00002250)
+        float exponentia = math.exp(polynomial - math.pow(Value, 2)) * normTransf
+        if Value > 0.0
+            1.0 - exponentia
+        else
+            exponentia - 1.0
+
+berf(float Value) =>
+    // Error Function (Best Approximation)
+    float abs = math.abs(Value)
+    float sqr = math.pow(Value, 2)
+    if abs > 0.919218526
+        float polynomial =  ((((((-0.000017167   *
+                           abs +   0.000383055)  *
+                           sqr + (-0.003883964   *
+                           abs +   0.024254350)) *
+                           abs -   0.106777748)  *
+                           abs -   0.634846311)  *
+                           abs -   0.128717743)  *
+                           abs -           abs)
+        if Value < 0.0
+            math.exp(polynomial) - 1.0
+        else
+            1.0 - math.exp(polynomial)
+    else
+        ((((((-0.0005968786 *
+         sqr + 0.004990835) *
+         sqr - 0.026767739) *
+         sqr + 0.112820225) *
+         sqr - 0.376125656) *
+         sqr + 0.128379216) *
+           Value + Value)
+
+erf(float Value) =>
+    // Error Function (Precision Approximation)
+    float abs = math.abs(Value)
+    if Value == 0.0
+        0.0
+    else if abs > 6.173
+        math.sign(Value)
+    else
+        float sqr = math.pow(Value, 2)
+        if abs < 1.0
+            (((((((((((-7.7794684889591997e-10 *
+                  sqr + 1.3710980398024347e-8) *
+                  sqr - 1.6206313758492398e-7) *
+                  sqr + 1.6447131571278227e-6) *
+                  sqr - 1.4924712302009488e-5) *
+                  sqr + 1.2055293576900605e-4) *
+                  sqr - 8.5483259293144627e-4) *
+                  sqr + 5.2239776061185055e-3) *
+                  sqr - 2.6866170643111514e-2) *
+                  sqr + 1.1283791670944182e-1) *
+                  sqr - 3.7612638903183515e-1) *
+                  sqr + 1.2837916709551256e-1) *
+               Value + Value
+        else
+            float polynomial =     (((((((((((((-5.6271698391213282e-18   * abs +
+              4.8565951797366214e-16)  * sqr + (-1.9912968283386570e-14   * abs +
+              5.1614612434698227e-13)) * sqr + (-9.4934693745934645e-12   * abs +
+              1.3183034417605052e-10)) * sqr + (-1.4354030030292210e-09   * abs +
+              1.2558925114413972e-08)) * sqr + (-8.9719702096303798e-08   * abs +
+              5.2832013824348913e-07)) * sqr + (-2.5730580226082933e-06   * abs +
+              1.0322052949676148e-05)) * sqr + (-3.3555264836700767e-05   * abs +
+              8.4667486930266041e-05)) * sqr + (-1.4570926486271945e-04   * abs +
+              7.1877160107954648e-05)) * sqr + ( 4.9486959714661590e-04   * abs -
+              1.6221099717135270e-03)) * sqr + ( 1.6425707149019379e-04   * abs +
+                                                 1.9148914196620660e-02)) * abs -
+                                                 1.0277918343487560e-1 )  * abs -
+                                                 6.3661844223699315e-1 )  * abs -
+                                                 1.2837929411398119e-1 )  * abs - abs
+            if Value > 0.0
+                1.0 - math.exp(polynomial)
+            else
+                math.exp(polynomial) - 1.0
+
+
+perfi(float ProbabilityValue, int Terms=2943) =>
+    // Precise Inverse Error Function (Computationally EXTREME)
+    const float HALF_OF_SQRTPI = math.sqrt(math.pi) * 0.5
+    if ProbabilityValue == 0.0
+        0.0
+    else if math.abs(ProbabilityValue) < 1.0
+        var array<float> coefficients = na
+        if na(coefficients)
+            coefficients := array.new<float>(1, 1.0)
+            for int i=1 to Terms-1
+                float E = 0
+                for int m=0 to i-1
+                    E += coefficients.get(m) * coefficients.get(i - 1 - m) / ((m + 1) * (2 * m + 1))
+                coefficients.push(E)
+        int   odds = 1
+        float    E = 0.0
+        float  pow = HALF_OF_SQRTPI * ProbabilityValue
+        float sqrd = math.pow(pow, 2)
+        for int i=0 to Terms-1
+            E    += coefficients.get(i) * pow / odds
+            pow  *= sqrd
+            odds += 2
+        E
+    else
+        //runtime.error('perfi() - The inverse error function is not intended to compute numbers equal to +/-1.0, greater than 1.0, or less than -1.0. ProbabilityValue=' + str.tostring(ProbabilityValue) + ' occurred on bar_index: ' + str.tostring(bar_index))
+        na
+
+erfic(float ProbabilityValue) =>
+    // Inverse Error Function (Crude Estimate)
+    const float  PIx4 = math.pi * 4.0
+    const float ALPHA = -2.26042435 / (math.pi * 0.1794787969)
+    if ProbabilityValue == 0.0
+        0.0
+    else if math.abs(ProbabilityValue) <= 0.9993
+        float transf = math.log(1.0 - math.pow(ProbabilityValue, 2)) * -0.5
+        float offset = transf + ALPHA
+        math.sqrt(offset + math.sqrt(PIx4 * transf + math.pow(offset, 2))) * math.sign(ProbabilityValue)
+    else
+        //runtime.error('erfic() - The inverse error function is not intended to compute probability values greater than 0.9993, or less than -0.9993. ProbabilityValue=' + str.tostring(ProbabilityValue) + ' occurred on bar_index: ' + str.tostring(bar_index))
+        na
+
+erfie(float ProbabilityValue) =>
+    // Inverse Error Function (Estimate)
+    if ProbabilityValue == 0.0
+        0.0
+    else if math.abs(ProbabilityValue) < 1.0
+        float transf = -math.log((1.0 - ProbabilityValue) * (1.0 + ProbabilityValue))
+        if transf < 4.956
+            transf := transf - 2.5
+            ((((((((  0.00000002832 *
+             transf + 0.0000003436) *
+             transf - 0.0000035190) *
+             transf - 0.0000043939) *
+             transf + 0.0002185390) *
+             transf - 0.0012537245) *
+             transf - 0.0041776016) *
+             transf + 0.2466407530) *
+             transf + 1.5014093920) *
+             ProbabilityValue
+        else
+            transf := math.sqrt(transf) - 3.0
+            (((((((( -0.000200214257  *
+             transf + 0.000100950558) *
+             transf + 0.001349343220) *
+             transf - 0.003673428440) *
+             transf + 0.005739507730) *
+             transf - 0.007622461300) *
+             transf + 0.009438870470) *
+             transf + 1.001674060000) *
+             transf + 2.832976820000) *
+             ProbabilityValue
+    else
+        //runtime.error('erfie() - The inverse error function is not intended to compute probability values equal to +/-1.0, greater than 1.0, or less than -1.0. ProbabilityValue=' + str.tostring(ProbabilityValue) + ' occurred on bar_index: ' + str.tostring(bar_index))
+        na
+
+erfia(float ProbabilityValue) =>
+    // Inverse Error Function (Better Approximation)
+    if ProbabilityValue == 0.0
+        0.0
+    else if math.abs(ProbabilityValue) < 0.99999
+        float transf = math.log(-math.pow(ProbabilityValue, 2) + 1.0)
+        ((((((((( 0.0000000054384 *
+         transf + 0.000000143311) *
+         transf + 0.000001228195) *
+         transf + 0.000000115352) *
+         transf - 0.000056149110) *
+         transf - 0.000147698000) *
+         transf + 0.002314701000) *
+         transf + 0.011539316200) *
+         transf - 0.232015466000) *
+         transf + 0.886226842000) *
+         ProbabilityValue
+    else
+        //runtime.error('erfia() - The inverse error function is not intended to compute probability values equal to +/-0.99999, greater than 0.99999, or less than -0.99999. ProbabilityValue=' + str.tostring(ProbabilityValue) + ' occurred on bar_index: ' + str.tostring(bar_index))
+        na
+
+erfi(float ProbabilityValue) =>
+    // Inverse Error Function (Precision Approximation)
+    const float  LOG2 = math.log (2.0) // 0.6931471805599453 - https://oeis.org/A002162
+    const float SQRT2 = math.sqrt(2.0)
+    float abs = math.abs(ProbabilityValue)
+    if ProbabilityValue == 0.0
+        0.0
+    else if abs > 0.85
+        float transf = math.sqrt(LOG2 - math.log(1.0 - abs))
+        if transf <= 6.118001941
+            transf := transf - 1.6
+            float polynomial = (((((((0.0007745450142783  *
+                             transf + 0.0227238449892691) *
+                             transf + 0.2417807251774506) *
+                             transf + 1.2704582524523684) *
+                             transf + 3.6478483247632046) *
+                             transf + 5.7694972214606914) *
+                             transf + 4.6303378461565453) *
+                             transf + 1.4234371107496836)
+            polynomial /= ((((((0.0000000014859850  *
+                       transf + 0.0007744145906516) *
+                       transf + 0.0214941603842529) *
+                       transf + 0.2094506521051275) *
+                       transf + 0.9754783200178743) *
+                       transf + 2.3707661626024532) *
+                       transf + 2.9036514445419946) *
+                       transf + SQRT2
+            if ProbabilityValue > 0.0
+                polynomial
+            else
+                -polynomial
+        else
+            //runtime.error('erfi() - The inverse error function is not intended to compute numbers equal to +/-1.0, greater than 1.0, or less than -1.0. ProbabilityValue=' + str.tostring(ProbabilityValue) + ' occurred on bar_index: ' + str.tostring(bar_index))
+            na
+    else
+        float transf = 0.180625 - math.pow(ProbabilityValue, 2) * 0.25
+        float polynomial = (((((((887.09406962545515  *
+                         transf + 11819.493347062294) *
+                         transf + 23782.041382114386) *
+                         transf + 16235.862515167575) *
+                         transf + 4854.8868893843887) *
+                         transf + 697.06266534389598) *
+                         transf + 47.072688112383978) *
+                         transf + 1.1975323115670913) *
+                         ProbabilityValue
+        polynomial /= ((((((5226.4952788528546  *
+                   transf + 28729.085735721943) *
+                   transf + 39307.895800092711) *
+                   transf + 21213.794301586596) *
+                   transf + 5394.1960214247511) *
+                   transf + 687.18700749205791) *
+                   transf + 42.313330701600911) *
+                   transf + 1.0
+
+
+ift(float Number, float Lambda=2.0) => // Inverse Fisher Transform Modified
+    float exp2 = math.exp(Number * Lambda)
+    (exp2 - 1.0) / (exp2 + 1.0)
+
+sigmyod(float Number, float Lambda) =>
+    Number / math.abs(math.pow(1.0 + math.pow(Number * math.sign(Number), Lambda), 1.0 / Lambda))
+
+
+
+string mode = input.string('ERFs', 'Display Mode', options=['ERFs','Accuracy of ERFs','ERFIs','Accuracy of ERFIs'])
+
+string    NIS = 'Numeric Input Settings'
+int   divisor = input.int (  400, 'Divisor', step=250, group=NIS, minval=250)
+int    offset = input.int (    0,  'Offset', step=250, group=NIS)
+bool showNums = input.bool(false, 'Display Input Numerics')
+
+string PEFC = 'Precision Error Function Controls'
+int   terms = input.int(  67,  'perf() Terms', group=PEFC, minval=51, maxval=99,   step=2)
+int  iterms = input.int(2643, 'perfi() Terms', group=PEFC, minval=51, maxval=2943, step=100, tooltip='perfi() requires an EXTREME number of computations')
+
+string DISP    = 'ERF/ERFI Display preferences'
+bool showPERF  = input.bool(true, 'Show perf()' , group=DISP, tooltip='Only visible when display mode is set to ERFs')
+bool showCERF  = input.bool(true, 'Show cerf()' , group=DISP)
+bool showSERF  = input.bool(true, 'Show serf()' , group=DISP)
+bool showXERF  = input.bool(true, 'Show xerf()' , group=DISP)
+bool showFERF  = input.bool(true, 'Show ferf()' , group=DISP)
+bool showAERF  = input.bool(true, 'Show aerf()' , group=DISP)
+bool showBERF  = input.bool(true, 'Show berf()' , group=DISP)
+bool showERF   = input.bool(true, 'Show erf()'  , group=DISP)
+bool showPERFI = input.bool(true, 'Show perfi()', group=DISP, tooltip='Only visible when display mode is set to ERFIs')
+bool showERFIC = input.bool(true, 'Show erfic()', group=DISP)
+bool showERFIE = input.bool(true, 'Show erfie()', group=DISP)
+bool showERFIA = input.bool(true, 'Show erfia()', group=DISP)
+bool showERFI  = input.bool(true, 'Show erfi()' , group=DISP)
+
+string      SIGS = 'Other Sigmoids'
+bool     showIFT = input.bool (false,                 '', group=SIGS, inline='IFT'  )
+float   iftLamda = input.float( 2.26,     'ift() Lambda', group=SIGS, inline='IFT'  , step=0.1, tooltip='Only visible when display mode is set to ERFs')
+bool   showSIGMY = input.bool (false,                 '', group=SIGS, inline='SIGMY')
+float sigmyLamda = input.float( 4.05, 'sigmyod() Lambda', group=SIGS, inline='SIGMY', step=0.1, tooltip='Only visible when display mode is set to ERFs')
+
+var bool SHOW_ERFS     = mode == 'ERFs'
+var bool SHOW_ERFIS    = mode == 'ERFIs'
+var bool SHOW_ERF_ACC  = mode == 'Accuracy of ERFs'
+var bool SHOW_ERFI_ACC = mode == 'Accuracy of ERFIs'
+var bool SHOWING_ERFS  =  mode=='ERFs'  or mode=='Accuracy of ERFs'
+var bool SHOWING_ERFIS =  mode=='ERFIs' or mode=='Accuracy of ERFIs'
+
+
+float number = if SHOWING_ERFIS
+    (    divisor + bar_index - offset - last_bar_index) / divisor // Numeric sequence calculation for first input parameter to erfi()s
+else
+    (2 * divisor + bar_index - offset - last_bar_index) / divisor // Numeric sequence calculation for first input parameter to erf()s
+plot( showNums ? number : na, '', #00DD00, 3)
+
+hline(0.0, '', #DDDDDD, hline.style_dotted, 2)
+bgcolor(math.abs(number) == 1.0 ? #FFFFFF55 : na)
+if number == 0.0
+    line.new(bar_index, 0.0000000000000003, bar_index, -0.0000000000000003, xloc.bar_index, extend.both, #FFFFFF, line.style_dotted, 1)
+
+
+//###### ERFs ######
+float pERF = if SHOWING_ERFS
+    perf(number, terms)
+else
+    na
+float cERF = cerf(number)
+float sERF = serf(number)
+float xERF = xerf(number)
+float fERF = ferf(number)
+float aERF = aerf(number)
+float bERF = berf(number)
+float  ERF =  erf(number)
+
+plot(SHOW_ERFS and showCERF ? cERF : na, '', #555555, 23)
+plot(SHOW_ERFS and showSERF ? sERF : na, '', #777700, 19)
+plot(SHOW_ERFS and showXERF ? xERF : na, '', #00FFFF, 15)
+plot(SHOW_ERFS and showFERF ? fERF : na, '', #FF00FF, 12)
+plot(SHOW_ERFS and showAERF ? aERF : na, '', #0077FF, 8)
+plot(SHOW_ERFS and showBERF ? bERF : na, '', #FFFF00, 5)
+plot(SHOW_ERFS and showERF  ?  ERF : na, '', #FF0000, 3)
+plot(SHOW_ERFS and showPERF ? pERF : na, '', #FFFFFF)
+
+bgcolor(SHOW_ERFS and 1.0 == math.abs(pERF) ? #FF000033 : na)
+
+//###### ERF Accuracy Curves ######
+plot( SHOW_ERF_ACC and showCERF ? pERF - cERF : na, '', #555555)
+hline(SHOW_ERF_ACC and showCERF ?     0.00096 : na, '', #555555)
+hline(SHOW_ERF_ACC and showCERF ?    -0.00096 : na, '', #555555)
+
+plot( SHOW_ERF_ACC and showSERF ? pERF - sERF : na, '', #777700)
+hline(SHOW_ERF_ACC and showSERF ?    0.000022 : na, '', #777700)
+hline(SHOW_ERF_ACC and showSERF ?   -0.000022 : na, '', #777700)
+
+plot( SHOW_ERF_ACC and showXERF ? pERF - xERF : na, '', #00FFFF)
+hline(SHOW_ERF_ACC and showXERF ?   0.0000099 : na, '', #00FFFF)
+hline(SHOW_ERF_ACC and showXERF ?  -0.0000099 : na, '', #00FFFF)
+
+plot( SHOW_ERF_ACC and showFERF ? pERF - fERF : na, '', #FF00FF)
+hline(SHOW_ERF_ACC and showFERF ?  0.00000014 : na, '', #FF00FF)
+hline(SHOW_ERF_ACC and showFERF ? -0.00000014 : na, '', #FF00FF)
+
+plot( SHOW_ERF_ACC and showAERF ?  pERF - aERF : na, '', #0077FF)
+hline(SHOW_ERF_ACC and showAERF ?  0.000000072 : na, '', #0077FF)
+hline(SHOW_ERF_ACC and showAERF ? -0.000000072 : na, '', #0077FF)
+
+plot( SHOW_ERF_ACC and showBERF ?   pERF - bERF : na, '', #FFFF00)
+hline(SHOW_ERF_ACC and showBERF ?  0.0000000117 : na, '', #FFFF00)
+hline(SHOW_ERF_ACC and showBERF ? -0.0000000117 : na, '', #FFFF00)
+
+plot( SHOW_ERF_ACC and showERF ?    pERF - ERF : na, '', #FF0000)
+hline(SHOW_ERF_ACC and showERF ?  0.0000000001 : na, '', #FF0000)
+hline(SHOW_ERF_ACC and showERF ? -0.0000000001 : na, '', #FF0000)
+
+
+//####### ERFIs #######
+float pERFI = if SHOWING_ERFIS
+    perfi(number, iterms)
+else
+    na
+float ERFIc = erfic(number)
+float ERFIe = erfie(number)
+float ERFIa = erfia(number)
+float  ERFI =  erfi(number)
+
+plot(SHOW_ERFIS and showERFIC ?  ERFIc : na, '', #007777, 15)
+plot(SHOW_ERFIS and showERFIE ?  ERFIe : na, '', #770077, 12)
+plot(SHOW_ERFIS and showERFIA ?  ERFIa : na, '', #FFAAFF, 9)
+plot(SHOW_ERFIS and showERFI  ?  ERFI  : na, '', #FF9900, 4)
+plot(SHOW_ERFIS and showPERFI ? pERFI  : na, '', #DDDDDD)
+
+//###### ERF Accuracy Curves ######
+plot( SHOW_ERFI_ACC and showERFIC ? pERFI - ERFIc : na, '', #007777)
+hline(SHOW_ERFI_ACC and showERFIC ?       0.00033 : na, '', #007777)
+hline(SHOW_ERFI_ACC and showERFIC ?      -0.00033 : na, '', #007777)
+
+plot( SHOW_ERFI_ACC and showERFIE ? pERFI - ERFIe : na, '', #770077)
+hline(SHOW_ERFI_ACC and showERFIE ?   0.000000133 : na, '', #770077)
+hline(SHOW_ERFI_ACC and showERFIE ?  -0.000000133 : na, '', #770077)
+
+plot( SHOW_ERFI_ACC and showERFIA ? pERFI - ERFIa : na, '', #FFAAFF)
+hline(SHOW_ERFI_ACC and showERFIA ?   0.000000095 : na, '', #FFAAFF)
+hline(SHOW_ERFI_ACC and showERFIA ?  -0.000000095 : na, '', #FFAAFF)
+
+plot( SHOW_ERFI_ACC and showERFI ?       pERFI - ERFI : na, '', #FF9900)
+hline(SHOW_ERFI_ACC and showERFI ?  0.000000000000019 : na, '', #FF9900)
+hline(SHOW_ERFI_ACC and showERFI ? -0.000000000000019 : na, '', #FF9900)
+
+
+//###### Other Sigmoids ######
+plot(SHOW_ERFS and showIFT   ?     ift(number,   iftLamda) : na, '', #CCCC00, 2)
+plot(SHOW_ERFS and showSIGMY ? sigmyod(number, sigmyLamda) : na, '', #BB0000, 2)

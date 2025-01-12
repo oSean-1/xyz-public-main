@@ -1,0 +1,24 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © IkkeOmar
+//@version=5
+indicator('Logarithmic CVD [IkkeOmar]', shorttitle='LCVD - [IkkeOmar]', overlay=false)
+smooth = input.int(defval = 25, title = "Smoothing Distance")
+
+// Calculate buying and selling volume
+askVolume = volume * (close > open ? 1 : 0)  // Assuming higher close than open indicates buying
+bidVolume = volume * (close < open ? 1 : 0)  // Assuming lower close than open indicates selling
+
+// Delta is the difference between buying and selling volume
+delta = askVolume - bidVolume
+
+// Apply logarithmic transformation to delta
+// Adding a check to ensure delta is not zero as log(0) is undefined
+logDelta = delta > 0 ? math.log(math.abs(delta)) * math.sign(delta) : - math.log(math.abs(delta)) * math.sign(delta)
+
+// use the the ta lib for calculating the sma of the logDelta
+smoothLogDelta = ta.sma(logDelta, smooth)
+
+// Create candlestick plot
+plot(logDelta, color= color.green, title='Logarithmic CVD')
+
+plot(smoothLogDelta, color= color.rgb(145, 37, 1), title='Smooth CVD')

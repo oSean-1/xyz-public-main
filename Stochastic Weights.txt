@@ -1,0 +1,90 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © BigBitsIO
+
+
+//@version=4
+
+//
+// Pine Script v4
+// @author BigBitsIO
+// Script Library: https://www.tradingview.com/u/BigBitsIO/#published-scripts
+//
+
+study(title="Stochastic Weights - Basic [BigBitsIO]", shorttitle="Stochastic Weights - Basic [BigBitsIO]", format=format.price, precision=8, resolution="")
+
+enableStoch = input(true, title="Enable Stochastic")
+smoothStochK = input(3, title="Stochastic K MA Length", minval=1, type=input.integer)
+lengthStoch = input(14, title="Stochastic Lookback Length", minval=1, type=input.integer)
+
+enableStochRSI = input(true, title="Enable Stochastic RSI")
+smoothStochRSIK = input(3, title="Stochastic RSI K MA Length", minval=1, type=input.integer)
+lengthStochRSI = input(14, title="Stochastic RSI - Stochastic Lookback Length", minval=1, type=input.integer)
+rsiLengthInStochRSI = input(14, title="Stochastic RSI - RSI Lookback Length", minval=1, type=input.integer)
+
+enableStochPC = input(false, title="Enable Stochastic PC [BigBitsIO]")
+smoothStochPCK = input(3, title="Stochastic PC K MA Length", minval=1, type=input.integer)
+lengthStochPC = input(8, title="Stochastic PC Lookback Length", minval=1, type=input.integer)
+superStochPCFastSmoothLength = input(4, title="Stochastic PC Super Fast Smoothing Length", minval=1, type=input.integer)
+
+enableStochVOL = input(false, title="Enable Stochastic VOL [BigBitsIO]")
+smoothStochVOLK = input(3, title="Stochastic VOL K MA Length", minval=1, type=input.integer)
+lengthStochVOL = input(14, title="Stochastic VOL Lookback Length", minval=1, type=input.integer)
+superStochVOLFastSmoothLength = input(6, title="Stochastic PC Super Fast Smoothing Length", minval=1, type=input.integer)
+
+enableRSI = input(false, title="Enable RSI")
+rsiLength = input(14, minval=1, title="RSI Lookback Length", type=input.integer)
+
+smoothD = input(3, minval=1, title="Stochastic D Length (only applies to weighted K)", type=input.integer)
+
+int Weights = 0
+float WeightedTotal = 0
+
+float percentChange = 0
+float SPC = 0
+float StochPC = 0
+if(enableStochPC)
+    percentChange := ((close - open) / open) * 100
+    SPC := sma(percentChange, superStochPCFastSmoothLength)
+    StochPC := sma(stoch(SPC, SPC, SPC, lengthStochPC), smoothStochPCK)
+    Weights := Weights + 1
+    WeightedTotal := WeightedTotal + StochPC
+
+float Stoch = 0
+if(enableStoch)
+    Stoch := sma(stoch(close, high, low, lengthStoch), smoothStochK)
+    Weights := Weights + 1
+    WeightedTotal := WeightedTotal + Stoch
+    
+float RSIInStochRSI = 0
+float StochRSI = 0
+if(enableStochRSI)
+    RSIInStochRSI := rsi(close, rsiLengthInStochRSI)
+    StochRSI := sma(stoch(RSIInStochRSI, RSIInStochRSI, RSIInStochRSI, lengthStochRSI), smoothStochRSIK)
+    Weights := Weights + 1
+    WeightedTotal := WeightedTotal + StochRSI
+    
+float RSI = 0
+if(enableRSI)
+    RSI := rsi(close, rsiLength)
+    Weights := Weights + 1
+    WeightedTotal := WeightedTotal + RSI
+    
+float VOLInStochVOL = 0
+float SVOL = 0
+float StochVOL = 0
+if(enableStochVOL)
+    VOLInStochVOL := close >= open ? volume : volume * -1
+    SVOL := sma(VOLInStochVOL, superStochVOLFastSmoothLength)
+    StochVOL := sma(stoch(SVOL, SVOL, SVOL, lengthStochVOL), smoothStochVOLK)
+    Weights := Weights + 1
+    WeightedTotal := WeightedTotal + StochVOL
+    
+
+k = WeightedTotal / Weights
+d = sma(k, smoothD)
+
+plot(k, color=color.blue, title="K (Weighted)")
+plot(d, color=color.orange, title="D")
+h0 = hline(80)
+h1 = hline(20)
+fill(h0, h1, color=color.purple, transp=80)

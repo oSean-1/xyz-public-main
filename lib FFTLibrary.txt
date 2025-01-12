@@ -1,0 +1,161 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © tbiktag
+
+//@version=5
+
+// @description: The library contains a function for performing Fast Fourier Transform (FFT) of a time series
+//               along with helper functions. In general, FFT is defined for complex inputs and outputs. 
+//               The real and imaginary parts of formally complex data are handled as separate arrays (denoted 
+//               as x and y). In case of real-valued data, the array of the imaginary parts should be filled with zeros.
+library("FFTLibrary")
+
+
+// @function: Computes the discrete Fourier transform using an FFT algorithm.
+// @param   x:        float[] array, real part of the data,      array size must be a power of 2
+// @param   y:        float[] array, imaginary part of the data, array size must be the same as x; for real-valued input, y must be an array of zeros
+// @param   dir:      string, options = ["Forward", "Inverse"],  defines the direction of the transform: forward" (time-to-frequency) or inverse (frequency-to-time)
+// @returns [x, y]:   tuple [float[], float[]], real and imaginary parts of the transformed data (original x and y are changed on output)
+export fft(float[] x, float[] y, string dir) =>
+    //
+    if dir != "Forward" and dir != "Inverse"
+        runtime.error("Specify the direction of the transform (dir = Forward or dir = Inverse).")
+    //
+    // --- Take care of the input array size ---
+    int initN  = array.size(x)
+    if  initN != array.size(y)
+        runtime.error("The size of the real (array x) and imaginary (array y) parts of the input does not match.")
+    //
+    // Make sure that the array size is a power of 2
+    float initm = math.log(initN)/math.log(2) //approximation of log2
+    if    initm/math.floor(initm) != 1.0
+        runtime.error("The size of the input arrays must be a power of 2 (e.g., 64, 128, 256, 512, etc.)")
+    int   m     = math.floor(initm)
+    int   N     = int(math.pow(2,m))
+    //
+    // In-place complex-to-complex FFT algorithm is adapted from http://paulbourke.net/miscellaneous/dft/ 
+    // --- Do the bit reversal ---
+    int     ii  = 0
+    int      k  = 0
+    float tmpx  = 0.0
+    float tmpy  = 0.0
+    for i  = 0 to N - 2
+        if i < ii
+            tmpx := array.get(x,i)
+            tmpy := array.get(y,i)
+            array.set(x,i,array.get(x,ii))
+            array.set(y,i,array.get(y,ii))
+            array.set(x,ii,tmpx)
+            array.set(y,ii,tmpy)
+        k := int(N/2)
+        for tmp = 0 to m
+            if k > ii
+                break
+            ii  -= k
+            k   := int(k/2)
+        ii += k
+    //
+    // --- Compute the FFT ---
+    int    i1   = 0
+    float  u1   = 0.0
+    float  u2   = 0.0
+    float  t1   = 0.0
+    float  t2   = 0.0
+    float   z   = 0.0
+    //Initial cosine & sine
+    float  c1   = -1.0
+    float  c2   =  0.0
+    // Loop for each stage
+    int    l1   = 0
+    int    l2   = 1
+    for     l   = 0 to m-1
+        l1  :=  l2
+        l2  :=  int(l2*2) // int(l2*2) is equivalent to bitwise l2 <<= 1 in C
+        //
+        // Initial vertex
+        u1  :=  1.0
+        u2  :=  0.0
+        // Loop for each sub DFT
+        for j = 0 to l1 - 1
+            for i = j to N - 1 by l2
+                i1 := i + l1
+                t1 := u1*array.get(x,i1) - u2*array.get(y,i1)
+                t2 := u1*array.get(y,i1) + u2*array.get(x,i1)
+                array.set(x,i1,array.get(x,i)-t1)
+                array.set(y,i1,array.get(y,i)-t2)
+                array.set(x, i,array.get(x,i)+t1)
+                array.set(y, i,array.get(y,i)+t2)
+            // Next polygon vertex
+            z   := u1 * c1 - u2 * c2
+            u2  := u1 * c2 + u2 * c1
+            u1  := z
+        //Half-angle sine
+        c2  :=  math.sqrt((1.0 - c1)/2.0)
+        if dir  == "Forward"
+            c2  := -c2
+        //Half-angle cosine
+        c1  :=  math.sqrt((1.0 + c1)/2.0)
+    //Scaling for forward transform
+    if dir  == "Forward"
+        for i = 0 to N-1
+            array.set(x,i,array.get(x,i)/N)
+            array.set(y,i,array.get(y,i)/N)
+    [x, y]
+
+
+// @function: Helper function that computes the power of each frequency component 
+//            (in other words, Fourier amplitudes squared).
+// @param   x     : float[] array, real part of the Fourier amplitudes
+// @param   y     : float[] array, imaginary part of the Fourier amplitudes
+// @returns power : float[] array of the same length as x and y, Fourier amplitudes squared
+export fftPower(float[] x, float[] y) =>
+    int     N     = array.size(x)
+    float[] power = array.new_float(na)
+    for i = 0 to N-1
+        array.push(power,math.pow(array.get(x,i),2) + math.pow(array.get(y,i),2))
+    power
+
+
+// @function: Helper function that returns the discrete Fourier transform sample frequencies 
+//            defined in cycles per timeframe unit. For example, if the timeframe is 5m, 
+//            the frequencies are in cycles/(5 minutes).
+// @param   N     : int, window length (number of points in the transformed dataset)
+// @returns freq  : float[] array of N, contains the sample frequencies (with zero at the start). 
+export fftFreq(int N) =>
+    float[] freq =  array.new_float(N)
+    int i        =  0
+    for f =    0 to N/2 - 1
+        array.set(freq, i, f/N)
+        i += 1
+    for f = -N/2 to -1 by 1
+        array.set(freq, i, f/N)
+        i += 1
+    freq
+
+
+
+// -- sample output --
+int     N = 32
+float[] X = array.new_float(N)
+float[] Y = array.new_float(N)
+for i = 0 to N-1
+    float x_i = math.cos(2*math.pi/16*i) + math.cos(2*math.pi/4*i) + math.random(-1,1,124234)
+    array.set(X,i,x_i)
+    array.set(Y,i,0.0)
+if barstate.islast
+	for i = 0 to N-2
+		float y1 = array.get(X,i)
+		float y2 = array.get(X,i+1)
+		int   x0 = N/2+2
+		line.new(bar_index[i+x0], y1, bar_index[i+1+x0],y2,color=color.blue)
+// apply FFT and calculate powers
+[Xt, Yt] = fft(X, Y, "Forward")
+float[] P = fftPower(Xt,Yt)
+// plot
+if barstate.islast
+	for i = 0 to N/2-2
+		float y1 = array.get(P,i)*10
+		float y2 = array.get(P,i+1)*10
+		line.new(bar_index[i], y1, bar_index[i+1],y2,color=color.red)
+        line.new(bar_index, 0.0, bar_index[N/2], 0.0, style = line.style_arrow_right, color=color.silver)
+        label.new(bar_index[N/2], 0.0, text="freq", style=label.style_none, textcolor = color.silver)
+

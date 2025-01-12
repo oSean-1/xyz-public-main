@@ -1,0 +1,353 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © liquid-trader
+
+// This script normalizes volume and volatility data relative to a given bars typical value across all charted sessions.
+// Akin to RVOL or ATR, displaying data in this way helps clarify when volume and volatility are beyond the normal
+// range of the average session.
+// More here: https://www.tradingview.com/script/jeiDvb0m-NVOL-Normalized-Volume-Volatility/
+
+//@version=6
+indicator("NVOL Normalized Volume & Volatility", "NVOL", overlay=false, format=format.volume, precision=1)
+
+
+
+// ---------------------------------------------------- SETTINGS --------------------------------------------------- //
+
+// Base Colors
+const color none = color.rgb(0,0,0,100), const color zClr = color.new(color.gray, 90), var tblBgClr = color.new(chart.bg_color, 20)
+
+// Volume / Volatility Settings
+const string V1 = "Volume", const string V2 = "Volatility", const string rto = "Ratio", const string pct = "Percent", const string stats = "\n\nMean\nThe sum of values divided by the quantity of values. It's what most people think of when they say \"average.\"\n\nMedian\nThe middle value. 50% of the data will be lower and 50% will be higher.\n\nQ3\nThe third quartile. 75% of the data will be lower and 25% will be higher.", const string example = "\n\nExample:\nVol / (Mean + Sigma × 3) × 100\n\nThe above results in a percentage where \"100\" is the Mean + 3 Standard Deviations (Sigma).\n\nIn a normal distribution, approximately 99.7% of data falls within 3 Standard Deviations of the mean, 95.4% falls within 2 Standard Deviations, and 68.3% falls within 1 standard deviation.", const string plotTT = "The numerator (volume or volatility) and scale (if it should be multiplied by 100)." + example
+plotType = input.string(V1, "Normalize", [V1, V2], tooltip=plotTT, inline="type")
+plotScale = input.string(rto, "", [rto, pct], inline="type"), var scaleMult = plotScale == pct ? 100 : 1
+
+// Basis Settings
+const string M1 = "Mean", const string Q2 = "Median", const string Q3 = "Q3", const string srcTT = "The denominator (Mean, Median, or Q3) and its offset (the number of standard deviations to add to the denominator). Also known as the basis." + stats + example
+nSrc = input.string(M1, "Basis        ", [M1, Q2, Q3], tooltip=srcTT, inline="threshold")
+sMult = input.float(3, "", 0, inline="threshold")
+
+// Sample Settings
+const string S1 = "All Charted Bars", const string S2 = "Lookback", const string s1TT = "On intraday charts, this matches the session index (the number of charted session, minus 1). On DWM charts, this matches the charts \"bar_index\" (the number of charted bars, minus 1).", const string s2TT = "The maximum sample size.\n\n"+S1+"\nThis uses all charted data and ignores the lookback number. This is the recommended option.\n\n"+s1TT+"\n\n"+S2+"\n"+"The maximum lookback period. This is NOT recommended for normalization, and is more likely to produce false positives.\n\nIf the data set is smaller than the specified period, the entire data set will be used.\n\nA minimum sample size is typically 2% to 10% of the population. In the context of trading, if a year is the \"population\" (≈250 trading days), 2% would be 5 and 10% would be 25."
+sampleTyp = input.string(S1, "Sample    ", [S1, S2], tooltip=s2TT, inline="sample"), var lookback = sampleTyp == S2
+sampleLen = input.int(5, "", 2, inline="sample", display=display.none)
+
+// Name Settings
+showName = input.bool(false, "Show Vol. name on plot", tooltip="Overlays \"VOLUME\" or \"VOLATILITY\" on the plot (whichever you've selected to normalize).", inline="name", display=display.none)
+nameClr  = input.color(color.new(color.gray, 50), "", inline="name", display=display.none)
+
+// Primary Plot Settings
+const string g1 = "Plot", const string primaryTT = "The default, within signal, and beyond signal colors of the normalized values. As well as the plot style.", const string P1 = "Columns", const string P2 = "Circles"
+primary = input.bool(true, "Norm. Val.", tooltip=primaryTT, inline="primary", group=g1, display=display.none)
+clr1 = input.color(color.rgb(50, 100, 150), "", inline="primary", group=g1, display=display.none)
+clr2 = input.color(color.aqua, "", inline="primary", group=g1, display=display.none)
+clr3 = input.color(color.rgb(175, 235, 245), "", inline="primary", group=g1, display=display.none)
+primaryType = input.string(P1, "", [P1, P2], inline="primary", group=g1, display=display.none)
+fadClrs = input.bool(true, "Fade in colors between zero and the signal", group=g1, display=display.none)
+dirPlot = input.bool(true, "Plot relative to bar direction", group=g1, display=display.none)
+
+// Linear Regression Settings
+const string g2 = "Helpers", const string lrTT = "Linear Regression color, length, and multiple (how much to amplify the value)."
+lrSho = input.bool(true, "Lin. Reg.  ", tooltip=lrTT, inline="lr", group=g2, display=display.none)
+lrClr = input.color(color.rgb(220, 60, 250), "", inline="lr", group=g2, display=display.none)
+lrLen = input.int(90, "", 2, 1440, inline="lr", group=g2, display=display.none)
+lrAmp = input.float(5, "", 1, inline="lr", group=g2, display=display.none)
+
+// Signal Zone Settings
+const string d1 = "\n\nThese numbers are automatically multiplied by -1 for symetrical values below zero, and by 100 when the scale is set to \"Percent\".", const string sigTT = "The color, lower bounds, and upper bounds of the signal zones.\n\nWhen using the default settings, 1.0 = Mean + 3 Standard Deviations and 2.0 = (Mean + 3 Standard Deviations) × 2" + d1
+sigSho = input.bool(true, "Sig. Zone ", tooltip=sigTT, inline="signal", group=g2, display=display.none)
+sigClr = input.color(zClr, "", inline="signal", group=g2, display=display.none)
+sigMin = input.float(1, "", inline="signal", group=g2, display=display.none), var sMin = sigMin * scaleMult
+sigMax = input.float(2, "", inline="signal", group=g2, display=display.none), var sMax = sigMax * scaleMult
+
+// Other Helpers
+linSho = input.bool(false, "Int. Levels", tooltip="The color and values of interim levels." + d1, inline="lines", group=g2, display=display.none)
+linClr = input.color(color.new(color.gray, 25), "", inline="lines", group=g2, display=display.none)
+l1Valu = input.float(0.33, "", 0, 1, inline="lines", group=g2, display=display.none), var l1v = l1Valu * scaleMult
+l2Valu = input.float(0.66, "", 0, 1, inline="lines", group=g2, display=display.none), var l2v = l2Valu * scaleMult
+zroSho = input.bool(true,"Zero Line ", inline="zero", group=g2, display=display.none)
+zroClr = input.color(color.new(color.gray, 50), "", inline="zero", group=g2, display=display.none)
+
+// Tables
+const string g3 = "Data Tables", const string ttActual = "The exact value of the current bar.", const string ttThreshold = "The threshold used in the basis calculation (Mean, Median, or Q3).", const string ttSigma = "The average variance from the mean (aka. Standard Deviation).", const string ttBasis = "Threshold + Sigma × Multiple", const string ttNorm = "Value / Basis × Scale", const string ttLinReg = "If you're unfamiliar with the term, think of it like a moving average.", const string ttCorr = "Covariance / (VolumeSigma × VolatilitySigma)", const string ttR2 = "Correlation × Correlation\nAn R2 < 0.3 indicates low correlation, 0.3 to 0.7 is moderate, and an R2 > 0.7 is highly correlated.", const string ttPVal = "The probabilty a correlation is due to randomness, where values ≤ 0.05 are very likely NOT random.", const string ttIdx = "The bars indices relative to the data set.", const string ttSess = "The bars index within a session. Not to be confused with TradingViews \"bar_index\", which is the bars index relative to the chart.", const string ttSet1 = "The bars index within the", const string ttSet2 = "sample.\n\n" + s1TT
+datTbl = input.bool(false, "Volume & Volatility Stats", tooltip="The actual, threshold, sigma, basis, normalized, and linear regression values for both volume and volatility.\n\nActual Value\n"+ttActual+"\n\nThreshold\n"+ttThreshold+"\n\nSigma\n"+ttSigma+"\n\nBasis\n"+ttBasis+"\n\nNormalized Value\n"+ttNorm+"\n\nLinear Regression\n"+ttLinReg, group=g3, display=display.none)
+corTbl = input.bool(false, "Correlation Stats", tooltip="The correlation coefficient, R2, and P-Value.\n\nCorrelation Coefficient\n"+ttCorr+"\n\nR2 (R Squared)\n"+ttR2+"\n\nP-Value\n"+ttPVal, group=g3, display=display.none)
+idxTbl = input.bool(false, "Indices & Sample Size", tooltip=ttIdx+"\n\nSession\n"+ttSess+"\n\nSample\n"+ttSet1+" "+ttSet2, group=g3, display=display.none)
+yPos = input.string("Middle", "Position  ", ["Top", "Middle", "Bottom"], inline="position", group=g3, display=display.none)
+xPos = input.string("Right", "", ["Left", "Center", "Right"], inline="position", group=g3, display=display.none)
+tSiz = input.string(size.auto, "Text Size", [size.tiny, size.small, size.normal, size.large, size.huge, size.auto], inline="tsize", group=g3, display=display.none)
+
+
+
+// ----------------------------------------------------- CORE ------------------------------------------------------ //
+
+// @type Object to store volume and volatility values.
+type BarVol
+    array<float> Data
+    float Mean
+    float Median
+    float Q3
+    float Variance
+    float Sigma
+    float Threshold
+    float Basis
+    float Ratio
+    float Percent
+    float RawVal
+    float NormVal
+    float HistVal
+    float LinReg
+
+// @type Object to store bar correlation statistics.
+type VolCor
+    float  Covariance
+    float  Correlation
+    float  R2
+    float  DegOfFreedom
+    float  TStat
+    float  PVal
+
+// @type Object to store bar data.
+type BarData
+    BarVol Volume
+    BarVol Volatility
+    VolCor Vol
+
+// Initialize bar data array
+var bars = array.new<BarData>()
+
+// Initialize session variables
+var index = 0
+var session = -1
+var arrSize = -1
+var avgCorr = 0.
+var avgR2 = 0.
+var avgPVal = 0.
+
+// Ensure the array size matches the index
+if index > arrSize
+    arrSize += 1
+    bars.push(BarData.new(BarVol.new(array.new<float>()), BarVol.new(array.new<float>()), VolCor.new()))
+
+// @function Calculates the p-value using the Abramowitz and Stegun approximation.
+const float a1 = 0.254829592, const float a2 = 0.284496736, const float a3 = 1.421413741, const float a4 = -1.453152027, const float a5 = 1.061405429, const float p1  = 0.3275911
+approxPValue(tStat) =>
+    z = math.abs(tStat)
+    t = 1 / (1 + p1 * z)  // T-Distribution
+    erf = 1 - (((((a5 * t + a4) * t + a3) * t + a2) * t + a1) * t) * math.exp(-z * z / 2) // Error Function
+    cdf = 0.5 * (1 + erf) // Cumulative Distribution Function 
+    ttt = 2 * (1 - cdf)   // Two Tail Test
+
+// @function Updates statistical values for BarVol objects.
+method stats(BarVol vol) =>
+    sample = vol.Data
+    sampleSiz = sample.size()
+    if lookback and sampleSiz > sampleLen
+        sample := sample.slice(sampleSiz - sampleLen, sampleSiz - 1)
+
+    vol.Mean      := sample.avg()
+    vol.Median    := sample.median()
+    vol.Q3        := sample.percentile_linear_interpolation(75)
+    vol.Variance  := sample.variance()
+    vol.Sigma     := sample.stdev()
+    vol.Threshold := nSrc == M1 ? vol.Mean : nSrc == Q2 ? vol.Median : vol.Q3
+    vol.Basis     := vol.Threshold + vol.Sigma * sMult
+
+// @function Updates statistical values for VolCor objects.
+method correlationStats(BarData bar) =>
+    bar.Vol.Covariance   := array.covariance(bar.Volume.Data, bar.Volatility.Data, true)
+    bar.Vol.Correlation  := bar.Vol.Covariance / (bar.Volume.Sigma * bar.Volatility.Sigma)
+    bar.Vol.R2           := math.pow(bar.Vol.Correlation, 2)
+    bar.Vol.DegOfFreedom := math.max(bar.Volume.Data.size(), bar.Volatility.Data.size()) - 2
+    bar.Vol.TStat        := bar.Vol.Correlation * (bar.Vol.DegOfFreedom) / (1 - bar.Vol.R2)
+    bar.Vol.PVal         := approxPValue(bar.Vol.TStat)
+
+// Update bar stats with each new session
+if session.isfirstbar
+    index := 0
+    session += 1
+
+    if session > 0
+        cc = array.new<float>()
+        r2 = array.new<float>()
+        pv = array.new<float>()
+
+        for [idx, bar] in bars
+            bar.Volume.stats()
+            bar.Volatility.stats()
+            bar.correlationStats()
+
+            cc.push(bar.Vol.Correlation)
+            r2.push(bar.Vol.R2)
+            pv.push(bar.Vol.PVal)
+        
+        avgCorr := cc.avg()
+        avgR2   := r2.avg()
+        avgPVal := pv.avg()
+
+// Bar direction and linear regression length
+barSign = dirPlot ? math.sign( close - open ) : 1
+var len = 2, len := na(barSign[2]) ? 2 : len < lrLen ? len + 1 : len
+
+// @function Updates plotable values in BarVol object.
+method set(BarVol vol, float value) =>
+    if session > 0
+        vol.Ratio   := value / vol.Basis
+        vol.Percent := vol.Ratio * 100
+        vol.RawVal  := value
+        vol.NormVal := switch plotScale
+            rto => vol.Ratio
+            pct => vol.Percent
+        vol.HistVal := vol.NormVal * barSign
+        vol.LinReg  := ta.linreg(vol.HistVal, len, 0) * lrAmp
+
+// Set normalized values
+bar = bars.get(index)
+bar.Volume.set(volume)
+bar.Volatility.set(high - low)
+
+// Set plot histogram and linear regression
+float histogram = na, float hist = na, float linReg = na
+if plotType == V1
+    histogram := bar.Volume.NormVal
+    hist      := bar.Volume.HistVal
+    linReg    := bar.Volume.LinReg
+else
+    histogram := bar.Volatility.NormVal
+    hist      := bar.Volatility.HistVal
+    linReg    := bar.Volatility.LinReg
+
+
+// Functions to set transparency
+maxAlpha(Color, Alpha) => 100 - (100 - color.t(Color)) * Alpha
+
+// Store last bar index of first session, used to fade in plot colors
+var sessionBars = 1440
+if session == 1 and session.isfirstbar
+    sessionBars := index[1]
+
+// Histogram color
+var minSessions = lookback ? sampleLen : timeframe.isintraday ? 6 : timeframe.isdaily ? 64 : timeframe.isweekly ? 32 : 16
+float histAlpha = fadClrs ? math.min(histogram / sMin, 1) : 1
+histClr = sigSho and histogram > sMin ? histogram > sMax ? clr3 : clr2 : clr1
+maxHistAlpha = maxAlpha(histClr, session < minSessions ? ((bar_index - sessionBars) / (sessionBars * minSessions * 2)) * histAlpha : histAlpha)
+histClr := color.new(histClr, math.min(100, math.max(0, maxHistAlpha)))
+
+// Linear regression color
+linRegClr = linReg < linReg[1] ? color.new(lrClr, maxAlpha(lrClr, 0.5)) : lrClr
+maxLinRegAlpha = maxAlpha(linRegClr, session < minSessions ? (bar_index - sessionBars) / (sessionBars * minSessions) : 1)
+linRegClr := color.new(linRegClr, maxLinRegAlpha)
+
+
+
+// ---------------------------------------------------- PLOTS ------------------------------------------------------ //
+
+// Normalized volume (or volatility)
+plot(hist, "NVOL", histClr, style = plot.style_columns, editable = false, display = primary and primaryType == P1 ? display.pane + display.price_scale : display.none)
+plot(hist, "NVOL", histClr, style = plot.style_circles, editable = false, display = primary and primaryType == P2 ? display.pane + display.price_scale : display.none)
+
+// Linear regression
+plot(linReg, "Linear Regression", linRegClr, 2, editable = false, display = lrSho ? display.pane + display.price_scale : display.none)
+
+// Function to determine if a plot should display
+disp(bool ifTrue, show = display.all) => ifTrue ? show : display.none
+
+// Positive signal zone
+var dispZone = disp(sigSho)
+var pos1 = hline(sMin, editable = false, display = display.none)
+var pos2 = hline(sMax, editable = false, display = display.none)
+fill(pos1, pos2, zClr, "Upper Signal Zone", true, false, dispZone)
+
+// Negative signal zone
+var neg1 = hline(dirPlot ? -sMin : na, editable = false, display = display.none)
+var neg2 = hline(dirPlot ? -sMax : na, editable = false, display = display.none)
+fill(neg1, neg2, zClr, "Lower Signal Zone", true, false, dispZone)
+
+// Zero line
+var dispZero = disp(zroSho)
+hline(0, "Zero", zroClr, hline.style_dotted, 1, false, dispZero)
+
+// Positive interim levels
+var l1c = color.new(linClr, maxAlpha(linClr, 0.75))
+var l2c = linClr
+var dispPl1 = disp(linSho)
+var dispPl2 = disp(linSho and l1Valu != l2Valu)
+hline(l1v, "Positive Interim Line 1", l1c, hline.style_dotted, 1, false, dispPl1)
+hline(l2v, "Positive Interim Line 2", l2c, hline.style_dotted, 1, false, dispPl2)
+
+// Negative interim levels
+var dispNl1 = disp(dirPlot, dispPl1)
+var dispNl2 = disp(dirPlot, dispPl2)
+hline(-l1v, "Negative Interim Line 1", l1c, hline.style_dotted, 1, false, dispNl1)
+hline(-l2v, "Negative Interim Line 2", l2c, hline.style_dotted, 1, false, dispNl2)
+
+
+
+// --------------------------------------------------- TABLES ------------------------------------------------------ //
+
+// Show data table when enabled
+if session > 0 and (datTbl or corTbl or idxTbl)
+
+    cols = array.from("Volume", "Volatility", "Bar", "Avg", "Session", "Sample")
+    chtt = array.from("Quantity of stuff sold (shares, contracts, etc.)", "High - Low", "Current Bar", "Average (mean) of the entire data set.", ttSess, ttSet1+" "+str.format_time(time, "h:mm a")+" "+ttSet2)
+    rows = array.from("Actual", nSrc, "Sigma", "Basis", "Norm", "Lin Reg", "Corr", "R2", "P-Val", "Bar Idx", "Smp Siz")
+    rhtt = array.from(ttActual, ttThreshold,  ttSigma, "Basis = "+nSrc+" + Sigma × "+str.tostring(sMult), "Normalized Value = "+ttNorm, "Linear Regression. "+ttLinReg, "Correlation Coefficient = "+ttCorr, "R2 = "+ttR2, ttPVal, ttIdx, "The sample size ("+sampleTyp+") used to normalize the current bar.")
+    v1 = array.from(bar.Volume.RawVal,     bar.Volume.Threshold,     bar.Volume.Sigma,     bar.Volume.Basis,     bar.Volume.NormVal,     bar.Volume.LinReg,     bar.Vol.Correlation, bar.Vol.R2, bar.Vol.PVal, index, lookback ? math.min(index, sampleLen) : session)
+    v2 = array.from(bar.Volatility.RawVal, bar.Volatility.Threshold, bar.Volatility.Sigma, bar.Volatility.Basis, bar.Volatility.NormVal, bar.Volatility.LinReg, avgCorr, avgR2, avgPVal, session, na)
+
+    // Initialize table
+    metrics = table.new(str.lower(yPos) + "_" + str.lower(xPos), cols.size(), rows.size() + 5, none, none, 0, none, 0, false)
+
+    // Column headers
+    for [col, str] in cols
+        if (datTbl and col < 2) or (corTbl and 1 < col and col < 4) or (idxTbl and 3 < col)
+            c = col % 2 + 1
+            r = col < 2 ? 0 : col < 4 ? 8 : 13
+            metrics.cell(c, r, str, text_size = tSiz, text_color = chart.fg_color, bgcolor = tblBgClr, tooltip = chtt.get(col))
+
+    // Row headers
+    for [row, str] in rows
+        if (datTbl and row < 6) or (corTbl and 5 < row and row < 9) or (idxTbl and 8 < row and row < 11)
+            r = row + (row < 6 ? 1 : row < 9 ? 3 : 5)
+            metrics.cell(0, r, str, text_size = tSiz, text_color = chart.fg_color, bgcolor = tblBgClr, text_halign = text.align_left, tooltip = rhtt.get(row))
+
+    // Data cells
+    for [row, num] in v1
+        if (datTbl and row < 6) or (corTbl and 5 < row and row < 9) or (idxTbl and 8 < row and row < 11)
+            r = row + (row < 6 ? 1 : row < 9 ? 3 : 5)
+            metrics.cell(1, r, str.tostring(math.round(num, 2)), text_size = tSiz, text_color = color.gray, bgcolor = tblBgClr, tooltip = str.tostring(num))
+            metrics.cell(2, r, str.tostring(math.round(v2.get(row), 2)), text_size = tSiz, text_color = color.gray, bgcolor = tblBgClr, tooltip = str.tostring(v2.get(row)))
+
+            if row == 10
+                metrics.merge_cells(1, r, 2, r)
+
+    // Fill empty cells
+    emptyCells = array.from(0, 8, 13)
+    for row in emptyCells
+        if (datTbl and row == 0) or (corTbl and row == 8) or (idxTbl and row == 13)
+            metrics.cell(0, row, "", 0, 1, bgcolor = tblBgClr)
+    
+    // Visually separate sections
+    spacerCells = array.from(7, 12)
+    for row in spacerCells
+        if (datTbl and (corTbl or idxTbl) and row == 7) or (corTbl and idxTbl and row == 12)
+            metrics.cell(0, row, "", 0, 1, text_color = none, bgcolor = none)
+            metrics.merge_cells(0, row, 2, row)
+    
+if showName
+    name = table.new(position.middle_center, 1, 1, none, none, 0, none, 0, false)
+    name.cell(0, 0, str.upper(plotType), 0, 0, nameClr, text_size = size.huge)
+
+
+// ----------------------------------------------- STORE NEW DATA -------------------------------------------------- //
+
+// @function Pushes a float to a copied array and returns the copy.
+method append(array<float> arr, float value) => copy = arr.copy(), copy.push(value), copy
+
+if barstate.isconfirmed
+
+    // Append new data
+    bar.Volume.Data := bar.Volume.Data.append(volume)
+    bar.Volatility.Data := bar.Volatility.Data.append(high - low)
+
+    // Increment index
+    index += 1

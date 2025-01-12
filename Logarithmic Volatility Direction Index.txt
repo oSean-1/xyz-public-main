@@ -1,0 +1,24 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © IkkeOmar
+
+//@version=5
+indicator(title="Logarithmic Volatility Direction Index [IkkeOmar]", shorttitle="LVDI [IkkeOmar]", overlay=false, timeframe="", timeframe_gaps=true)
+len = input.int(80, minval=1, title="Length")
+src = input(close, title="Source")
+lenWMA = input.int(25, minval=1, title="Length Smoothing")
+
+// Calculate WMA
+wma_basic = math.log10(ta.wma(src, len))
+// Apply volume filter
+average_volume = ta.sma(volume, lenWMA)
+
+volume_weighted = math.log10(wma_basic * (volume / math.log10(average_volume)))
+
+// Calculate distance and score
+distance = math.log10(src) - math.log10(volume_weighted)
+score = math.sign(distance) * math.pow(math.abs(distance), 2)
+
+// Plot WMA and Score
+plot(volume_weighted, title="Volume Weighted WMA", color=color.blue, linewidth = 2)
+
+plot(ta.sma(volume_weighted, lenWMA), title="Volume Weighted WMA", color=color.rgb(189, 160, 0))

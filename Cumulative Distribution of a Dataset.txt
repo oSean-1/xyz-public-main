@@ -1,0 +1,260 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// ©
+
+
+//  /$$$$$$   /$$                                                         /$$                                            
+// /$$__  $$ | $$                                                        | $$                                            
+//| $$  \__//$$$$$$    /$$$$$$  /$$    /$$ /$$$$$$   /$$$$$$   /$$$$$$$ /$$$$$$    /$$$$$$  /$$    /$$ /$$$$$$   /$$$$$$$
+//|  $$$$$$|_  $$_/   /$$__  $$|  $$  /$$//$$__  $$ /$$__  $$ /$$_____/|_  $$_/   /$$__  $$|  $$  /$$//$$__  $$ /$$_____/
+// \____  $$ | $$    | $$$$$$$$ \  $$/$$/| $$$$$$$$| $$  \__/|  $$$$$$   | $$    | $$$$$$$$ \  $$/$$/| $$$$$$$$|  $$$$$$ 
+// /$$  \ $$ | $$ /$$| $$_____/  \  $$$/ | $$_____/| $$       \____  $$  | $$ /$$| $$_____/  \  $$$/ | $$_____/ \____  $$
+//|  $$$$$$/ |  $$$$/|  $$$$$$$   \  $/  |  $$$$$$$| $$       /$$$$$$$/  |  $$$$/|  $$$$$$$   \  $/  |  $$$$$$$ /$$$$$$$/
+// \______/   \___/   \_______/    \_/    \_______/|__/      |_______/    \___/   \_______/    \_/    \_______/|_______/ 
+
+//       ___________________
+//      /                   \
+//     /  _____        _____ \
+//    /  /     \      /     \  \
+// __/__/       \____/       \__\_____
+//|           ___________           ____|
+// \_________/           \_________/
+//            \  /////// /
+//             \/////////
+// © Steversteves
+
+//@version=5
+indicator("Cumulative Distribution of a Dataset with Kurtosis and Skewness [SS]", shorttitle = "CDD Probability Assessment [SS]", max_bars_back = 5000)
+
+// Groups 
+g1 = "Dataset Timeframe & Source"
+g2 = "Assessment Functions"
+g3 = "Probability Calculations"
+start_time =    input.time(timestamp("20 Jul 2022 00:00 +000"), title = "Start time", confirm = true, group = g1)
+end_time =      input.time(timestamp("20 Jul 2022 00:00 +000"), title = "End time", confirm = true, group = g1) 
+src =           input.source(close, "Source for Testing Kurtosis and Skewness", group = g1)
+pltfunc =       input.string("View Distribution Data", "What would you like to analyze?", ["View Distribution Data", "Calculate Probability", "Plot Distribution as Z-Score", "Plot Kurtosis", "Plot Skewness", "Plot Kurtosis & Skewness", "Plot Cumulative Distribution Density"], group = g2)
+userin =        input.float(200, "Price for Probability Calculations", group = g3)
+
+// Arrays
+dataset_arr = array.new_float() 
+src_arr = array.new_float( )
+
+for i = 0 to 5000 
+    if time[i] >= start_time and time[i] <= end_time
+        array.push(dataset_arr, close[i])
+        array.push(dataset_arr, high[i])
+        array.push(dataset_arr, low[i])
+        array.push(src_arr, src[i])
+
+avg = array.avg(dataset_arr) 
+sd = array.stdev(dataset_arr) 
+max = array.max(dataset_arr) 
+min = array.min(dataset_arr) 
+
+// Tests of Normality Functions// 
+
+skewness(array) =>
+    avga = array.avg(array)
+    stdv = array.stdev(array)
+    sum = math.pow(src - avg, 3)
+    for i = 0 to array.size(array)
+        if time[i] >= start_time and time[i] <= end_time  
+            sum := sum + math.pow(src[i] - avg, 3)
+    ((sum / array.size(array)) / math.pow(stdv, 3))
+
+
+kurtosis(array) =>
+    avgb = array.avg(array)
+    stdv = array.stdev(array)
+    sq_df = array.new_float() 
+    for i = 0 to array.size(array) 
+        if time[i] >= start_time and time[i] <= end_time 
+            array.push(sq_df, math.pow(src[i] - avg, 4))
+    sum = array.sum(sq_df) 
+    c = array.size(array) * math.pow(stdv, 4)
+    b = (sum / c ) - 3
+
+kurt = kurtosis(src_arr)
+skew = skewness(src_arr) 
+
+// Distribution 
+normdist = math.pow((1 / ((math.sqrt(2 * math.pi) * sd))), -( (math.pow((close-avg), 2)) / (2 * math.pow(sd, 2)) ))
+invnormdist = math.pow(math.sqrt( (sd / (2 * math.pi * math.pow(close, 3))) ), -( (sd * math.pow((close - avg), 2)) / 2 * math.pow(avg, 2) * close ))
+
+// ERF and CDF functions 
+erf(float value) =>
+//{
+    float a = 0.147
+    float ax2 = a * value * value
+    
+    if (value == 0)
+        0
+    else if (value == 1)
+        1
+    else
+        math.sign(value) * math.sqrt(1 - math.exp(-(value * value) * ((4 / math.pi + ax2) / (1 + ax2))))
+
+erfinv(float value) =>
+
+    float w = na
+    float p = na
+    float x = na
+    
+    w := -math.log((1 - value) * (1 + value))
+    
+    if (na(value))
+        na
+    else if (w < 5)
+    //{
+        w -= 2.5
+        p := 2.81022636e-08
+        p := 3.43273939e-07 + p * w
+        p := -3.5233877e-06 + p * w
+        p := -4.39150654e-06 + p * w
+        p := 0.00021858087 + p * w
+        p := -0.00125372503 + p * w
+        p := -0.00417768164 + p * w
+        p := 0.246640727 + p * w
+        p := 1.50140941 + p * w
+        
+        p * value
+    //}
+    else
+    //{
+        w := math.sqrt(w) - 3
+        p := -0.000200214257
+        p := 0.000100950558 + p * w
+        p := 0.00134934322 + p * w
+        p := -0.00367342844 + p * w
+        p := 0.00573950773 + p * w
+        p := -0.0076224613 + p * w
+        p := 0.00943887047 + p * w
+        p := 1.00167406 + p * w
+        p := 2.83297682 + p * w
+        
+        p * value
+
+// Colours 
+color green = color.new(color.lime, 65) 
+color red = color.new(color.red, 70) 
+color purple = color.new(color.purple, 85) 
+color black = color.rgb(0, 0, 0) 
+color white = color.new(color.white, 0) 
+
+// Assessment of p and  q norm values 
+
+pnorm = 0.5 * (1 + erf((close - avg) / (sd * math.sqrt(2))))
+pnormperc = pnorm * 100 
+//
+qnorm = avg + sd * math.sqrt(2) * erfinv(2 * pnorm - 1)
+qnorm := 1 - pnorm
+qnormperc = qnorm * 100
+
+// Plot functions 
+plot(pltfunc == "Plot Cumulative Distribution Density" ? pnormperc : na, "Prob go Lower", style=plot.style_area, color=red)
+plot(pltfunc == "Plot Cumulative Distribution Density" ? qnormperc : na, "Prob go Higher", style=plot.style_area, color=green)
+plot(pltfunc == "Plot Kurtosis" or pltfunc == "Plot Kurtosis & Skewness" ? kurt : na, "Kurtosis", color=color.yellow, linewidth=3)
+plot(pltfunc == "Plot Skewness" or pltfunc == "Plot Kurtosis & Skewness" ? skew : na, "Skewness", color=color.purple, linewidth=3)
+
+
+// User inputs for probability calculations 
+userinputpnorm = 0.5 * (1 + erf((userin - avg) / (sd * math.sqrt(2))))
+userinputpnormperc = userinputpnorm * 100 
+userinputqnorm = avg + sd * math.sqrt(2) * erfinv(2 * userinputpnorm - 1)
+userinputqnorm := 1 - userinputpnorm
+userinputqnormperc = userinputqnorm * 100
+
+// User probability calculation table 
+var table = table.new(position.middle_left, columns = 4, rows = 10, bgcolor = black, frame_color = white)
+
+if pltfunc == "Calculate Probability"
+    table.cell(table, 1, 1, text = "Probability " + str.tostring(syminfo.ticker) + " goes BELOW $" + str.tostring(userin) + " :", bgcolor = black, text_color=color.white)
+    table.cell(table, 1, 2, text=str.tostring(math.round(userinputpnormperc)) + "%", bgcolor = black, text_color = white)
+    table.cell(table, 1, 3, text = "Probability " + str.tostring(syminfo.ticker) + " goes ABOVE $" + str.tostring(userin) + " :", bgcolor = black, text_color=color.white)
+    table.cell(table, 1, 4, text=str.tostring(math.round(userinputqnormperc)) + "%", bgcolor = black, text_color = white)
+    table.cell(table, 1, 5, text="Important Note: Use the settings menu to input \n the price levels you wish to calculate the \n probability of.", bgcolor = black, text_color = color.yellow)
+
+
+// Viewing Distribution as Z-Score 
+
+dist_z = (src - avg) / sd 
+
+plot(pltfunc == "Plot Distribution as Z-Score" ? dist_z : na, color = color.purple, linewidth=4) 
+// Qualitative Assessment of the Normal Distribution // 
+
+bool normal_dist = kurt >= -2 and kurt <= 2 and skew >= -1 and skew <= 1 
+bool leptokurtic = kurt > 2 and skew >= -1 and skew <= 1 
+bool platykurtic = kurt < -2 and skew >= -1 and skew <= 1 
+bool right_tailed = kurt >= -2 and kurt <= 2 and skew > 1 
+bool left_tailed = kurt >= -2 and kurt <= 2 and skew < -1 
+bool leptokurtic_heavy_right = kurt > 2 and skew > 1 
+bool platykurtic_heavy_left = kurt <-2 and skew < -1 
+
+string dist = na 
+string implication = na 
+color distcolor = na 
+
+if normal_dist 
+    dist := "The Data is normally distributed, with a kurtosis of \n " + str.tostring(math.round(kurt,2)) + " and a skewness of " + str.tostring(math.round(skew,2)) + "."
+    implication := "The results of the cumulative distribution are likely to be highly reliable."
+    distcolor := color.lime 
+else if leptokurtic 
+    dist := "The Data shows signs of being leptokurtic, with a kurtosis of \n" + str.tostring(math.round(kurt,2)) + " and a skewness of " + str.tostring(math.round(skew,2)) + "."
+    implication := "The data has heavier tails than a normal distribution but is symmetric. \n The results of the Cumulative Distribution can still be used."
+    distcolor := color.lime 
+else if platykurtic 
+    dist := "The Data shows signs of being platykurtic, with a kurtosis of \n" + str.tostring(math.round(kurt,2)) + " and a skewness of " + str.tostring(math.round(skew,2)) + "."
+    implication := "The data has lighter tails than a normal distribution but is symmetric. \n The results of the Cumulative Distribution can still be used."
+    distcolor := color.lime
+else if right_tailed 
+    dist := "The Data shows signs of a positive, right-tailed distribution, with a kurtosis of \n" + str.tostring(math.round(kurt,2)) + " and a skewness of " + str.tostring(math.round(skew,2)) + "."
+    implication := "The data is skewed to the right which suggests extreme outliars, \n making the interpretation of the Cumulative Distribution somewhat biased. \n Interpret the CDD with caution."
+    distcolor := color.orange
+else if left_tailed 
+    dist := "The Data shows signs of a negative, left-tailed distribution, with a kurtosis of \n" + str.tostring(math.round(kurt,2)) + " and a skewness of " + str.tostring(math.round(skew,2)) + "."
+    implication := "The data is skewed to the left which suggests extreme outliers, \n making the interpretation of the Cumulative Distribution somewhat biased. \n Interpret the CDD with caution."
+    distcolor := color.orange 
+else if leptokurtic_heavy_right 
+    dist := "The Data shows signs of a laeptokurtic distribution with heavier tails to the right, with a kurtosis of \n " + str.tostring(math.round(kurt,2)) + " and a skewness of " + str.tostring(math.round(skew,2)) + "."
+    implication := "The data is heavily skewed to the right which suggests extreme outliers, \n making the interpretation of the Cumulative Distribution unreliable. \n Interpret the CDD with caution."
+    distcolor := color.red
+else if platykurtic_heavy_left 
+    dist := "The Data shows signs of a platykurtic distribution with heavier tails to the left, with a kurtosis of \n" + str.tostring(math.round(kurt,2)) + " and a skewness of " + str.tostring(math.round(skew,2)) + "."
+    implication := "The data is heavily skewed to the left which suggests extreme outliers, \n making the interpretation of the Cumulative Distribution unreliable. \n Interpret the CDD with caution."
+    distcolor := color.red
+else  
+    dist := "The data is not normally distributed. No interpretations can be made."
+    implication := "The results of the CDD are likely to be highly unreliable."
+    distcolor := color.red
+
+
+// Plotting the qualitative distrubtion assessment 
+var table disttable = table.new(position.middle_center, 3, 3, bgcolor = black, frame_color = white, frame_width = 2)
+
+if pltfunc == "View Distribution Data"
+    table.cell(disttable, 1, 1, text = "Distribution Type:", bgcolor = black, text_color = white)
+    table.cell(disttable, 2, 1, text = str.tostring(dist), bgcolor = black, text_color = distcolor)
+    table.cell(disttable, 1, 2, text = "Implication of Distribution:", bgcolor = black, text_color = white)
+    table.cell(disttable, 2, 2, text = str.tostring(implication), bgcolor = black, text_color = distcolor)
+
+
+// Plotting the dataset summary 
+var table summary = table.new(position.middle_right, 8, 8, bgcolor = black, frame_color = white, frame_width = 2) 
+
+if pltfunc == "View Distribution Data" 
+    table.cell(summary, 1, 0, text = "Summary Data", bgcolor = black, text_color = white)
+    table.cell(summary, 1, 1, text = "Dataset Max Price:", bgcolor = black, text_color = white)
+    table.cell(summary, 2, 1, text = str.tostring(math.round(max,2)), bgcolor = black, text_color = white)
+    table.cell(summary, 1, 2, text = "Dataset Min Price:", bgcolor = black, text_color = white)
+    table.cell(summary, 2, 2, text = str.tostring(math.round(min,2)), bgcolor = black, text_color = white)
+    table.cell(summary, 1, 3, text = "Dataset Standard Deviation", bgcolor = black, text_color = white)
+    table.cell(summary, 2, 3, text = str.tostring(math.round(sd,2)), bgcolor = black, text_color = white)
+    table.cell(summary, 1, 4, text = "Dataset current Z-Score:", bgcolor = black, text_color = white)
+    table.cell(summary, 2, 4, text = str.tostring(math.round(dist_z,2)), bgcolor = black, text_color = white)
+    table.cell(summary, 1, 5, text = "Current Kurtosis:", bgcolor = black, text_color = white)
+    table.cell(summary, 2, 5, text = str.tostring(math.round(kurt,2)), bgcolor = black, text_color = white)
+    table.cell(summary, 1, 6, text = "Current Skewness:", bgcolor = black, text_color = white)
+    table.cell(summary, 2, 6, text = str.tostring(math.round(skew,2)), bgcolor = black, text_color = white)
+    table.cell(summary, 1, 7, text = "Size of Dataset:", bgcolor = black, text_color = white)
+    table.cell(summary, 2, 7, text = str.tostring(array.size(src_arr)), bgcolor = black, text_color = white)
+

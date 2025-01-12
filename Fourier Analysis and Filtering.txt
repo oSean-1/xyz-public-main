@@ -1,0 +1,182 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © tbiktag
+//
+// This tool uses Fourier transform to decompose the input time series into its 
+// periodic constituents and seasonalities, in other words, its frequency 
+// components. 
+// It also can reconstruct the time-domain data while using only the frequency 
+// components within a user-defined range (band-pass filtering). Thereby, this 
+// tool can reveal the cyclical characteristics of the studied market. 
+//
+//@version=4
+study("Fourier Analysis and Filtering", shorttitle = "Fourier", overlay = false, 
+      max_bars_back = 2000, max_lines_count=500)
+//
+// -- subroutines -- 
+DFT(_x1, _y1, _N, _dir)=>
+    // _x1 :: float array, changed on output, real part of the data/transform
+    // _y1 :: float array, changed on output, imaginary part of the data/transform
+    // _N :: int, number of datapoints
+    // _dir :: int, _dir = 1 for forward, _dir = -1 for inverse transform
+    //
+    float _arg = 0.0
+    float _cos = 0.0
+    float _sin = 0.0
+    float _x2_i = 0.0
+    float _y2_i = 0.0
+    _x2 = array.new_float(array.size(_x1))
+    _y2 = array.new_float(array.size(_y1))
+    //
+    for i = 0 to _N-1  
+        _x2_i := 0.0
+        _y2_i := 0.0
+        _arg := - _dir * 2.0 * 3.141592654 * float(i) / float(_N)
+        for k = 0 to _N-1
+            _cos := cos(k * _arg)
+            _sin := sin(k * _arg)
+            _x2_i += (array.get(_x1,k) * _cos - array.get(_y1,k) * _sin)
+            _y2_i += (array.get(_x1,k) * _sin + array.get(_y1,k) * _cos)
+        array.set(_x2,i,_x2_i)
+        array.set(_y2,i,_y2_i)
+    //
+    // Copy the data back 
+    if (_dir == 1)
+        for i = 0 to _N-1
+            array.set(_x1,i,array.get(_x2,i)/float(_N))
+            array.set(_y1,i,array.get(_y2,i)/float(_N))
+    else
+        for i = 0 to _N-1
+            array.set(_x1,i,array.get(_x2,i))
+            array.set(_y1,i,array.get(_y2,i))
+//
+//
+//
+// --- main --- 
+src = input(title="Dataset Source", type=input.source, defval = close, group="General", 
+             tooltip = "Source of the input dataset.")
+N = input(title="Dataset Size", type = input.integer, defval = 500, minval = 3, 
+             group = "General", tooltip = "Number of points in the input dataset.")
+jobtype = input(title="Action", defval = "Fourier Analysis (frequency-domain)", 
+             options = ["Fourier Analysis (frequency-domain)", "Band-pass Filtering (time-domain)"], 
+             group = "General",
+             tooltip = "Fourier Analysis: plot the frequency spectrum of the squared magnitudes "+
+             "of the Fourier coefficients (which are a measure of spectral power)."+"\n"+
+             "Band-pass Filtering: reconstruct and plot the dataset in the time domain, blocking "+
+             "frequency components outside of the cutoff frequencies defined below.")
+//plotting freq domain analysis
+frplottrnc = input(title="Zoom From", type = input.bool, defval = true, 
+             group = "Properties of Frequency-Domain Plot", inline = "linefr1")
+i_start = input(title="", type = input.integer, defval = 1, minval = 0,  
+             group = "Properties of Frequency-Domain Plot", inline = "linefr1")
+i_end = input(title="To", type = input.integer, defval = 100, minval = 0,
+             group = "Properties of Frequency-Domain Plot", inline = "linefr1",
+             tooltip="Limit the plot to the selected range of frequency components.")
+//infobox
+showfreqinfo = input(title="Info for Frequency Component",defval = false, 
+             group = "Properties of Frequency-Domain Plot", inline = "linefr2",
+             tooltip="When activated, display the power (in units of the input data squared) "+
+             "and frequency (in units of one over the chart resolution) of the selected "+
+             "Fourier component.")
+i_info =  input(title="", type = input.integer, defval = 1,  minval = 0,  
+             group = "Properties of Frequency-Domain Plot", inline = "linefr2")
+//bandpass filtering
+N_first = input(title="Lower Cutoff ", type = input.integer, defval = 0,  
+             minval=0, group = "Band-pass Filter Properties", 
+             tooltip="The number of the lowest frequency component allowed to pass "+
+             "into the reconstructed dataset. All frequency components below it will be blocked.")
+N_last =  input(title="Upper Cutoff ", type = input.integer, defval = 10, minval=0, 
+             group = "Band-pass Filter Properties",
+             tooltip="The number of the highest frequency component allowed to "+
+             "pass into the reconstructed dataset. All frequency components above "+
+             "it will be blocked.")
+lw = input(title= "Line Width", type = input.integer, defval = 2, 
+             group = "Band-pass Filter Properties")
+filtpotshowdat=input(title="Show Original Data",type = input.bool, defval = false, 
+             group = "Band-pass Filter Properties", inline = "linmisc1")
+usescaling=input(title="Adjust Scale",type = input.bool, defval = false, 
+             group = "Band-pass Filter Properties", inline = "linmisc1",
+             tooltip="Overlay the filtered and input time series and (optionally) "+
+             " adjust the scale of the filtered data to the minimum and maximum of the input data.")
+//
+//
+//Define if plot is time domain or frequency domain
+string domain = (jobtype == "Fourier Analysis (frequency-domain)")?"freq":"time"
+//
+//
+// Collect data points
+dat_re = array.new_float(na)
+int Npoints = 0
+if barstate.islast
+    for i = 0 to N-1
+        if not na(src[i])
+            array.push(dat_re, src[i])
+            Npoints += 1
+// Check how many data points are available for analys
+N := min(Npoints, N)
+// Get mean and variance of data
+float dat_min = array.min(dat_re)
+float dat_scale = array.max(dat_re) - dat_min
+//
+//
+// Apply Fourier transform
+dat_im = array.new_float(N)
+if barstate.islast
+    array.fill(dat_im,0.0)
+    DFT(dat_re, dat_im, N, 1)
+//
+//
+// Frequency-domain analysis
+if domain == "freq" and barstate.islast
+    i_start := frplottrnc?i_start:0
+    i_end := frplottrnc?min(i_end, int(N/2)):int(N/2)
+    line.new(bar_index, 0.0, bar_index[i_end+1], 0.0, 
+             style = line.style_arrow_right,color=color.silver)
+    label.new(bar_index[i_end+1], 0.0, text="freq", 
+             style=label.style_none,textcolor = color.silver)
+    for i = i_start to i_end
+        float y_plt = pow(array.get(dat_re,i),2) + pow(array.get(dat_im,i),2)
+        line.new(bar_index[i], 0.0, bar_index[i], y_plt, color= color.blue)
+    // infobox
+    if showfreqinfo
+        // power of the chosen frequency component
+        i_info_power = pow(array.get(dat_re,i_info),2) + pow(array.get(dat_im,i_info),2)
+        line.new(bar_index[i_info], 0.0, bar_index[i_info], 
+                 i_info_power, color= color.orange)
+        // maximum frequency
+        float maxfreq = 1/2           
+        float i_info_freq = float(i_info)/int(N/2)*0.5   
+        //
+        string infotext = "Component "+tostring(i_info)+"\n"+"Freq: "+tostring(i_info_freq) + 
+                          " 1/"+ timeframe.period + "\n" + "Power: "+tostring(i_info_power)
+        label.new(bar_index,i_info_power,style=label.style_label_left, 
+                  text = infotext, size=size.small, color=color.orange)
+//
+//
+// Filtering
+fft_re_filt = array.new_float(N)
+fft_im_filt = array.new_float(N)  
+// Adjust bandpass thresholds to actual number of available datapoints
+N_first:= min(N,N_first)
+N_last := min(N,max(N_last,N_first))
+float y1 = 0.0
+float y2 = 0.0
+// Apply filter
+if domain == "time" and barstate.islast
+    array.fill(fft_re_filt,0.0)
+    array.fill(fft_im_filt,0.0)
+    for i = N_first to N_last
+        array.set(fft_re_filt,i,array.get(dat_re,i))
+        array.set(fft_im_filt,i,array.get(dat_im,i))
+    DFT(fft_re_filt, fft_im_filt, N, -1)
+    //
+    //Scale and plot filtered data
+    float zero  = usescaling?array.min(fft_re_filt):0.0
+    float shift = usescaling?dat_min:0.0
+    float scale = usescaling?dat_scale/(array.max(fft_re_filt) - array.min(fft_re_filt)):1.0
+    for i = 1 to N-1
+        y1 := (array.get(fft_re_filt,i)-zero)*scale+shift
+        y2 := (array.get(fft_re_filt,i-1)-zero)*scale+shift
+        line.new(bar_index[i], y1, bar_index[i-1], y2, width=lw)
+plot((filtpotshowdat and domain == "time")?src:na,color = color.silver, title = "Input Data")
+//
+//

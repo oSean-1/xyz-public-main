@@ -1,0 +1,204 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © 
+
+// ██████╗░ // ██╗// ██╗░░░██╗  // ███████╗   // ██╗░░░░░  // ░█████╗░   // ██████╗░░   // ░██████╗      
+// ██╔══██╗ // ██║// ███╗ ░██║  // ██╔════╝   // ██║░░░░░  // ██╔══██╗   // ██╔══██╗░░  // ██╔════╝    
+// ██████╦ ╝// ██║// ████╗ ██║  // ███████╗   // ██║░░░░░  // ███████║   // ██████╦╝░░  // ╚█████╗░   
+// ██╔═══╝  // ██║// ██╔██╗██║  // ██╔════╝   // ██║░░░░░  // ██╔══██║   // ██╔══██╗    // ░╚═══██╗    
+// ██║░░░░ ░// ██║// ██║╚████║  // ███████╗   // ███████╗  // ██║░░██║   // ██████╦╝    // ██████╔╝   
+// ╚═╝░░░░  // ╚═╝// ╚═╝░╚═══╝  // ╚══════╝   // ╚══════╝  // ╚═╝░░╚═╝   // ╚═════╝░░   // ╚═════╝░ 
+
+
+
+//@version=5
+indicator("Balance of Power Indicator", overlay=false, max_lines_count=500, max_labels_count=500)
+
+// Configuración
+size = input.int(70, "Tamaño de la balanza", minval=30, maxval=200)
+y_offset = input.int(20, "Posición vertical", minval=0, maxval=100)
+col = input.color(color.rgb(255, 204, 0), "Color de la balanza")
+periods = input.int(100, "Periodos a analizar", minval=10, maxval=500)
+
+hideBalance(lbl) =>
+    label.set_xy(lbl, na, na)
+        
+// Función para dibujar la base triangular
+drawBase(x, y, size) =>
+    line.new(x - size/6, y, x + size/6, y, color=col, width=4)
+    line.new(x - size/6, y, x, y + size/4, color=col, width=4)
+    line.new(x + size/6, y, x, y + size/4, color=col, width=4)
+
+// Función para dibujar el soporte vertical
+drawStand(x, y, size) =>
+    line.new(x, y, x, y + size, color=col, width=6)
+
+// Función para dibujar la viga horizontal con inclinación
+drawBeam(x, y, size, tilt) =>
+    y_left = y - tilt * size / 4  // Invertir la inclinación
+    y_right = y + tilt * size / 4  // Invertir la inclinación
+    line.new(x - size/2, y_left, x + size/2, y_right, color=col, width=6)
+
+// Función para dibujar un platillo
+drawPan(x, y, size) =>
+    line.new(x - size/3, y, x + size/3, y, color=col, width=4)
+    line.new(x - size/3, y, x, y - size/3, color=col, width=4)
+    line.new(x + size/3, y, x, y - size/3, color=col, width=4)
+
+// Función para dibujar las cuerdas que conectan la viga con los platillos
+drawStrings(x, y, size, tilt) =>
+    y_left = y - tilt * size / 4  // Invertir la inclinación
+    y_right = y + tilt * size / 4  // Invertir la inclinación
+    line.new(x - size/2, y_left, x - size/2, y_left - size/3, color=col, width=2)
+    line.new(x + size/2, y_right, x + size/2, y_right - size/3, color=col, width=2)
+
+// Dibujo de la balanza
+drawBalance(x, y, size, tilt) =>
+    var balance_lines = array.new<line>()
+    array.clear(balance_lines)
+
+    // Base
+    base_width = size / 3
+    base_height = size / 8
+    array.push(balance_lines, line.new(x - base_width/2, y, x + base_width/2, y, color=col, width=4))
+    array.push(balance_lines, line.new(x - base_width/2, y, x, y + base_height, color=col, width=4))
+    array.push(balance_lines, line.new(x + base_width/2, y, x, y + base_height, color=col, width=4))
+
+    // Soporte vertical
+    stand_height = size * 0.9
+    array.push(balance_lines, line.new(x, y + base_height, x, y + base_height + stand_height, color=col, width=6))
+
+    // Círculo superior
+    circle_radius = size / 20
+    for i = 0 to 359 by 30
+        px = x + math.cos(i * math.pi / 180) * circle_radius
+        py = y + base_height + stand_height + math.sin(i * math.pi / 180) * circle_radius
+        array.push(balance_lines, line.new(x, y + base_height + stand_height, math.round(px), math.round(py), color=col, width=4))
+
+    // Viga horizontal
+    beam_length = size * 0.9
+    y_left = (y + base_height + stand_height) - tilt * size / 8  // Invertir la inclinación
+    y_right = (y + base_height + stand_height) + tilt * size / 8  // Invertir la inclinación
+    array.push(balance_lines, line.new(math.round(x - beam_length/2), math.round(y_left), math.round(x + beam_length/2), math.round(y_right), color=col, width=6))
+
+    // Platillos
+    plate_width = size / 3
+    plate_depth = size / 6
+    array.push(balance_lines, line.new(math.round(x - beam_length/2 - plate_width/2), math.round(y_left + plate_depth), math.round(x - beam_length/2 + plate_width/2), math.round(y_left + plate_depth), color=col, width=8))
+    array.push(balance_lines, line.new(math.round(x + beam_length/2 - plate_width/2), math.round(y_right + plate_depth), math.round(x + beam_length/2 + plate_width/2), math.round(y_right + plate_depth), color=col, width=8))
+ 
+    pan_x_left = x - size / 2
+    pan_x_right = x + size / 2
+    pan_y_left = y - tilt * size / 4 + plate_depth
+    pan_y_right = y + tilt * size / 4 + plate_depth
+    
+    var label l1 = label.new(na, na, style=label.style_none, text='⚖️', size=size.huge)
+    var label l2 = label.new(na, na, style=label.style_none, text='⚖️', size=size.huge)
+    var label l3 = label.new(na, na, style=label.style_none, text='⚖️', size=size.huge)
+    var label l4 = label.new(na, na, style=label.style_none, text='⚖️', size=size.huge)
+    var label l5 = label.new(na, na, style=label.style_none, text='⚖️', size=size.huge)
+    var label l6 = label.new(na, na, style=label.style_none, text='⚖️', size=size.huge)
+    var label l7 = label.new(na, na, style=label.style_none, text='⚖️', size=size.huge)
+    var label l8 = label.new(na, na, style=label.style_none, text='⚖️', size=size.huge)
+    var label l9 = label.new(na, na, style=label.style_none, text='⚖️', size=size.huge)
+    var label l10 = label.new(na, na, style=label.style_none, text='⚖️', size=size.huge)
+    var label l11 = label.new(na, na, style=label.style_none, text='⚖️', size=size.huge)
+    var label l12 = label.new(na, na, style=label.style_none, text='⚖️', size=size.huge)
+
+// Función para ocultar las balanzas
+
+// Coordenadas para el platillo izquierdo
+    platillo_izq_x1 = math.round(x - beam_length / 2 - plate_width / 2)
+    platillo_izq_x2 = math.round(x - beam_length / 2 + plate_width / 2)
+    platillo_izq_y = math.round(y_left + plate_depth)
+
+// Coordenadas para el platillo derecho
+    platillo_der_x1 = math.round(x + beam_length / 2 - plate_width / 2)
+    platillo_der_x2 = math.round(x + beam_length / 2 + plate_width / 2)
+    platillo_der_y = math.round(y_right + plate_depth)
+
+// Posiciona las pequeñas balanzas directamente encima de los platillos
+    l1.set_xy(platillo_izq_x1, platillo_izq_y)
+    l2.set_xy(platillo_izq_x2, platillo_izq_y)
+    l5.set_xy((platillo_izq_x1 + platillo_izq_x2) / 2, platillo_izq_y)
+
+// Posiciona las pequeñas balanzas en el lado derecho
+    l3.set_xy(platillo_der_x1, platillo_der_y)
+    l4.set_xy(platillo_der_x2, platillo_der_y)
+    l6.set_xy((platillo_der_x1 + platillo_der_x2) / 2, platillo_der_y)
+
+    if tilt >0
+        // Mostrar balanzas adicionales solo en el lado Buy
+        l7.set_xy(platillo_izq_x1, platillo_izq_y + plate_depth / 2)
+        l8.set_xy(platillo_izq_x2, platillo_izq_y + plate_depth / 2)
+        l9.set_xy((platillo_izq_x1 + platillo_izq_x2) / 2, platillo_izq_y + plate_depth)
+        hideBalance(l10)  // Ocultar balanzas del lado Sell
+        hideBalance(l11)  // Ocultar balanzas del lado Sell
+        hideBalance(l12)  // Ocultar balanzas del lado Sell
+    else
+        // Mostrar balanzas adicionales solo en el lado Sell
+        l10.set_xy(platillo_der_x1, platillo_der_y + plate_depth / 2)
+        l11.set_xy(platillo_der_x2, platillo_der_y + plate_depth / 2)
+        l12.set_xy((platillo_der_x1 + platillo_der_x2) / 2, platillo_der_y + plate_depth)
+        hideBalance(l7)  // Ocultar balanzas del lado Buy
+        hideBalance(l8)  // Ocultar balanzas del lado Buy
+        hideBalance(l9)  // Ocultar balanzas del lado Buy
+
+    // Cuerdas
+    array.push(balance_lines, line.new(math.round(x - beam_length/2), math.round(y_left), math.round(x - beam_length/2), math.round(y_left + plate_depth), color=col, width=2))
+    array.push(balance_lines, line.new(math.round(x + beam_length/2), math.round(y_right), math.round(x + beam_length/2), math.round(y_right + plate_depth), color=col, width=2))
+
+    balance_lines
+
+// Cálculo de la inclinación basada en la acción reciente del precio
+price_change = close - close[periods]
+max_change = ta.atr(periods) * 4
+tilt = math.max(math.min(price_change / max_change, 1), -1)
+
+// Variables para almacenar la inclinación y los objetos de la balanza anteriores
+var float prev_tilt = 0
+var balance_objects = array.new<line>()
+var label signal_label = na
+
+// Función para limpiar la balanza anterior
+clearPreviousBalance() =>
+    for obj in balance_objects
+        line.delete(obj)
+    array.clear(balance_objects)
+    label.delete(signal_label)
+
+// Dibuja la balanza solo cuando hay un cambio significativo en la inclinación
+if math.abs(tilt - prev_tilt) > 0.1 or barstate.islast
+    clearPreviousBalance()
+    x = bar_index
+    y = low - (high - low) * y_offset / 100
+    balance_objects := drawBalance(x, y, size, tilt)
+
+    // Lógica invertida para la etiqueta
+    label_text = tilt > 0 ? "Buy" : "Sell"  // Invertir la lógica
+    label_color = tilt > 0 ? #1a821a : #f02241  // Invertir los colores
+    label_y = y + size + 20
+    signal_label := label.new(x, label_y, label_text, color=label_color, textcolor=color.white, size=size.normal)
+
+    prev_tilt := tilt
+
+
+    
+
+
+// Posicionar las balanzas adicionales
+x = bar_index
+y = low - (high - low) * y_offset / 100
+// tilt_label = label.new(x, y + size + 40, "Tilt: " + str.tostring(tilt, "#.##"), color=#1dc3e09b, textcolor=color.black, size=size.normal)
+// Variable para almacenar la etiqueta del tilt
+var label tilt_label = na
+
+if math.abs(tilt - prev_tilt) > 0.1 or barstate.islast
+    // Si la etiqueta ya existe, simplemente la actualizamos
+    if not na(tilt_label)
+        label.set_xy(tilt_label, x, y + size + -40)
+        label.set_text(tilt_label, "Tilt: " + str.tostring(tilt, "#.##"))
+    else
+        // Si no existe, creamos una nueva
+        tilt_label := label.new(x, y + size + -34, "Tilt " + str.tostring(tilt, "#.##"),   color=#198fe98a, textcolor=#ffffff, size=size.normal)
+    
+    prev_tilt := tilt
