@@ -1,0 +1,227 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © djmad
+
+
+//@version=6
+indicator("[MAD] Weighted Trend Detector", shorttitle="[MAD] WTD", overlay=false)
+
+//--------------------------------------------------------------------//
+// 1. Inputs
+//--------------------------------------------------------------------//
+
+// Timeframes Settings
+group_timeframes   = "Timeframes"
+tf1_i              = input.timeframe("", title="TF1", group=group_timeframes, tooltip="First timeframe for Multi-Time Frame analysis.")
+tf1_factor         = input.float(1,    title="x times TF1", group=group_timeframes, tooltip="Timeframe 1 Modifier")
+tf2_i              = input.int(8,      title="x times TF1", group=group_timeframes, tooltip="Timeframe 2 Modifier.")
+tf3_i              = input.int(32,     title="x times TF1", group=group_timeframes, tooltip="Timeframe 3 Modifier.")
+
+chart_timeframe_seconds = timeframe.in_seconds(tf1_i)
+tf1                     = timeframe.from_seconds(math.ceil(math.max(1, chart_timeframe_seconds * tf1_factor)))
+tf2                     = timeframe.from_seconds(math.ceil(math.max(1, chart_timeframe_seconds * tf2_i)))
+tf3                     = timeframe.from_seconds(math.ceil(math.max(1, chart_timeframe_seconds * tf3_i)))
+
+// RSI Settings
+group_rsi       = "RSI Settings"
+rsiPeriod       = input.int(14, title="RSI Period", group=group_rsi, tooltip="Period for Relative Strength Index calculation.")
+
+// MACD Settings
+group_macd      = "MACD Settings"
+macdFastLength  = input.int(12,  title="MACD Fast Length",  group=group_macd, tooltip="Fast EMA period for MACD.")
+macdSlowLength  = input.int(26,  title="MACD Slow Length",  group=group_macd, tooltip="Slow EMA period for MACD.")
+macdSignalLen   = input.int(9,   title="MACD Signal Length", group=group_macd, tooltip="Signal line period for MACD.")
+
+// Moving Averages Settings
+group_ma        = "Moving Averages Settings"
+maShortLen      = input.int(50,  title="Short MA Length", group=group_ma, tooltip="Period for short-term Simple Moving Average.")
+maLongLen       = input.int(200, title="Long MA Length",  group=group_ma, tooltip="Period for long-term Simple Moving Average.")
+
+// ADX Settings
+group_adx       = "ADX Settings"
+adxLen          = input.int(14,  title="ADX Length", group=group_adx, tooltip="Period for Average Directional Index calculation.")
+
+// Volume Settings
+group_volume    = "Volume Settings"
+volLen          = input.int(20,  title="Volume MA Length", group=group_volume, tooltip="Period for Volume Moving Average.")
+
+// Scaling Factors
+group_scaling   = "Scaling Factors"
+macdRange       = input.float(5.0,  title="MACD Range (for scaling)", group=group_scaling, tooltip="Range used to scale MACD values.")
+maScaleFactor   = input.float(1.0,  title="MA Diff Scale Factor",     group=group_scaling, tooltip="Scale factor for Moving Average difference.")
+volScaleFactor  = input.float(1.0,  title="Volume Diff Scale Factor", group=group_scaling, tooltip="Scale factor for Volume difference.")
+
+// Weights for Components
+group_weights   = "Component Weights"
+wRsi   = input.float(0.2,  title="RSI Weight",    group=group_weights, step=0.01, tooltip="Weight assigned to RSI in the trend score.")
+wMacd  = input.float(0.3,  title="MACD Weight",   group=group_weights, step=0.01, tooltip="Weight assigned to MACD in the trend score.")
+wMa    = input.float(0.25, title="MA Weight",     group=group_weights, step=0.01, tooltip="Weight assigned to Moving Averages in the trend score.")
+wAdx   = input.float(0.15, title="ADX Weight",    group=group_weights, step=0.01, tooltip="Weight assigned to ADX in the trend score.")
+wVol   = input.float(0.1,  title="Volume Weight", group=group_weights, step=0.01, tooltip="Weight assigned to Volume in the trend score.")
+
+// Adaptive rescaling lookback
+adaptPeriod = input.int(200, title="Adaptive Scale Lookback", tooltip="Number of bars to define min/max range for final score.")
+
+//--------------------------------------------------------------------//
+// 1a. Color Inputs
+//--------------------------------------------------------------------//
+group_colors = "Color settings"
+
+negColor        = input.color(color.red,    "Negative Color (lowest range)",   group=group_colors)
+posColor        = input.color(color.green,  "Positive Color (highest range)",  group=group_colors)
+turnDownColor   = input.color(color.orange, "Turning-Down Blended Color",      group=group_colors)
+turnUpColor     = input.color(color.teal,   "Turning-Up Blended Color",        group=group_colors)
+plotColor       = input.color(color.yellow, "Trend Score Plot Color",          group=group_colors)
+labelTextColor  = input.color(color.white,  "Label Text Color",                group=group_colors)
+
+
+// Transparenz für das Blending
+turnDownTransp = input.int(60, title="Turning-Down Color Transparency [0-100]", group=group_colors, minval=0, maxval=100)
+turnUpTransp   = input.int(60, title="Turning-Up Color Transparency [0-100]",   group=group_colors, minval=0, maxval=100)
+
+barcolor_activated = input.bool(true, title="Activate barcolors",                group=group_colors)
+
+//--------------------------------------------------------------------//
+// 1b. Label activation
+//--------------------------------------------------------------------//
+labelActivated = input.bool(true, title="Show Label on Last Bar?")
+
+//--------------------------------------------------------------------//
+// 2. Variablen & Funktionen
+//--------------------------------------------------------------------//
+
+// Funktion, um Wert in [min,max] zu beschränken
+f_clamp(_val, _min, _max) =>
+    _val > _max ? _max : _val < _min ? _min : _val
+
+// Custom ADX-Berechnung
+f_adx(_high, _low, _close, _len) =>
+    trueRange = math.max(math.max(_high - _low, math.abs(_high - nz(_close[1]))), math.abs(_low - nz(_close[1])))
+    dmPlus    = _high - nz(_high[1]) > nz(_low[1]) - _low ? math.max(_high - nz(_high[1]), 0) : 0
+    dmMinus   = nz(_low[1]) - _low > _high - nz(_high[1]) ? math.max(nz(_low[1]) - _low, 0) : 0
+
+    smoothedTR  = 0.0
+    smoothedTR  := nz(smoothedTR[1]) - nz(smoothedTR[1]) / _len + trueRange
+
+    smoothedDMp = 0.0
+    smoothedDMp := nz(smoothedDMp[1]) - nz(smoothedDMp[1]) / _len + dmPlus
+
+    smoothedDMm = 0.0
+    smoothedDMm := nz(smoothedDMm[1]) - nz(smoothedDMm[1]) / _len + dmMinus
+
+    diPlus  = smoothedDMp / smoothedTR * 100
+    diMinus = smoothedDMm / smoothedTR * 100
+    dx      = math.abs(diPlus - diMinus) / (diPlus + diMinus) * 100
+    ta.sma(dx, _len)
+
+// Inline-Funktion für Trend-Score einer einzelnen TF
+f_getTrendScore() =>
+    // RSI
+    rsiValue  = ta.rsi(close, rsiPeriod)
+    rsiScaled = (rsiValue - 50.0) / 50.0
+    rsiScaled := f_clamp(rsiScaled, -1.0, 1.0)
+
+    // MACD
+    [macdLine, _, _] = ta.macd(close, macdFastLength, macdSlowLength, macdSignalLen)
+    macdScaled       = macdRange != 0.0 ? macdLine / macdRange : 0.0
+    macdScaled       := f_clamp(macdScaled, -1.0, 1.0)
+
+    // MAs
+    maShort  = ta.sma(close, maShortLen)
+    maLong   = ta.sma(close, maLongLen)
+    maDiff   = maShort - maLong
+    maScaled = close != 0 and maScaleFactor != 0.0 ? (maDiff / (close * maScaleFactor)) : 0.0
+    maScaled := f_clamp(maScaled, -1.0, 1.0)
+
+    // ADX
+    adxRaw    = f_adx(high, low, close, adxLen)
+    adxScaled = (adxRaw - 50.0) / 50.0
+    adxScaled := f_clamp(adxScaled, -1.0, 1.0)
+
+    // Volume
+    volMA     = ta.sma(volume, volLen)
+    volDiff   = volume - volMA
+    volScaled = (volMA != 0 and volScaleFactor != 0.0) ? (volDiff / (volMA * volScaleFactor)) : 0.0
+    volScaled := f_clamp(volScaled, -1.0, 1.0)
+
+    // Weighted sum
+    weightSum = wRsi + wMacd + wMa + wAdx + wVol
+    total     = rsiScaled * wRsi +
+     macdScaled * wMacd +
+     maScaled   * wMa +
+     adxScaled  * wAdx +
+     volScaled  * wVol
+
+    total / weightSum
+
+//--------------------------------------------------------------------//
+// 3. MTF Score & Rescaling
+//--------------------------------------------------------------------//
+
+// MTF-Score pro TF
+scoreTF1 = request.security(syminfo.tickerid, tf1, f_getTrendScore(), gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
+scoreTF2 = request.security(syminfo.tickerid, tf2, f_getTrendScore(), gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
+scoreTF3 = request.security(syminfo.tickerid, tf3, f_getTrendScore(), gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
+
+// MTF-Score kombinieren
+finalScore = (scoreTF1 + scoreTF2 + scoreTF3) / 3.0
+
+// Adaptive Range
+lowestScore  = ta.lowest(finalScore, adaptPeriod)
+highestScore = ta.highest(finalScore, adaptPeriod)
+
+//--------------------------------------------------------------------//
+// 4. Farb-Logik: Gradient + Slope
+//--------------------------------------------------------------------//
+
+// Basis-Gradient von negColor bis posColor
+bgColBase = color.from_gradient(finalScore, lowestScore, highestScore, negColor, posColor)
+
+// Slope (Momentum)
+scoreSlope = finalScore - finalScore[1]
+
+// Für "Top 20%" und "Bottom 20%" des [lowestScore, highestScore]-Fensters
+scoreRange = highestScore - lowestScore
+topThresh  = lowestScore + scoreRange * 0.8
+botThresh  = lowestScore + scoreRange * 0.2
+
+// Wenn oberes 20%-Bereich, aber fallend -> mit turnDownColor mischen
+if finalScore > topThresh and scoreSlope < 0
+    bgColBase := color.from_gradient(0.4, 0, 1, bgColBase, color.new(turnDownColor, turnDownTransp))
+
+// Wenn unteres 20%-Bereich, aber steigend -> mit turnUpColor mischen
+if finalScore < botThresh and scoreSlope > 0
+    bgColBase := color.from_gradient(0.4, 0, 1, bgColBase, color.new(turnUpColor, turnUpTransp))
+
+// Hintergrundfarbe setzen
+bgcolor(bgColBase)
+
+//--------------------------------------------------------------------//
+// 5. Labels und Plots
+//--------------------------------------------------------------------//
+
+// Finalen MTF Trend Score plotten
+plot(finalScore, color=plotColor, linewidth=2, title="Trend Score (MTF)")
+
+// Text-Logik
+trendText =
+     finalScore < -0.8 ? "Strong Short" :
+     finalScore < -0.4 ? "Short"       :
+     finalScore <  0.4 ? "Hold"        :
+     finalScore <  0.8 ? "Buy"         :
+     "Strong Buy"
+
+// Label auf dem aktuellsten Balken
+var label trendLabel = na
+trendLabel.delete()
+if barstate.islast and labelActivated
+    trendLabel := label.new(
+     bar_index, 
+     finalScore, 
+     trendText,
+     style     = label.style_label_upper_left,
+     color     = bgColBase,      // hier verwenden wir das "bgColBase" als Label-Hintergrund
+     textcolor = labelTextColor, // als Input konfigurierbar
+     size      = size.small
+     )
+
+plotcandle(open, high, low, close, "Bars", color=barcolor_activated?bgColBase:na, wickcolor=barcolor_activated?bgColBase:na, bordercolor=barcolor_activated?bgColBase:na, force_overlay=true)    
