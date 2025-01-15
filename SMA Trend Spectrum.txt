@@ -1,0 +1,160 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © InvestorUnknown | TRW: @Andrej S.
+//                                                                                  {||}                   
+//                                                       ,                          {||}          
+//                                                  ,,,,,                           {||}
+//                                                ,,,,,       ,       ,,            {||}       
+//                                    ,         ,,,, ,       ,,     ,,,             {||}       
+//             .                   , ,         ,,,,  ,     ,,,,   .,,               {||}            ╔╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╗
+//             ,,                 ,       ,,   ,,,,,,,  ,  ,      ,                 {||}            ╠╬╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╬╣  
+//             ,,                 ,,   ,  ,,  ,,,,,, ,,,,    , ,                    {||}            ╠╣  /$$$$$$                                           /$$                         ╠╣
+//              .,         ,      ,,,  ,,,,,,,,,,,,,, ,,  ,,  , ,         ,,        {||}            ╠╣ |_  $$_/                                          | $$                         ╠╣
+//                           ,  .  ,, ,,,,,,,,,,,,, ,    ,,, , ,,    ,   ,          {||}            ╠╣   | $$   /$$$$$$$  /$$    /$$ /$$$$$$   /$$$$$$$ /$$$$$$    /$$$$$$   /$$$$$$  ╠╣
+//                   ,,           ,,, ,,,,,,,,,,,,,,,,,,,,,,  ,,,   ,,              {||}            ╠╣   | $$  | $$__  $$|  $$  /$$//$$__  $$ /$$_____/|_  $$_/   /$$__  $$ /$$__  $$ ╠╣
+//               , ,   ,,,     .,,,,,,,,,,,, ,,,  ,,,,,,,,   ,,,    ,,              {||}            ╠╣   | $$  | $$  \ $$ \  $$/$$/| $$$$$$$$|  $$$$$$   | $$    | $$  \ $$| $$  \__/ ╠╣      
+//         .,     , ,,  ,,    ,,, ,,,,,,, ,,  ,,, ,,,,, ,,, ,  ,,   ,,              {||}            ╠╣   | $$  | $$  | $$  \  $$$/ | $$_____/ \____  $$  | $$ /$$| $$  | $$| $$       ╠╣     
+//            ,   ,,,,,  ,    ,,,, ,, , ,,,,,,,,,,,,,,,,,,,,,, ,,  ,,               {||}            ╠╣  /$$$$$$| $$  | $$   \  $/  |  $$$$$$$ /$$$$$$$/  |  $$$$/|  $$$$$$/| $$       ╠╣   
+//               .    //./ /// ,,,,,,,,,,,,,,,. ,,,,,,,,,,,,,,,,,,                  {||}            ╠╣ |______/|__/  |__/    \_/    \_______/|_______/    \___/   \______/ |__/       ╠╣
+//                ,  /         ,., ,,,,,,,,,,, ,,,,,,,   ,,,,,,,                    {||}            ╠╣                                                                                ╠╣
+//            .  ,,,  ,/ ///./   ,,,.,,,,,,,,,,,,,,,      ,, , ,                    {||}            ╠╣                                                                                ╠╣
+//             ,,,,,,  //./ , /    .,,.,,, ,,,,,, ,.     ,,,,,,,                    {||}            ╠╣                                                                                ╠╣
+//              ,,,,   //  *, / / ,,,,,,,,,,,,          ,, ,,,,,                    {||}            ╠╣    /$$   /$$           /$$                                                     ╠╣
+//               ,,  // ////.*/// / ,.,,,,,.,, ,,  ,,,, ,,,,,,                      {||}            ╠╣   | $$  | $$          | $$                                                     ╠╣
+//                   ,  /////    //  , ,,,,,, ,,,, ,,,,,  ,,, / /.                  {||}            ╠╣   | $$  | $$ /$$$$$$$ | $$   /$$ /$$$$$$$   /$$$$$$  /$$  /$$  /$$ /$$$$$$$    ╠╣
+//              ,,   ,         ////// ,,,,,,,,,  ,,,,,,,,/ ///  / //                {||}            ╠╣   | $$  | $$| $$__  $$| $$  /$$/| $$__  $$ /$$__  $$| $$ | $$ | $$| $$__  $$   ╠╣
+//                         ///// .// ,,,,,,  ,, ,,,, ,,, ///*  //*///               {||}            ╠╣   | $$  | $$| $$  \ $$| $$$$$$/ | $$  \ $$| $$  \ $$| $$ | $$ | $$| $$  \ $$   ╠╣
+//                           //  .           ,, .// ,,      ///, ///                {||}            ╠╣   | $$  | $$| $$  | $$| $$_  $$ | $$  | $$| $$  | $$| $$ | $$ | $$| $$  | $$   ╠╣
+//                        //////        ,,,,    ///// ,.        ,                   {||}            ╠╣   |  $$$$$$/| $$  | $$| $$ \  $$| $$  | $$|  $$$$$$/|  $$$$$/$$$$/| $$  | $$   ╠╣
+//                   *///////. //              /  */////*                           {||}            ╠╣    \______/ |__/  |__/|__/  \__/|__/  |__/ \______/  \_____/\___/ |__/  |__/   ╠╣ 
+//                         .,,  // ,,,,,,,,,, //* ,,,  //////                       {||}            ╠╬╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╦╬╣
+//                           ,,,,,   ,,,,,, ,.,,,,,,,                               {||}            ╚╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╝
+//                               ,,,,,,,,,,,, ,,                                    {||}          
+//                                  ,,,,,,,,,                                       {||}                                                                                                                                  
+//                                                                                  {||} 
+//                                                                                  {||} 
+//@version=6
+indicator("SMA Trend Spectrum [InvestorUnknown]","SMA Trend Spectrum")
+
+
+// - - - - - STRINGS - - - - - //{
+var string G1                       = "SMA Settings"
+var string G2                       = "Signal Settings"
+var string G3                       = "Plot Settings"
+//}
+
+
+// - - - - - INPUTS - - - - - //{
+
+// SMA Settings
+simple int    from                  = input.int(2, "Starting Period", minval = 2, group = G1)
+simple int    by_                   = input.int(1, "Period Increment", minval = 1, group = G1)
+series float  src                   = input.source(close, "SMA Source", group = G1, display = display.none)
+
+// Signal Settings
+simple string signal_smooth         = input.string("SMA", "Signal Smoothing", options = ["RAW", "SMA", "EMA"], group = G2, display = display.none)
+simple int    smooth_len            = input.int(14, "Smoothing Length", group = G2)
+
+// Plot Settings
+color bull                          = input.color(color.green, group = G3)
+color bear                          = input.color(color.red, group = G3)
+color ncol                          = input.color(color.purple, group = G3)
+
+simple bool plot_signal             = input.bool(true, "Plot Signal?", group = G3)
+simple bool barcol                  = input.bool(true, "Color Bars?", group = G3)
+//}
+
+
+// - - - - - FUNCTIONS - - - - - //{
+f_pine_sma(x, y) =>
+    sum = 0.0
+    for i = 0 to y - 1
+        sum := sum + x[i] / y
+    sum
+
+f_MA(src, len) =>
+    MA = f_pine_sma(src, len)
+
+
+f_col(x1, x2, x3) =>
+    min = ta.sma(src, x1)
+    mid = ta.sma(src, x2)
+    max = ta.sma(src, x3)
+    c = src > min and src > mid and src > max ? bull : src > min or src > mid or src > max ? ncol : bear
+
+    
+f_trend(series int x1, series int x2, series int x3) =>
+    min = f_MA(src, x1)
+    mid = f_MA(src, x2)
+    max = f_MA(src, x3)
+    t = src > min and src > mid and src > max ? 1 : src > min or src > mid or src > max ? 0.5 : 0
+//}
+
+
+// - - - - - CALCULATIONS - - - - - //{
+
+// Trend Array
+trend_array = array.new_float(31)
+
+for x = 0 to 30
+    trend = f_trend(from + (0 + by_ * x * 3), from + (1 + by_ * x * 3), from + (2 + by_ * x * 3))
+    array.set(trend_array, x, trend)
+
+avg_trend = array.avg(trend_array)
+
+signal = switch signal_smooth
+    "RAW"   => avg_trend
+    "SMA"   => ta.sma(avg_trend, smooth_len)
+    "EMA"   => ta.ema(avg_trend, smooth_len)
+
+// Scale Signal
+scaled_signal = from + (signal * (88 * by_))    
+//}
+
+
+// - - - - - PLOTS - - - - - //{
+
+// Heatmap
+h0  = plot(from - by_ > 0 ? from - by_ : 0, display = display.none)
+h1  = plot(from + by_,                      display = display.none),                    fill(h0,  h1,  color = f_col(from,              from + by_,        from + (2 * by_ )))
+h2  = plot(from + (4 * by_),                display = display.none),                    fill(h1,  h2,  color = f_col(from + (3 * by_),  from + (4 * by_),  from + (5 * by_ )))
+h3  = plot(from + (7 * by_),                display = display.none),                    fill(h2,  h3,  color = f_col(from + (6 * by_),  from + (7 * by_),  from + (8 * by_ )))
+h4  = plot(from + (10 * by_),               display = display.none),                    fill(h3,  h4,  color = f_col(from + (9 * by_),  from + (10 * by_), from + (11 * by_)))
+h5  = plot(from + (13 * by_),               display = display.none),                    fill(h4,  h5,  color = f_col(from + (12 * by_), from + (13 * by_), from + (14 * by_)))
+h6  = plot(from + (16 * by_),               display = display.none),                    fill(h5,  h6,  color = f_col(from + (15 * by_), from + (16 * by_), from + (17 * by_)))
+h7  = plot(from + (19 * by_),               display = display.none),                    fill(h6,  h7,  color = f_col(from + (18 * by_), from + (19 * by_), from + (20 * by_)))
+h8  = plot(from + (22 * by_),               display = display.none),                    fill(h7,  h8,  color = f_col(from + (21 * by_), from + (22 * by_), from + (23 * by_)))
+h9  = plot(from + (25 * by_),               display = display.none),                    fill(h8,  h9,  color = f_col(from + (24 * by_), from + (25 * by_), from + (26 * by_)))
+h10 = plot(from + (28 * by_),               display = display.none),                    fill(h9,  h10, color = f_col(from + (27 * by_), from + (28 * by_), from + (29 * by_)))
+h11 = plot(from + (31 * by_),               display = display.none),                    fill(h10, h11, color = f_col(from + (30 * by_), from + (31 * by_), from + (32 * by_)))
+h12 = plot(from + (34 * by_),               display = display.none),                    fill(h11, h12, color = f_col(from + (33 * by_), from + (34 * by_), from + (35 * by_)))
+h13 = plot(from + (37 * by_),               display = display.none),                    fill(h12, h13, color = f_col(from + (36 * by_), from + (37 * by_), from + (38 * by_)))
+h14 = plot(from + (40 * by_),               display = display.none),                    fill(h13, h14, color = f_col(from + (39 * by_), from + (40 * by_), from + (41 * by_)))
+h15 = plot(from + (43 * by_),               display = display.none),                    fill(h14, h15, color = f_col(from + (42 * by_), from + (43 * by_), from + (44 * by_)))
+h16 = plot(from + (46 * by_),               display = display.none),                    fill(h15, h16, color = f_col(from + (45 * by_), from + (46 * by_), from + (47 * by_)))
+h17 = plot(from + (49 * by_),               display = display.none),                    fill(h16, h17, color = f_col(from + (48 * by_), from + (49 * by_), from + (50 * by_)))
+h18 = plot(from + (52 * by_),               display = display.none),                    fill(h17, h18, color = f_col(from + (51 * by_), from + (52 * by_), from + (53 * by_)))
+h19 = plot(from + (55 * by_),               display = display.none),                    fill(h18, h19, color = f_col(from + (54 * by_), from + (55 * by_), from + (56 * by_)))
+h20 = plot(from + (58 * by_),               display = display.none),                    fill(h19, h20, color = f_col(from + (57 * by_), from + (58 * by_), from + (59 * by_)))
+h21 = plot(from + (61 * by_),               display = display.none),                    fill(h20, h21, color = f_col(from + (60 * by_), from + (61 * by_), from + (62 * by_)))
+h22 = plot(from + (64 * by_),               display = display.none),                    fill(h21, h22, color = f_col(from + (63 * by_), from + (64 * by_), from + (65 * by_)))
+h23 = plot(from + (67 * by_),               display = display.none),                    fill(h22, h23, color = f_col(from + (66 * by_), from + (67 * by_), from + (68 * by_)))
+h24 = plot(from + (70 * by_),               display = display.none),                    fill(h23, h24, color = f_col(from + (69 * by_), from + (70 * by_), from + (71 * by_)))
+h25 = plot(from + (73 * by_),               display = display.none),                    fill(h24, h25, color = f_col(from + (72 * by_), from + (73 * by_), from + (74 * by_)))
+h26 = plot(from + (76 * by_),               display = display.none),                    fill(h25, h26, color = f_col(from + (75 * by_), from + (76 * by_), from + (77 * by_)))
+h27 = plot(from + (79 * by_),               display = display.none),                    fill(h26, h27, color = f_col(from + (78 * by_), from + (79 * by_), from + (80 * by_)))
+h28 = plot(from + (82 * by_),               display = display.none),                    fill(h27, h28, color = f_col(from + (81 * by_), from + (82 * by_), from + (83 * by_)))
+h29 = plot(from + (85 * by_),               display = display.none),                    fill(h28, h29, color = f_col(from + (84 * by_), from + (85 * by_), from + (86 * by_)))
+h30 = plot(from + (88 * by_),               display = display.none),                    fill(h29, h30, color = f_col(from + (87 * by_), from + (88 * by_), from + (89 * by_)))
+
+// Signal
+avg = plot(plot_signal ? scaled_signal : na, "Average Signal", color = color.white, style = plot.style_stepline_diamond)
+plot(plot_signal ? (from + (45 * by_)) : na, "Signal Midline", color = color.white, linewidth = 2)
+
+// Barcolor
+heat_col = color.from_gradient(avg_trend, 0, 1, bear, bull)
+barcolor(barcol ? heat_col : na)
+
+var table t = table.new(position.top_right, 1, 1, frame_color = color.gray, frame_width = 2)
+if barstate.islast and plot_signal
+    table.cell(t, 0, 0, text = "Average Trend: " + str.tostring(math.round(avg_trend, 2)), text_color = color.white, bgcolor = color.black)
+//}

@@ -1,0 +1,299 @@
+//-----------------------------------------------------------------------------------
+// COPYRIGHT & USAGE RIGHTS
+//-----------------------------------------------------------------------------------
+// © 2024 by Mupsje aka CasaTropical 
+// is licensed under a Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0) 
+// https://creativecommons.org/licenses/by-nc-sa/4.0/
+//
+// Based on original work by John F. Ehlers
+//
+// USAGE TERMS:                                                         ▄▄▄▄▄▄▄▄▄▄▄  ▄▄▄▄▄▄▄▄▄▄▄ 
+// 1. Free for personal and commercial trading                         ▐░░░░░░░░░░░▌▐░░░░░░░░░░░▌
+// 2. Modification and redistribution allowed with attribution         ▐░█▀▀▀▀▀▀▀▀▀  ▀▀▀▀█░█▀▀▀▀
+// 3. Must include original credits to:                                ▐░▌               ▐░▌ 
+//    - John F. Ehlers (Original SuperSmoother concept)                ▐░▌               ▐░▌ 
+//    - Casa Tropical (CT) (Maclaurin enhancement)                     ▐░▌               ▐░▌ 
+//                                                                     ▐░▌               ▐░▌ 
+// ATTRIBUTION REQUIREMENT:                                            ▐░█▄▄▄▄▄▄▄▄▄      ▐░▌                 
+// When sharing or modifying, please include:                          ▐░░░░░░░░░░░▌     ▐░▌  
+// "Enhanced with Maclaurin Series by Casa Tropical (CT),               ▀▀▀▀▀▀▀▀▀▀▀       ▀ 
+//  based on John F. Ehlers' SuperSmoother"
+//
+// VERSION TRACKING:
+// v2.0 - Maclaurin Series enhancement
+// v1.0 - Original implementation
+//-----------------------------------------------------------------------------------
+// ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+//-----------------------------------------------------------------------------------
+// LEGEND - INPUTS
+//-----------------------------------------------------------------------------------
+// plot_type    : Selects filtering method (Original or Maclaurin enhanced)
+// length       : Main smoothing period for the filter
+// hpLength     : High-pass filter period for noise reduction
+// src          : Input price data source
+//
+// color_mode   : Visual display mode (Normal/Intensity based)
+// smart_clr_ON : Enable dynamic color changes
+// intensity_multiplier : Controls color intensity strength
+//
+// clr_mono     : Base color (#2196F3 Electric Blue)
+// clr_up       : Upward movement color (#4CAF50 Fresh Green)
+// clr_dn       : Downward movement color (#F44336 Vibrant Red)
+
+//-----------------------------------------------------------------------------------
+// LEGEND - FUNCTIONS
+//-----------------------------------------------------------------------------------
+// UltimateSmoother(): Primary smoothing algorithm
+// power(): Calculates exponential values
+// factorial(): Computes factorial numbers
+// approxSin(): Maclaurin series approximation for sine
+// approxCos(): Maclaurin series approximation for cosine
+// erf_ultimatesmoother_enhanced(): Enhanced smoothing with Maclaurin series
+// intensity_color(): Generates dynamic color based on movement
+// MA_Smart_Color(): Manages color selection logic
+//-----------------------------------------------------------------------------------
+// ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+//-----------------------------------------------------------------------------------
+// MACLAURIN SERIES EXPLANATION
+//-----------------------------------------------------------------------------------
+// The Maclaurin series is a special case of the Taylor series centered at 0.
+// It approximates complex functions using polynomial terms.
+//
+// For example, sin(x) is approximated as:
+// sin(x) = x - x³/3! + x⁵/5! - x⁷/7! + x⁹/9! + ...
+//
+// Visual representation:
+// sin(x) ≈ x       (1st term)
+//       - x³/6     (2nd term) 
+//       + x⁵/120   (3rd term)
+//       - x⁷/5040  (4th term)
+//       + x⁹/362880 (5th term)
+//
+// Similarly for cos(x):
+// cos(x) = 1 - x²/2! + x⁴/4! - x⁶/6! + x⁸/8! + ...
+//
+// PRACTICAL USE IN THIS INDICATOR:
+// - More efficient calculation of sine/cosine
+// - Better performance than built-in trigonometric functions
+// - Sufficient accuracy for price smoothing purposes
+// - Used in high-pass filter calculations
+//
+// The more terms used, the more accurate the approximation
+// We use 5 terms for optimal balance between accuracy and performance
+//-----------------------------------------------------------------------------------
+// ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+//-----------------------------------------------------------------------------------
+// ADVANTAGES OF MACLAURIN ENHANCED ULTIMATE SMOOTHER
+//-----------------------------------------------------------------------------------
+// COMPUTATIONAL BENEFITS:
+// 1. Faster calculations through polynomial approximation
+// 2. Reduced CPU load compared to standard trigonometric functions
+// 3. More efficient memory usage
+//
+// SMOOTHING IMPROVEMENTS:
+// 1. Better noise reduction at market turning points
+// 2. Enhanced preservation of significant price movements
+// 3. Reduced lag in trend detection
+// 4. More precise filtering of high-frequency noise
+//
+// PRACTICAL TRADING BENEFITS:
+// 1. Cleaner signals at market reversals
+// 2. Earlier trend identification
+// 3. Better performance in choppy market conditions
+// 4. More reliable support/resistance level detection
+//
+// VISUALIZATION ENHANCEMENTS:
+// 1. Smoother line transitions
+// 2. Better color intensity mapping
+// 3. More accurate movement representation
+// 4. Clearer trend direction indication
+//-----------------------------------------------------------------------------------
+// ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+//-----------------------------------------------------------------------------------
+//© Mupsje aka CasaTropical
+
+//@version=6
+
+indicator('Ehlers Maclaurin SuperSmoother [CT]', shorttitle = 'EMSS [CT]', overlay = false)
+
+// Base settings
+plot_type = input.string('Original SuperSmoother', 'Plot Type', options = ['Original SuperSmoother', 'Maclaurin SuperSmoother'], tooltip = 'Select between original SuperSmoother or enhanced Maclaurin version')
+length = input.int(30, 'Length', tooltip = 'Smoothing period for the filter')
+hpLength = input.int(10, 'hpLength', tooltip = 'Period for the high-pass filter')
+src = input.source(close, 'Source', tooltip = 'Price data used for calculations')
+
+// Colour settings
+color_mode = input.string('Normal', 'Color Mode', options = ['Normal', 'Intensity'], tooltip = 'Normal for fixed colours, Intensity for dynamic colour intensity')
+smart_clr_ON = input.bool(true, 'Colorize', tooltip = 'Toggles colour changes based on movement')
+intensity_multiplier = input.float(1.0, 'Intensity Multiplier', 0.1, 5.0, 0.1, tooltip = 'Multiplier for colour intensity in Intensity mode', group = 'Color Settings')
+
+// Colour definitions
+clr_mono = input.color(#2196F3, 'Colours    ', tooltip = 'Base colour when Colorize is off', inline = 'colors')
+clr_up = input.color(#4CAF50, '', tooltip = 'Colour for upward movement', inline = 'colors')
+clr_dn = input.color(#F44336, '', tooltip = 'Colour for downward movement', inline = 'colors')
+
+//🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰
+/// Applies the Ultimate Smoother filter to the input source data using the specified period.
+/// The Ultimate Smoother is an enhanced version of the Ehlers SuperSmoother filter that
+/// uses a Maclaurin series approximation for improved computational efficiency and
+/// smoothing performance.
+/// <param name="src">The input source data to be filtered.</param>
+/// <param name="period">The smoothing period for the filter.</param>
+/// <returns>The filtered output data.</returns>
+UltimateSmoother(float src, int period) =>
+    float a1 = math.exp(-1.414 * math.pi / period)
+    float c2 = 2.0 * a1 * math.cos(1.414 * math.pi / period)
+    float c3 = -a1 * a1
+    float c1 = (1.0 + c2 - c3) / 4.0
+    float us = src
+    if bar_index >= 4
+        us := (1.0 - c1) * src + (2.0 * c1 - c2) * src[1] - (c1 + c3) * src[2] + c2 * nz(us[1]) + c3 * nz(us[2])
+        us
+    us
+
+//🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰
+// Iterative power calculation
+/// Calculates the power of a given base raised to the specified exponent using an iterative approach.
+/// This function is a helper utility for calculating powers in the Maclaurin series approximations.
+/// <param name="base">The base number to be raised to the power.</param>
+/// <param name="exponent">The exponent to which the base should be raised.</param>
+/// <returns>The result of raising the base to the specified exponent.</returns>
+power(base, exponent) =>
+    result = 1.0
+    for i = 1 to exponent by 1
+        result := result * base
+        result
+    result
+
+// Iterative factorial calculation
+/// Calculates the factorial of the given integer value using an iterative approach.
+/// <param name="n">The integer value for which the factorial should be calculated.</param>
+/// <returns>The factorial of the given integer value.</returns>
+factorial(n) =>
+    result = 1.0
+    for i = 1 to n by 1
+        result := result * i
+        result
+    result
+
+// Maclaurin Series Approximations for sin(x) and cos(x)
+// A Maclaurin Series is a Taylor Series where a=0
+/// Calculates an approximation of the sine function using a Maclaurin series expansion.
+/// The Maclaurin series is a special case of the Taylor series where the expansion point is at x=0.
+/// This function uses the first five terms of the Maclaurin series to provide an efficient approximation of the sine function.
+/// <param name="x">The input value for which the sine approximation should be calculated.</param>
+/// <returns>The approximate sine value for the given input.</returns>
+approxSin(x) =>
+    term1 = x // x¹/1!
+    term2 = -1 * power(x, 3) / factorial(3) // -x³/3!
+    term3 = power(x, 5) / factorial(5) // x⁵/5!
+    term4 = -1 * power(x, 7) / factorial(7) // -x⁷/7!
+    term5 = power(x, 9) / factorial(9) // x⁹/9!
+    sinValue = term1 + term2 + term3 + term4 + term5
+    sinValue
+
+/// Calculates an approximation of the cosine function using a Maclaurin series expansion.
+/// The Maclaurin series is a special case of the Taylor series where the expansion point is at x=0.
+/// This function uses the first five terms of the Maclaurin series to provide an efficient approximation of the cosine function.
+/// <param name="x">The input value for which the cosine approximation should be calculated.</param>
+/// <returns>The approximate cosine value for the given input.</returns>
+approxCos(x) =>
+    term1 = 1 // x⁰/0!
+    term2 = -1 * power(x, 2) / factorial(2) // -x²/2!
+    term3 = power(x, 4) / factorial(4) // x⁴/4!
+    term4 = -1 * power(x, 6) / factorial(6) // -x⁶/6!
+    term5 = power(x, 8) / factorial(8) // x⁸/8!
+    cosValue = term1 + term2 + term3 + term4 + term5
+    cosValue
+
+/// Calculates an enhanced version of the Ultimate Smoother using a Maclaurin series approximation.
+/// This function applies a high-pass filter to the input source data using a Maclaurin series approximation
+/// of the cosine and sine functions to determine the filter coefficients.
+/// <param name="src">The input source data to be filtered.</param>
+/// <param name="hpLength">The length parameter for the high-pass filter.</param>
+/// <param name="period">The period parameter for the filter.</param>
+/// <returns>The filtered output data.</returns>
+erf_ultimatesmoother_enhanced(src, hpLength, period) =>
+    pi = 2 * math.asin(1)
+    twoPiPrd = 2 * pi / hpLength
+    alpha1 = (approxCos(twoPiPrd) + approxSin(twoPiPrd) - 1) / approxCos(twoPiPrd)
+    hp = 0.0
+    hp := (1 - alpha1 / 2) * (src - nz(src[1])) + (1 - alpha1) * nz(hp[1])
+    a1 = math.exp(-1.414 * pi / period)
+    c2 = 2.0 * a1 * approxCos(1.414 * pi / period)
+    c3 = -a1 * a1
+    c1 = (1.0 + c2 - c3) / 4.0
+    rfilt = hp
+    if bar_index >= 4
+        rfilt := (1.0 - c1) * hp + (2.0 * c1 - c2) * hp[1] - (c1 + c3) * hp[2] + c2 * nz(rfilt[1]) + c3 * nz(rfilt[2])
+        rfilt
+    rfilt
+
+//🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰
+
+// Intensity color
+/// Calculates an intensity color based on the provided value.
+/// The value is first normalized by dividing it by the 14-period ATR and multiplying by 10.
+/// The absolute value of the normalized value is then used to calculate the intensity, which is capped at 255.
+/// The resulting color is a green shade for positive values and a red shade for negative values, with an alpha of 70.
+/// <param name="value">The input value to be used for calculating the intensity color.</param>
+/// <returns>The calculated intensity color.</returns>
+intensity_color(value) =>
+    normalized_value = value / ta.atr(14) * 10 // Increased base scaling
+    intensity = math.abs(normalized_value) * 255 * intensity_multiplier
+    value > 0 ? color.rgb(0, math.min(intensity, 255), 0, 70) : color.rgb(math.min(intensity, 255), 0, 0, 70)
+
+/// Calculates a smart color for a moving average (MA) based on the provided parameters.
+/// If smart_clr_ON is false, the function returns the provided clr parameter.
+/// If smart_clr_ON is true, the function determines the color based on the following logic:
+/// - If mode is 'Normal', the color is set to color_up if the MA is greater than the previous MA, color_dn if the MA is less than the previous MA, and the previous clr_ma otherwise.
+/// - If mode is not 'Normal', the function calculates an intensity color based on the difference between the current MA and the previous MA, using the intensity_color function.
+/// <param name="ma">The moving average value to be used for color calculation.</param>
+/// <param name="smart_clr_ON">A boolean indicating whether to use smart color calculation.</param>
+/// <param name="color_up">The color to use for positive MA changes.</param>
+/// <param name="color_dn">The color to use for negative MA changes.</param>
+/// <param name="clr">The default color to use if smart_clr_ON is false.</param>
+/// <param name="mode">The mode to use for smart color calculation. Can be 'Normal' or any other value.</param>
+/// <returns>The calculated color for the MA.</returns>
+MA_Smart_Color(float ma, bool smart_clr_ON, color color_up, color color_dn, color clr, string mode) =>
+    color clr_ma = na
+
+    if not smart_clr_ON
+        clr_ma := clr
+        clr_ma
+    else
+        if mode == 'Normal'
+            clr_ma := switch 
+                ma > ma[1] => color_up
+                ma < ma[1] => color_dn
+                => clr_ma[1]
+            clr_ma
+        else
+            value = ma - ma[1]
+            clr_ma := intensity_color(value)
+            clr_ma
+
+    clr_ma
+    //
+
+// Intensity parameters
+intensity_bull_color = clr_up
+intensity_bear_color = clr_dn
+
+//🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰
+
+/// Calculates the Ultimate Smoother and Enhanced Ultimate Smoother based on the provided source data and parameters.
+/// Determines the color for the moving average plot based on the smart color calculation.
+/// Plots the selected smoother type (Original or Enhanced) with the calculated color and line width.
+/// Sets the bar color using the calculated moving average color with an alpha of 30.
+us = UltimateSmoother(src, length)
+us_enh = erf_ultimatesmoother_enhanced(src, hpLength, length)
+
+clr_ma = MA_Smart_Color(us, smart_clr_ON, clr_up, clr_dn, clr_mono, color_mode)
+
+// Plot based on selection
+plot(plot_type == 'Original SuperSmoother' ? us : us_enh, title = 'SuperSmoother Plot', color = clr_ma[1], linewidth = 2)
+
+//Bar Color
+barcolor(color.new(clr_ma, 30))
+//🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰🀰

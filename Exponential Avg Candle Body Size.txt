@@ -1,0 +1,33 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Maharshinotpro
+
+//@version=5
+indicator("Exponential Avg Body Size Green vs Red", shorttitle="ExpAvgBodyGR", overlay=false)
+
+// User input for the number of candles
+len = input.int(21, title="Number of Candles", minval=1)
+
+// User input for the range
+min_range = input.int(-50, title="Min Range")
+max_range = input.int(50, title="Max Range")
+
+// Calculate body size
+body_size = math.abs(close - open)
+
+// Separate green and red candles
+is_green = close > open
+is_red = close < open
+
+// Exponential average body size for green and red candles
+exp_avg_body_green = ta.ema(is_green ? body_size : na, len)
+exp_avg_body_red = ta.ema(is_red ? body_size : na, len)
+
+// Plot exponential average body sizes
+plot(exp_avg_body_green, color=color.lime, title="Exp Avg Green Body Size")
+plot(exp_avg_body_red, color=color.red, title="Exp Avg Red Body Size")
+
+// Add a baseline at 0
+hline(0, "Baseline", color=color.gray, linestyle=hline.style_dotted)
+
+// Set the chart range
+bgcolor(color.new(color.gray, 90), transp=90)  // Subtle background to highlight range

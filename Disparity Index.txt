@@ -1,0 +1,294 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+//                  |                   |                   |                   |                   |                   |                   |                   |                   |                   |                   |                   |                   |                   |                   |
+// © Rathack
+// -----------------|-------------------|-------------------|-------------------|-------------------|-------------------|
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// -- // -- // -- Ultra Disparity Index
+//////////////////////////////////////////////////////////////////////////////////////////
+// -- // --
+////////////////////////////////////////////////////////////
+// --
+//////////////////////////////
+//
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//@version=6
+indicator('Ultra Disparity Index', overlay = false)
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// -- // -- // -- user inputs
+
+int iLength1 = input.int(20, 'Length #1', minval = 1)
+int iLength2 = input.int(50, 'Length #2', minval = 1)
+int iLength3 = input.int(100, 'Length #3', minval = 1)
+int iLength4 = input.int(200, 'Length #4', minval = 1)
+
+bool b1M = input.bool(true, 'Plot Disparity Index #1 - M')
+bool b2M = input.bool(true, 'Plot Disparity Index #2 - M')
+bool b3M = input.bool(true, 'Plot Disparity Index #3 - M')
+bool b4M = input.bool(true, 'Plot Disparity Index #4 - M')
+
+bool b1W = input.bool(true, 'Plot Disparity Index #1 - W')
+bool b2W = input.bool(true, 'Plot Disparity Index #2 - W')
+bool b3W = input.bool(true, 'Plot Disparity Index #3 - W')
+bool b4W = input.bool(true, 'Plot Disparity Index #4 - W')
+
+bool b1D = input.bool(true, 'Plot Disparity Index #1 - D')
+bool b2D = input.bool(true, 'Plot Disparity Index #2 - D')
+bool b3D = input.bool(true, 'Plot Disparity Index #3 - D')
+bool b4D = input.bool(true, 'Plot Disparity Index #4 - D')
+
+bool b1H4 = input.bool(true, 'Plot Disparity Index #1 - H4')
+bool b2H4 = input.bool(true, 'Plot Disparity Index #2 - H4')
+bool b3H4 = input.bool(true, 'Plot Disparity Index #3 - H4')
+bool b4H4 = input.bool(true, 'Plot Disparity Index #4 - H4')
+
+bool b1H1 = input.bool(true, 'Plot Disparity Index #1 - H1')
+bool b2H1 = input.bool(true, 'Plot Disparity Index #2 - H1')
+bool b3H1 = input.bool(true, 'Plot Disparity Index #3 - H1')
+bool b4H1 = input.bool(true, 'Plot Disparity Index #4 - H1')
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// -- // -- // -- calculation
+
+// -----------------|-------------------|-------------------|-------------------|-------------------|-------------------|
+
+_CalcMovingAverage(series int _iLength) =>
+
+    ta.sma(close, _iLength)
+
+
+// -----------------|-------------------|-------------------|-------------------|-------------------|-------------------|
+
+_CalcDisparityIndex(series float _fMa) =>
+
+    (close - _fMa) / _fMa * 100
+
+
+// -----------------|-------------------|-------------------|-------------------|-------------------|-------------------|
+
+_CalcPremiumDiscount(series float _fDisparityIndex) =>
+
+    series float fBasis_ = ta.sma(_fDisparityIndex, 20)
+    series float fDeviation_ = 3.0 * ta.stdev(_fDisparityIndex, 20)
+    series float fUpperBand_ = fBasis_ + fDeviation_
+    series float fLowerBand_ = fBasis_ - fDeviation_
+
+    [fUpperBand_, fLowerBand_]
+
+
+// -----------------|-------------------|-------------------|-------------------|-------------------|-------------------|
+
+_CalcPercentage(series float _fDisparityIndex, series float _fPremium, series float _fDiscount) =>
+
+    series float _fRange = (_fPremium - _fDiscount) / 2
+    series float _fMidpoint = (_fPremium + _fDiscount) / 2
+    series float _fPosition = _fDisparityIndex - _fMidpoint
+    series float _fPercentage = _fPosition * 100 / _fRange
+
+
+// -----------------|-------------------|-------------------|-------------------|-------------------|-------------------|
+
+//////////////////////////////////////////////////////////////////////////////////////////
+// -- // -- monthly
+
+series float fDisparityIndex1M = request.security(syminfo.tickerid, 'M', _CalcDisparityIndex(_CalcMovingAverage(iLength1)))
+series float fDisparityIndex2M = request.security(syminfo.tickerid, 'M', _CalcDisparityIndex(_CalcMovingAverage(iLength2)))
+series float fDisparityIndex3M = request.security(syminfo.tickerid, 'M', _CalcDisparityIndex(_CalcMovingAverage(iLength3)))
+series float fDisparityIndex4M = request.security(syminfo.tickerid, 'M', _CalcDisparityIndex(_CalcMovingAverage(iLength4)))
+
+[fUpperDisparityIndex1M, fLowerDisparityIndex1M] = _CalcPremiumDiscount(fDisparityIndex1M)
+series float fPercentage1M = _CalcPercentage(fDisparityIndex1M, fUpperDisparityIndex1M, fLowerDisparityIndex1M)
+
+[fUpperDisparityIndex2M, fLowerDisparityIndex2M] = _CalcPremiumDiscount(fDisparityIndex2M)
+series float fPercentage2M = _CalcPercentage(fDisparityIndex2M, fUpperDisparityIndex2M, fLowerDisparityIndex2M)
+
+[fUpperDisparityIndex3M, fLowerDisparityIndex3M] = _CalcPremiumDiscount(fDisparityIndex3M)
+series float fPercentage3M = _CalcPercentage(fDisparityIndex3M, fUpperDisparityIndex3M, fLowerDisparityIndex3M)
+
+[fUpperDisparityIndex4M, fLowerDisparityIndex4M] = _CalcPremiumDiscount(fDisparityIndex4M)
+series float fPercentage4M = _CalcPercentage(fDisparityIndex4M, fUpperDisparityIndex4M, fLowerDisparityIndex4M)
+
+//////////////////////////////////////////////////////////////////////////////////////////
+// -- // -- weekly
+
+series float fDisparityIndex1W = request.security(syminfo.tickerid, 'W', _CalcDisparityIndex(_CalcMovingAverage(iLength1)))
+series float fDisparityIndex2W = request.security(syminfo.tickerid, 'W', _CalcDisparityIndex(_CalcMovingAverage(iLength2)))
+series float fDisparityIndex3W = request.security(syminfo.tickerid, 'W', _CalcDisparityIndex(_CalcMovingAverage(iLength3)))
+series float fDisparityIndex4W = request.security(syminfo.tickerid, 'W', _CalcDisparityIndex(_CalcMovingAverage(iLength4)))
+
+[fUpperDisparityIndex1W, fLowerDisparityIndex1W] = _CalcPremiumDiscount(fDisparityIndex1W)
+series float fPercentage1W = _CalcPercentage(fDisparityIndex1W, fUpperDisparityIndex1W, fLowerDisparityIndex1W)
+
+[fUpperDisparityIndex2W, fLowerDisparityIndex2W] = _CalcPremiumDiscount(fDisparityIndex2W)
+series float fPercentage2W = _CalcPercentage(fDisparityIndex2W, fUpperDisparityIndex2W, fLowerDisparityIndex2W)
+
+[fUpperDisparityIndex3W, fLowerDisparityIndex3W] = _CalcPremiumDiscount(fDisparityIndex3W)
+series float fPercentage3W = _CalcPercentage(fDisparityIndex3W, fUpperDisparityIndex3W, fLowerDisparityIndex3W)
+
+[fUpperDisparityIndex4W, fLowerDisparityIndex4W] = _CalcPremiumDiscount(fDisparityIndex4W)
+series float fPercentage4W = _CalcPercentage(fDisparityIndex4W, fUpperDisparityIndex4W, fLowerDisparityIndex4W)
+
+//////////////////////////////////////////////////////////////////////////////////////////
+// -- // -- daily
+
+series float fDisparityIndex1D = request.security(syminfo.tickerid, 'D', _CalcDisparityIndex(_CalcMovingAverage(iLength1)))
+series float fDisparityIndex2D = request.security(syminfo.tickerid, 'D', _CalcDisparityIndex(_CalcMovingAverage(iLength2)))
+series float fDisparityIndex3D = request.security(syminfo.tickerid, 'D', _CalcDisparityIndex(_CalcMovingAverage(iLength3)))
+series float fDisparityIndex4D = request.security(syminfo.tickerid, 'D', _CalcDisparityIndex(_CalcMovingAverage(iLength4)))
+
+[fUpperDisparityIndex1D, fLowerDisparityIndex1D] = _CalcPremiumDiscount(fDisparityIndex1D)
+series float fPercentage1D = _CalcPercentage(fDisparityIndex1D, fUpperDisparityIndex1D, fLowerDisparityIndex1D)
+
+[fUpperDisparityIndex2D, fLowerDisparityIndex2D] = _CalcPremiumDiscount(fDisparityIndex2D)
+series float fPercentage2D = _CalcPercentage(fDisparityIndex2D, fUpperDisparityIndex2D, fLowerDisparityIndex2D)
+
+[fUpperDisparityIndex3D, fLowerDisparityIndex3D] = _CalcPremiumDiscount(fDisparityIndex3D)
+series float fPercentage3D = _CalcPercentage(fDisparityIndex3D, fUpperDisparityIndex3D, fLowerDisparityIndex3D)
+
+[fUpperDisparityIndex4D, fLowerDisparityIndex4D] = _CalcPremiumDiscount(fDisparityIndex4D)
+series float fPercentage4D = _CalcPercentage(fDisparityIndex4D, fUpperDisparityIndex4D, fLowerDisparityIndex4D)
+
+//////////////////////////////////////////////////////////////////////////////////////////
+// -- // -- H4
+
+series float fDisparityIndex1H4 = request.security(syminfo.tickerid, '240', _CalcDisparityIndex(_CalcMovingAverage(iLength1)))
+series float fDisparityIndex2H4 = request.security(syminfo.tickerid, '240', _CalcDisparityIndex(_CalcMovingAverage(iLength2)))
+series float fDisparityIndex3H4 = request.security(syminfo.tickerid, '240', _CalcDisparityIndex(_CalcMovingAverage(iLength3)))
+series float fDisparityIndex4H4 = request.security(syminfo.tickerid, '240', _CalcDisparityIndex(_CalcMovingAverage(iLength4)))
+
+[fUpperDisparityIndex1H4, fLowerDisparityIndex1H4] = _CalcPremiumDiscount(fDisparityIndex1H4)
+series float fPercentage1H4 = _CalcPercentage(fDisparityIndex1H4, fUpperDisparityIndex1H4, fLowerDisparityIndex1H4)
+
+[fUpperDisparityIndex2H4, fLowerDisparityIndex2H4] = _CalcPremiumDiscount(fDisparityIndex2H4)
+series float fPercentage2H4 = _CalcPercentage(fDisparityIndex2H4, fUpperDisparityIndex2H4, fLowerDisparityIndex2H4)
+
+[fUpperDisparityIndex3H4, fLowerDisparityIndex3H4] = _CalcPremiumDiscount(fDisparityIndex3H4)
+series float fPercentage3H4 = _CalcPercentage(fDisparityIndex3H4, fUpperDisparityIndex3H4, fLowerDisparityIndex3H4)
+
+[fUpperDisparityIndex4H4, fLowerDisparityIndex4H4] = _CalcPremiumDiscount(fDisparityIndex4H4)
+series float fPercentage4H4 = _CalcPercentage(fDisparityIndex4H4, fUpperDisparityIndex4H4, fLowerDisparityIndex4H4)
+
+//////////////////////////////////////////////////////////////////////////////////////////
+// -- // -- H1
+
+series float fDisparityIndex1H1 = request.security(syminfo.tickerid, '60', _CalcDisparityIndex(_CalcMovingAverage(iLength1)))
+series float fDisparityIndex2H1 = request.security(syminfo.tickerid, '60', _CalcDisparityIndex(_CalcMovingAverage(iLength2)))
+series float fDisparityIndex3H1 = request.security(syminfo.tickerid, '60', _CalcDisparityIndex(_CalcMovingAverage(iLength3)))
+series float fDisparityIndex4H1 = request.security(syminfo.tickerid, '60', _CalcDisparityIndex(_CalcMovingAverage(iLength4)))
+
+[fUpperDisparityIndex1H1, fLowerDisparityIndex1H1] = _CalcPremiumDiscount(fDisparityIndex1H1)
+series float fPercentage1H1 = _CalcPercentage(fDisparityIndex1H1, fUpperDisparityIndex1H1, fLowerDisparityIndex1H1)
+
+[fUpperDisparityIndex2H1, fLowerDisparityIndex2H1] = _CalcPremiumDiscount(fDisparityIndex2H1)
+series float fPercentage2H1 = _CalcPercentage(fDisparityIndex2H1, fUpperDisparityIndex2H1, fLowerDisparityIndex2H1)
+
+[fUpperDisparityIndex3H1, fLowerDisparityIndex3H1] = _CalcPremiumDiscount(fDisparityIndex3H1)
+series float fPercentage3H1 = _CalcPercentage(fDisparityIndex3H1, fUpperDisparityIndex3H1, fLowerDisparityIndex3H1)
+
+[fUpperDisparityIndex4H1, fLowerDisparityIndex4H1] = _CalcPremiumDiscount(fDisparityIndex4H1)
+series float fPercentage4H1 = _CalcPercentage(fDisparityIndex4H1, fUpperDisparityIndex4H1, fLowerDisparityIndex4H1)
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// -- // -- // -- plotting
+
+const color cHeader = #ff9800
+const color cTop = color.lime
+const color cMid = color.blue
+const color cBtm = color.red
+
+//////////////////////////////////////////////////////////////////////////////////////////
+// -- // -- table
+
+var table tableDisparity = table.new(position.bottom_left, 20, 20, bgcolor=color.new(#000000, 0))
+
+table.cell(tableDisparity, 0, 0, "Length", text_color = cHeader)
+table.cell(tableDisparity, 0, 1, "Monthly", text_color = cTop)
+table.cell(tableDisparity, 0, 2, "OB/OS", text_color = cTop)
+table.cell(tableDisparity, 0, 3, "Weekly", text_color = color.from_gradient(50, 0, 100, cMid, cTop))
+table.cell(tableDisparity, 0, 4, "OB/OS", text_color = color.from_gradient(50, 0, 100, cMid, cTop))
+table.cell(tableDisparity, 0, 5, "Daily", text_color = cMid)
+table.cell(tableDisparity, 0, 6, "OB/OS", text_color = cMid)
+table.cell(tableDisparity, 0, 7, "4H", text_color = color.from_gradient(50, 0, 100, cBtm, cMid))
+table.cell(tableDisparity, 0, 8, "OB/OS", text_color = color.from_gradient(50, 0, 100, cBtm, cMid))
+table.cell(tableDisparity, 0, 9, "1H", text_color = cBtm)
+table.cell(tableDisparity, 0, 10, "OB/OS", text_color = cBtm)
+
+table.cell(tableDisparity, 1, 0, str.tostring(iLength1), text_color = cHeader)
+table.cell(tableDisparity, 1, 1, str.tostring(fDisparityIndex1M, '0.000'), text_color = cTop)
+table.cell(tableDisparity, 1, 2, str.tostring(fPercentage1M, format.percent), text_color = cTop)
+table.cell(tableDisparity, 1, 3, str.tostring(fDisparityIndex1W, '0.000'), text_color = color.from_gradient(50, 0, 100, cMid, cTop))
+table.cell(tableDisparity, 1, 4, str.tostring(fPercentage1W, format.percent), text_color = color.from_gradient(50, 0, 100, cMid, cTop))
+table.cell(tableDisparity, 1, 5, str.tostring(fDisparityIndex1D, '0.000'), text_color = cMid)
+table.cell(tableDisparity, 1, 6, str.tostring(fPercentage1D, format.percent), text_color = cMid)
+table.cell(tableDisparity, 1, 7, str.tostring(fDisparityIndex1H4, '0.000'), text_color = color.from_gradient(50, 0, 100, cBtm, cMid))
+table.cell(tableDisparity, 1, 8, str.tostring(fPercentage1H4, format.percent), text_color = color.from_gradient(50, 0, 100, cBtm, cMid))
+table.cell(tableDisparity, 1, 9, str.tostring(fDisparityIndex1H1, '0.000'), text_color = cBtm)
+table.cell(tableDisparity, 1, 10, str.tostring(fPercentage1H1, format.percent), text_color = cBtm)
+
+table.cell(tableDisparity, 2, 0, str.tostring(iLength2), text_color = cHeader)
+table.cell(tableDisparity, 2, 1, str.tostring(fDisparityIndex2M, '0.000'), text_color = cTop)
+table.cell(tableDisparity, 2, 2, str.tostring(fPercentage2M, format.percent), text_color = cTop)
+table.cell(tableDisparity, 2, 3, str.tostring(fDisparityIndex2W, '0.000'), text_color = color.from_gradient(50, 0, 100, cMid, cTop))
+table.cell(tableDisparity, 2, 4, str.tostring(fPercentage2W, format.percent), text_color = color.from_gradient(50, 0, 100, cMid, cTop))
+table.cell(tableDisparity, 2, 5, str.tostring(fDisparityIndex2D, '0.000'), text_color = cMid)
+table.cell(tableDisparity, 2, 6, str.tostring(fPercentage2D, format.percent), text_color = cMid)
+table.cell(tableDisparity, 2, 7, str.tostring(fDisparityIndex2H4, '0.000'), text_color = color.from_gradient(50, 0, 100, cBtm, cMid))
+table.cell(tableDisparity, 2, 8, str.tostring(fPercentage2H4, format.percent), text_color = color.from_gradient(50, 0, 100, cBtm, cMid))
+table.cell(tableDisparity, 2, 9, str.tostring(fDisparityIndex2H1, '0.000'), text_color = cBtm)
+table.cell(tableDisparity, 2, 10, str.tostring(fPercentage2H1, format.percent), text_color = cBtm)
+
+table.cell(tableDisparity, 3, 0, str.tostring(iLength3), text_color = cHeader)
+table.cell(tableDisparity, 3, 1, str.tostring(fDisparityIndex3M, '0.000'), text_color = cTop)
+table.cell(tableDisparity, 3, 2, str.tostring(fPercentage3M, format.percent), text_color = cTop)
+table.cell(tableDisparity, 3, 3, str.tostring(fDisparityIndex3W, '0.000'), text_color = color.from_gradient(50, 0, 100, cMid, cTop))
+table.cell(tableDisparity, 3, 4, str.tostring(fPercentage3W, format.percent), text_color = color.from_gradient(50, 0, 100, cMid, cTop))
+table.cell(tableDisparity, 3, 5, str.tostring(fDisparityIndex3D, '0.000'), text_color = cMid)
+table.cell(tableDisparity, 3, 6, str.tostring(fPercentage3D, format.percent), text_color = cMid)
+table.cell(tableDisparity, 3, 7, str.tostring(fDisparityIndex3H4, '0.000'), text_color = color.from_gradient(50, 0, 100, cBtm, cMid))
+table.cell(tableDisparity, 3, 8, str.tostring(fPercentage3H4, format.percent), text_color = color.from_gradient(50, 0, 100, cBtm, cMid))
+table.cell(tableDisparity, 3, 9, str.tostring(fDisparityIndex3H1, '0.000'), text_color = cBtm)
+table.cell(tableDisparity, 3, 10, str.tostring(fPercentage3H1, format.percent), text_color = cBtm)
+
+table.cell(tableDisparity, 4, 0, str.tostring(iLength4), text_color = cHeader)
+table.cell(tableDisparity, 4, 1, str.tostring(fDisparityIndex4M, '0.000'), text_color = cTop)
+table.cell(tableDisparity, 4, 2, str.tostring(fPercentage4M, format.percent), text_color = cTop)
+table.cell(tableDisparity, 4, 3, str.tostring(fDisparityIndex4W, '0.000'), text_color = color.from_gradient(50, 0, 100, cMid, cTop))
+table.cell(tableDisparity, 4, 4, str.tostring(fPercentage4W, format.percent), text_color = color.from_gradient(50, 0, 100, cMid, cTop))
+table.cell(tableDisparity, 4, 5, str.tostring(fDisparityIndex4D, '0.000'), text_color = cMid)
+table.cell(tableDisparity, 4, 6, str.tostring(fPercentage4D, format.percent), text_color = cMid)
+table.cell(tableDisparity, 4, 7, str.tostring(fDisparityIndex4H4, '0.000'), text_color = color.from_gradient(50, 0, 100, cBtm, cMid))
+table.cell(tableDisparity, 4, 8, str.tostring(fPercentage4H4, format.percent), text_color = color.from_gradient(50, 0, 100, cBtm, cMid))
+table.cell(tableDisparity, 4, 9, str.tostring(fDisparityIndex4H1, '0.000'), text_color = cBtm)
+table.cell(tableDisparity, 4, 10, str.tostring(fPercentage4H1, format.percent), text_color = cBtm)
+
+//////////////////////////////////////////////////////////////////////////////////////////
+// -- // -- lines
+
+hline(0, 'Zero Line')
+
+plot(b1H1 ? fDisparityIndex1H1 : na, "Disparity Index 1H", cBtm)
+plot(b2H1 ? fDisparityIndex2H1 : na, "Disparity Index 2H", cBtm)
+plot(b3H1 ? fDisparityIndex3H1 : na, "Disparity Index 3H", cBtm)
+plot(b4H1 ? fDisparityIndex4H1 : na, "Disparity Index 4H", cBtm)
+
+plot(b1H4 ? fDisparityIndex1H4 : na, "Disparity Index 1H4", color.from_gradient(50, 0, 100, cBtm, cMid))
+plot(b2H4 ? fDisparityIndex2H4 : na, "Disparity Index 2H4", color.from_gradient(50, 0, 100, cBtm, cMid))
+plot(b3H4 ? fDisparityIndex3H4 : na, "Disparity Index 3H4", color.from_gradient(50, 0, 100, cBtm, cMid))
+plot(b4H4 ? fDisparityIndex4H4 : na, "Disparity Index 4H4", color.from_gradient(50, 0, 100, cBtm, cMid))
+
+plot(b1D ? fDisparityIndex1D : na, "Disparity Index 1D", cMid)
+plot(b2D ? fDisparityIndex2D : na, "Disparity Index 2D", cMid)
+plot(b3D ? fDisparityIndex3D : na, "Disparity Index 3D", cMid)
+plot(b4D ? fDisparityIndex4D : na, "Disparity Index 4D", cMid)
+
+plot(b1W ? fDisparityIndex1W : na, "Disparity Index 1W", color.from_gradient(50, 0, 100, cMid, cTop))
+plot(b2W ? fDisparityIndex2W : na, "Disparity Index 2W", color.from_gradient(50, 0, 100, cMid, cTop))
+plot(b3W ? fDisparityIndex3W : na, "Disparity Index 3W", color.from_gradient(50, 0, 100, cMid, cTop))
+plot(b4W ? fDisparityIndex4W : na, "Disparity Index 4W", color.from_gradient(50, 0, 100, cMid, cTop))
+
+plot(b1M ? fDisparityIndex1M : na, "Disparity Index 1M", cTop)
+plot(b2M ? fDisparityIndex2M : na, "Disparity Index 2M", cTop)
+plot(b3M ? fDisparityIndex3M : na, "Disparity Index 3M", cTop)
+plot(b4M ? fDisparityIndex4M : na, "Disparity Index 4M", cTop)
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

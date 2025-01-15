@@ -1,0 +1,391 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © djmad
+
+
+//@version=6
+indicator("[MAD] Self-Optimizing RSI", overlay=false)
+
+// ====================================================================================================
+// USER INPUTS
+// ====================================================================================================
+int   minLen          = input.int(3,  "Min RSI Length")
+int   maxLen          = input.int(50, "Max RSI Length")
+float buyvalue        = input.float(30, "RSI Buy Value")
+float sellvalue       = input.float(70, "RSI Sell Value")
+float commission      = input.float(0.001, "Commission (decimal)")
+float weightSharpe    = input.float(0.4, "Weight: Sharpe")
+float weightNetProfit = input.float(0.4, "Weight: NetProfit")
+float weightWinRate   = input.float(0.2, "Weight: WinRate")
+bool  showTable       = input.bool(true,  "Show Table?")
+bool  showLabels      = input.bool(true,  "Show Labels?")
+int   minTradesReq    = input.int(5,     "Min Trades Required")
+
+// ====================================================================================================
+// TYPE DEFINITION
+// ====================================================================================================//
+// StatsContainer
+// 
+// A simple type for storing statistics used for strategy evaluation.
+// 
+type StatsContainer
+    float pnl_sum     = 0.0
+    float pnl_sumsq   = 0.0
+    float num_trades  = 0.0
+    float num_wins    = 0.0
+    bool  inTrade     = false
+    float entryPrice  = na
+    float equity      = 0.0
+    float peakEquity  = 0.0
+    float maxDD       = 0.0
+    float score       = na
+    float sharpe      = na
+    float winrate     = na
+    float netpnl      = na
+
+
+// ====================================================================================================
+// FUNCTION DEFINITIONS
+// ====================================================================================================
+
+// 
+// f_custom_rsi(src, length)
+// 
+// Description:
+//     A naive RSI calculation based on sum of up moves and sum of down moves.
+// 
+// Inputs:
+//     @param src (float)   - Source series to calculate RSI on
+//     @param length (int)  - RSI period length
+// 
+// Returns:
+//     (float) - The calculated RSI value, or na if not enough bars
+// 
+f_custom_rsi(src, length) =>
+    if bar_index < length
+        na
+    else
+        float upSum = 0.0
+        float dnSum = 0.0
+        for i = 1 to length
+            float diff = src[i - 1] - src[i]
+            if diff > 0
+                upSum += diff
+            else
+                dnSum += -diff
+        float avgUp = upSum / length
+        float avgDn = dnSum / length
+        float rs    = avgUp / avgDn
+        100.0 - (100.0 / (1.0 + rs))
+
+
+// 
+// f_fillRow(t, rowIndex, rank, length, statsArr)
+// 
+// Description:
+//     Fills a table row with rank, RSI length, Sharpe, NetPnL, and WinRate from the stats array.
+// 
+// Inputs:
+//     @param t (table)                - Table reference
+//     @param rowIndex (int)           - Table row index
+//     @param rank (int)               - Position rank
+//     @param length (int)             - RSI length
+//     @param statsArr (StatsContainer[]) - Array of StatsContainer
+// 
+// Returns:
+//     none (table cells are updated in-place)
+// 
+f_fillRow(t, rowIndex, rank, length, statsArr) =>
+    float shrp = array.get(statsArr, length).sharpe
+    float np   = array.get(statsArr, length).netpnl
+    float wr   = array.get(statsArr, length).winrate
+    table.cell(t, 0, rowIndex, str.tostring(rank))
+    table.cell(t, 1, rowIndex, str.tostring(length))
+    table.cell(t, 2, rowIndex, na(shrp) ? "-" : str.tostring(shrp))
+    table.cell(t, 3, rowIndex, na(np)   ? "-" : str.tostring(np))
+    table.cell(t, 4, rowIndex, na(wr)   ? "-" : str.tostring(wr * 100) + "%")
+
+
+// 
+// f_initStatsContainers(size)
+// 
+// Description:
+//     Initializes an array of StatsContainer with a specified size.
+// Inputs:
+//     @param size (int) - The number of elements in the array
+// Returns:
+//     (StatsContainer[]) - Newly created and initialized array of StatsContainer
+// 
+f_initStatsContainers(size) =>
+    var StatsContainer[] newStatsArr = array.new<StatsContainer>()
+    if barstate.isfirst
+        for i = 0 to size - 1
+            array.push(newStatsArr, StatsContainer.new(
+             0.0,    // pnl_sum
+             0.0,    // pnl_sumsq
+             0.0,    // num_trades
+             0.0,    // num_wins
+             false,  // inTrade
+             na,     // entryPrice
+             0.0,    // equity
+             0.0,    // peakEquity
+             0.0,    // maxDD
+             na,     // score
+             na,     // sharpe
+             na,     // winrate
+             na      // netpnl
+             ))
+    newStatsArr
+
+
+// 
+// f_updateTrades(statsArr, minLen, maxLen, buyvalue, sellvalue, commission)
+// 
+// Description:
+//     Loops through each RSI length from minLen to maxLen, calculates RSI, 
+//     enters or exits trades, and updates StatsContainer accordingly.
+// 
+// Inputs:
+//     @param statsArr (StatsContainer[]) - The array of statistics to update
+//     @param minLen (int)               - Minimum RSI length
+//     @param maxLen (int)               - Maximum RSI length
+//     @param buyvalue (float)           - RSI threshold to buy
+//     @param sellvalue (float)          - RSI threshold to sell
+//     @param commission (float)         - Commission applied per trade (decimal)
+// 
+// Returns:
+//     none (statsArr is updated in-place)
+// 
+f_updateTrades(statsArr, minLen, maxLen, buyvalue, sellvalue, commission) =>
+    for length = minLen to maxLen
+        float rsiVal = f_custom_rsi(close, length)
+        if not na(rsiVal)
+            StatsContainer sc = array.get(statsArr, length)
+            bool  inTrade    = sc.inTrade
+            float entryPrice = sc.entryPrice
+            float eq         = sc.equity
+
+            // Entry condition
+            if rsiVal < buyvalue and not inTrade
+                sc.inTrade     := true
+                sc.entryPrice  := close
+                array.set(statsArr, length, sc)
+
+            // Exit condition
+            if rsiVal > sellvalue and inTrade
+                float tradeReturn    = (close - entryPrice) / entryPrice
+                float netTradeReturn = tradeReturn - commission
+
+                float oldSum    = sc.pnl_sum
+                float oldSumSq  = sc.pnl_sumsq
+                float oldTrades = sc.num_trades
+                float oldWins   = sc.num_wins
+
+                float isWin = netTradeReturn > 0 ? 1.0 : 0.0
+
+                sc.pnl_sum    := oldSum + netTradeReturn
+                sc.pnl_sumsq  := oldSumSq + (netTradeReturn * netTradeReturn)
+                sc.num_trades := oldTrades + 1.0
+                sc.num_wins   := oldWins + isWin
+
+                sc.inTrade    := false
+                sc.entryPrice := na
+
+                // Update equity
+                float newEq   = eq + netTradeReturn
+                sc.equity     := newEq
+
+                // Update peak & drawdown
+                float oldPeak = sc.peakEquity
+                float newPeak = math.max(oldPeak, newEq)
+                sc.peakEquity := newPeak
+
+                float oldMaxDD = sc.maxDD
+                float ddNow    = (newEq - newPeak) / newPeak
+                sc.maxDD       := ddNow < oldMaxDD ? ddNow : oldMaxDD
+
+            array.set(statsArr, length, sc)
+
+
+// 
+// f_calculateMetrics(statsArr, minLen, maxLen, minTradesReq, weightSharpe, weightNetProfit, weightWinRate)
+// 
+// Description:
+//     Loops through each RSI length, calculates net profit, Sharpe ratio, winrate, and final score.
+// 
+// Inputs:
+//     @param statsArr (StatsContainer[]) - The array of statistics to update
+//     @param minLen (int)               - Minimum RSI length
+//     @param maxLen (int)               - Maximum RSI length
+//     @param minTradesReq (int)         - Minimum trades required to consider valid stats
+//     @param weightSharpe (float)       - Weight of Sharpe ratio in final score
+//     @param weightNetProfit (float)    - Weight of net profit in final score
+//     @param weightWinRate (float)      - Weight of win rate in final score
+// 
+// Returns:
+//     none (statsArr is updated in-place)
+// 
+f_calculateMetrics(statsArr, minLen, maxLen, minTradesReq, weightSharpe, weightNetProfit, weightWinRate) =>
+    for length = minLen to maxLen
+        StatsContainer sc = array.get(statsArr, length)
+
+        float sumRet   = sc.pnl_sum
+        float sumSqRet = sc.pnl_sumsq
+        float nTrades  = sc.num_trades
+        float nWins    = sc.num_wins
+
+        if nTrades >= minTradesReq
+            float netProfit = sumRet
+
+            // Sharpe ratio
+            float avgRet = sumRet / nTrades
+            float varRet = (sumSqRet - (sumRet * sumRet / nTrades)) / (nTrades > 1 ? (nTrades - 1) : nTrades)
+            float stdev  = varRet > 0 ? math.sqrt(varRet) : 0.0
+            float sharpe = stdev == 0.0 ? na : (avgRet / stdev)
+
+            // Win rate
+            float winRate = nWins / nTrades
+
+            // Weighted Score
+            float score = na(sharpe) ? na :
+                 (weightSharpe    * sharpe) +
+                 (weightNetProfit * netProfit) +
+                 (weightWinRate   * winRate)
+
+            sc.netpnl  := netProfit
+            sc.sharpe  := sharpe
+            sc.winrate := winRate
+            sc.score   := score
+        else
+            sc.score   := na
+            sc.sharpe  := na
+            sc.winrate := na
+            sc.netpnl  := na
+
+        array.set(statsArr, length, sc)
+
+
+// 
+// f_findTop3(statsArr, minLen, maxLen)
+// 
+// Description:
+//     Scans through the stats array and finds the top 3 RSI lengths based on 'score'.
+// 
+// Inputs:
+//     @param statsArr (StatsContainer[]) - The array of statistics
+//     @param minLen (int)               - Minimum RSI length
+//     @param maxLen (int)               - Maximum RSI length
+// 
+// Returns:
+//     (float, float, float, float, float, float) 
+//     => topLen1, topVal1, topLen2, topVal2, topLen3, topVal3
+// 
+f_findTop3(statsArr, minLen, maxLen) =>
+    float topLen1 = na
+    float topLen2 = na
+    float topLen3 = na
+    float topVal1 = -1e9
+    float topVal2 = -1e9
+    float topVal3 = -1e9
+
+    for length = minLen to maxLen
+        StatsContainer sc = array.get(statsArr, length)
+        if not na(sc.score)
+            if sc.score > topVal1
+                topLen3 := topLen2
+                topVal3 := topVal2
+                topLen2 := topLen1
+                topVal2 := topVal1
+                topLen1 := length
+                topVal1 := sc.score
+            else if sc.score > topVal2
+                topLen3 := topLen2
+                topVal3 := topVal2
+                topLen2 := length
+                topVal2 := sc.score
+            else if sc.score > topVal3
+                topLen3 := length
+                topVal3 := sc.score
+
+    [topLen1, topVal1, topLen2, topVal2, topLen3, topVal3]
+
+// 
+// f_findTop3(statsArr, minLen, maxLen)
+// 
+// Description:
+//     Fills the Table.
+// 
+// Inputs:
+//     @param t - The Table to fill
+//     @param stats (StatsContainer[]) - The array of statistics
+//     @param TopLen1 int               - Top Matchin RSI length 1
+//     @param TopLen2 int               - Top Matchin RSI length 2
+//     @param TopLen3 int               - Top Matchin RSI length 3
+// 
+// Returns:
+//     none (table t is updated in-place)
+// 
+f_fill_table(table t, StatsContainer []stats, float topLen1, float topLen2, float topLen3) =>
+    table.cell(t, 0, 0, "Rank",    text_color=color.white, bgcolor=color.black)
+    table.cell(t, 1, 0, "Len",     text_color=color.white, bgcolor=color.black)
+    table.cell(t, 2, 0, "Sharpe",  text_color=color.white, bgcolor=color.black)
+    table.cell(t, 3, 0, "NetPnL",  text_color=color.white, bgcolor=color.black)
+    table.cell(t, 4, 0, "WinRate", text_color=color.white, bgcolor=color.black)
+
+    if not na(topLen1)
+        f_fillRow(t, 1, 1, math.round(topLen1), stats)
+    if not na(topLen2)
+        f_fillRow(t, 2, 2, math.round(topLen2), stats)
+    if not na(topLen3)
+        f_fillRow(t, 3, 3, math.round(topLen3), stats)
+
+// ====================================================================================================
+// INIT STATS ARRAY
+// ====================================================================================================
+int arraySize = maxLen + 1
+var StatsContainer[] stats = f_initStatsContainers(arraySize)
+
+// ====================================================================================================
+// MAIN LOGIC
+// ====================================================================================================
+
+// 1) Update trade stats
+f_updateTrades(stats, minLen, maxLen, buyvalue, sellvalue, commission)
+
+// 2) Calculate metrics
+f_calculateMetrics(stats, minLen, maxLen, minTradesReq, weightSharpe, weightNetProfit, weightWinRate)
+
+// 3) Find top 3
+[topLen1, topVal1, topLen2, topVal2, topLen3, topVal3] = f_findTop3(stats, minLen, maxLen)
+
+// 4) Plot the top 3 RSI lines
+float rsi1 = not na(topLen1) ? f_custom_rsi(close, int(topLen1)) : na
+float rsi2 = not na(topLen2) ? f_custom_rsi(close, int(topLen2)) : na
+float rsi3 = not na(topLen3) ? f_custom_rsi(close, int(topLen3)) : na
+
+plot(rsi1, color=color.new(color.gray, 0), linewidth=2, title="RSI #1")
+plot(rsi2, color=color.new(color.green, 50), linewidth=1, title="RSI #2")
+plot(rsi3, color=color.new(color.blue, 50),  linewidth=1, title="RSI #3")
+
+hline(sellvalue, "Overbought", color=color.gray, linestyle=hline.style_dotted)
+hline(buyvalue, "Oversold",   color=color.gray, linestyle=hline.style_dotted)
+hline(20, color=color.new(color.gray,100), linestyle=hline.style_dotted)
+hline(80, color=color.new(color.gray,100), linestyle=hline.style_dotted)
+
+// 5) Optional: Show table with the top 3 stats
+var table t = table.new(position.top_right, 5, 4, border_width=1)
+if barstate.islast and showTable
+    f_fill_table(t, stats, topLen1, topLen3, topLen3)
+
+// 6) Optional: Show labels on the last bar for the top RSI
+var label l1 = na
+l1.delete()
+if barstate.islast and showLabels
+    if not na(rsi1)
+        l1 := label.new(
+         bar_index,
+         rsi1,
+         "Len=" + str.tostring(topLen1) + "\nScore=" + str.tostring(topVal1),
+         style=label.style_label_left,
+         color=color.red,
+         textcolor=color.white
+         )

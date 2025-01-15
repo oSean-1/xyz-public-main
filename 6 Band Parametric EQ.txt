@@ -1,0 +1,333 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © The_Peaceful_Lizard
+
+//@version=6
+indicator("6 Band Parametric EQ")
+
+// HEAD {
+
+// shelf {
+
+high_shelf(float source, float period, float slope, float gain, simple bool enable)=>
+    if enable
+        var float b0 = na
+        var float b1 = na
+        var float b2 = na
+
+        var float a1 = na
+        var float a2 = na
+
+        if barstate.isfirst or period != nz(period[1], period) or slope != nz(slope[1], slope) or gain != nz(gain[1], gain)
+            float A = math.pow(10, gain / 40)
+            float omega = 2 * math.pi * (1.0 / math.max(2, period))
+            float alpha = math.sin(omega) / 2.0 * math.sqrt((A + (1.0 / A)) * (1.0 / slope - 1) + 2)
+            
+            float cos_omega = math.cos(omega)
+            float sqrt_A_2_alpha = 2 * math.sqrt(A) * alpha    
+
+            float a0 = (A + 1) - (A - 1) * cos_omega + sqrt_A_2_alpha
+            float ia0 = 1.0 / a0
+
+            b0 := A * ((A + 1) + (A - 1) * cos_omega + sqrt_A_2_alpha) * ia0
+            b1 := -2 * A * ((A - 1) + (A + 1) * cos_omega) * ia0
+            b2 := A * ((A + 1) + (A - 1) * cos_omega - sqrt_A_2_alpha) * ia0
+
+            a1 := 2 * ((A - 1) - (A + 1) * cos_omega) * ia0
+            a2 := ((A + 1) - (A - 1) * cos_omega - sqrt_A_2_alpha) * ia0
+
+        var float biquad = source
+
+        float x = source
+        float x1 = nz(source[1], x)
+        float x2 = nz(source[2], x1)
+
+        float y1 = nz(biquad[1], biquad)
+        float y2 = nz(biquad[2], y1)
+
+        biquad := b0 * x + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2
+        biquad
+    else
+        source
+
+low_shelf(float source, float period, float slope, float gain, simple bool enable)=>
+    if enable
+        var float b0 = na
+        var float b1 = na
+        var float b2 = na
+
+        var float a1 = na
+        var float a2 = na
+
+        if barstate.isfirst or period != nz(period[1], period) or slope != nz(slope[1], slope) or gain != nz(gain[1], gain)
+            float A = math.pow(10, gain / 40)
+            float omega = 2 * math.pi * (1.0 / math.max(2, period))
+            float alpha = math.sin(omega) / 2.0 * math.sqrt((A + (1.0 / A)) * (1.0 / slope - 1) + 2)
+            
+            float cos_omega = math.cos(omega)
+            float sqrt_A_2_alpha = 2 * math.sqrt(A) * alpha    
+
+            float a0 = (A + 1) + (A - 1) * cos_omega + sqrt_A_2_alpha
+            float ia0 = 1.0 / a0
+
+            b0 := A * ((A + 1) - (A - 1) * cos_omega + sqrt_A_2_alpha) * ia0
+            b1 := 2 * A * ((A - 1) - (A + 1) * cos_omega) * ia0
+            b2 := A * ((A + 1) - (A - 1) * cos_omega - sqrt_A_2_alpha) * ia0
+
+            a1 := -2 * ((A - 1) + (A + 1) * cos_omega) * ia0
+            a2 := ((A + 1) + (A - 1) * cos_omega - sqrt_A_2_alpha) * ia0
+
+        var float biquad = source
+
+        float x = source
+        float x1 = nz(source[1], x)
+        float x2 = nz(source[2], x1)
+
+        float y1 = nz(biquad[1], biquad)
+        float y2 = nz(biquad[2], y1)
+
+        biquad := b0 * x + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2
+        biquad
+    else
+        source
+
+// shelf }
+
+// bell {
+
+bell(float source, float period, float gain, float Q, simple bool enable)=>
+    if enable
+        var float a1 = na
+        var float a2 = na
+
+        var float b0 = na
+        var float b1 = na
+        var float b2 = na
+
+        if barstate.isfirst or period != nz(period[1], period) or Q != nz(Q[1], Q) or gain != nz(gain[1], gain)
+            float A = math.pow(10, gain / 40)
+            float omega = 2 * math.pi * (1.0 / math.max(2, period))
+            float alpha = math.sin(omega) / (2 * Q)
+
+            float cos_omega = math.cos(omega)
+            float alpha_A = alpha * A
+            float alpha_over_A = alpha / A
+
+            float a0 = 1 + alpha_over_A
+            float ia0 = 1 / a0
+
+            b0 := (1 + alpha_A) * ia0
+            b1 := -2 * cos_omega * ia0
+            b2 := (1 - alpha_A) * ia0
+
+            a1 := -2 * cos_omega * ia0
+            a2 := (1 - alpha_over_A) * ia0
+
+        var float biquad = source
+
+        float x = source
+        float x1 = nz(source[1], x)
+        float x2 = nz(source[2], x1)
+
+        float y1 = nz(biquad[1], biquad)
+        float y2 = nz(biquad[2], y1)
+
+        biquad := b0 * x + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2
+        biquad
+        
+    else
+        source
+
+// bell }
+
+// cut {
+
+low_pass(float source = close, float length = 10, float Q = 0.5, simple bool enable)=>
+    if enable
+        var float b0 = na
+        var float b1 = na
+        var float b2 = na
+
+        var float a1 = na
+        var float a2 = na
+
+        if barstate.isfirst or length != nz(length[1], length) or Q != nz(Q[1], Q)
+            float fc = 1 / math.max(2, length)
+            float omega = 2 * math.pi * fc
+            float cos_omega = math.cos(omega)
+
+            float alpha = math.sin(omega)/(2 * Q)
+            float a0 = 1 / (1 + alpha)
+            float b = 1 - cos_omega
+            
+            b0 := b / 2 * a0
+            b1 := b * a0
+            b2 := b0
+
+            a1 := -2 * cos_omega * a0
+            a2 := (1 - alpha) * a0
+
+        var float biquad = source
+
+        float x = source
+        float x1 = nz(source[1], x)
+        float x2 = nz(source[2], x1)
+
+        float y1 = nz(biquad[1], biquad)
+        float y2 = nz(biquad[2], y1)
+
+        biquad := b0 * x + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2
+        biquad
+    else
+        source
+
+high_pass(float source = close, float length = 50, float Q = 0.5, simple bool enable)=>
+    if enable
+        var float a1 = na
+        var float a2 = na
+        var float b0 = na
+        var float b1 = na
+        var float b2 = na
+
+        if barstate.isfirst or length != length[1] or Q != Q[1]
+            float fc = 1 / math.max(2, length)
+            float omega = 2 * math.pi * fc
+            float cos_omega = math.cos(omega)
+
+            float alpha = math.sin(omega)/(2 * Q)
+            float a0 = 1 / (1 + alpha)
+            float b = 1 + cos_omega
+            
+            b0 := b / 2 * a0
+            b1 := -b * a0
+            b2 := b0
+
+            a1 := -2 * cos_omega * a0
+            a2 := (1 - alpha) * a0
+
+        var float biquad = source
+
+        float x = source
+        float x1 = nz(source[1], x)
+        float x2 = nz(source[2], x1)
+
+        float y1 = nz(biquad[1], biquad)
+        float y2 = nz(biquad[2], y1)
+
+        biquad := b0 * x + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2
+        biquad
+    else
+        source
+
+// cut }
+
+// HEAD }
+
+
+// BODY {
+
+// inputs {
+
+// { Main Settings
+
+const string main_group = "Parametric EQ"
+float source = input.source(close, "Source", group = main_group)
+
+// } Main Settings
+
+// { Low Shelf and High Pass
+
+const string high_pass_group = "High Pass"
+bool high_pass_enable = input.bool(false, "", inline = high_pass_group, group = high_pass_group)
+float high_pass_frequency = input.float(200, "Frequency", step = 0.25, minval = 2, inline = high_pass_group, group = high_pass_group)
+float high_pass_Q = input.float(0.5, "Q", step = 0.05, minval = 0.05, inline = high_pass_group, group = high_pass_group)
+
+const string low_shelf_group = "Low Shelf"
+bool low_shelf_enable = input.bool(false, "", inline = low_shelf_group, group = low_shelf_group)
+float low_shelf_frequency = input.float(100, "Frequency", minval = 2, step = 0.25, inline = low_shelf_group, group = low_shelf_group)
+float low_shelf_gain = input.float(0, "Gain", step = 0.5, inline = low_shelf_group, group = low_shelf_group)
+float low_shelf_slope = input.float(1, "Slope", minval = 0.125, step = 0.125, inline = low_shelf_group, group = low_shelf_group)
+
+// } Low Shelf and High Pass
+
+// { Bells
+
+const string bell_group = "Bell"
+const string bell_1_inline = bell_group + "1"
+bool bell_1_enable = input.bool(false, "1: ", inline = bell_1_inline, group = bell_group)
+float bell_1_frequency = input.float(20, "Frequency", minval = 2, step = 0.5, inline = bell_1_inline, group = bell_group)
+float bell_1_gain = input.float(0, "Gain", step = 0.5, inline = bell_1_inline, group = bell_group)
+float bell_1_Q = input.float(1, "Q", minval = 0.125, step = 0.125, inline = bell_1_inline, group = bell_group)
+
+const string bell_2_inline = bell_group + "2"
+bool bell_2_enable = input.bool(false, "2: ", inline = bell_2_inline, group = bell_group)
+float bell_2_frequency = input.float(35, "Frequency", minval = 2, step = 0.5, inline = bell_2_inline, group = bell_group)
+float bell_2_gain = input.float(0, "Gain", step = 0.5, inline = bell_2_inline, group = bell_group)
+float bell_2_Q = input.float(1, "Q", minval = 0.125, step = 0.125, inline = bell_2_inline, group = bell_group)
+
+const string bell_3_inline = bell_group + "3"
+bool bell_3_enable = input.bool(false, "3: ", inline = bell_3_inline, group = bell_group)
+float bell_3_frequency = input.float(40, "Frequency", minval = 2, step = 0.5, inline = bell_3_inline, group = bell_group)
+float bell_3_gain = input.float(0, "Gain", step = 0.5, inline = bell_3_inline, group = bell_group)
+float bell_3_Q = input.float(1, "Q", minval = 0.125, step = 0.125, inline = bell_3_inline, group = bell_group)
+
+const string bell_4_inline = bell_group + "4"
+bool bell_4_enable = input.bool(false, "4: ", inline = bell_4_inline, group = bell_group)
+float bell_4_frequency = input.float(60, "Frequency", minval = 2, step = 0.5, inline = bell_4_inline, group = bell_group)
+float bell_4_gain = input.float(0, "Gain", step = 0.5, inline = bell_4_inline, group = bell_group)
+float bell_4_Q = input.float(1, "Q", minval = 0.125, step = 0.125, inline = bell_4_inline, group = bell_group)
+
+const string bell_5_inline = bell_group + "5"
+bool bell_5_enable = input.bool(false, "5: ", inline = bell_5_inline, group = bell_group)
+float bell_5_frequency = input.float(90, "Frequency", inline = bell_5_inline, group = bell_group)
+float bell_5_gain = input.float(0, "Gain", step = 0.5, inline = bell_5_inline, group = bell_group)
+float bell_5_Q = input.float(1, "Q", minval = 0.125, step = 0.125, inline = bell_5_inline, group = bell_group)
+
+const string bell_6_inline = bell_group + "6"
+bool bell_6_enable = input.bool(false, "6: ", inline = bell_6_inline, group = bell_group)
+float bell_6_frequency = input.float(100, "Frequency", minval = 2, step = 0.5, inline = bell_6_inline, group = bell_group)
+float bell_6_gain = input.float(0, "Gain", step = 0.5, inline = bell_6_inline, group = bell_group)
+float bell_6_Q = input.float(1, "Q", minval = 0.125, step = 0.125, inline = bell_6_inline, group = bell_group)
+
+// } Bells
+
+// { High Shelf and Low Pass
+
+const string high_shelf_group = "High Shelf"
+bool high_shelf_enable = input.bool(false, "", inline = high_shelf_group, group = high_shelf_group)
+float high_shelf_frequency = input.float(20, "Frequency", minval = 2, step = 0.25, inline = high_shelf_group, group = high_shelf_group)
+float high_shelf_gain = input.float(0, "Gain", step = 0.5, inline = high_shelf_group, group = high_shelf_group)
+float high_shelf_slope = input.float(1, "Slope", minval = 0.125, step = 0.125, inline = high_shelf_group, group = high_shelf_group)
+
+const string low_pass_group = "Low Pass"
+bool low_pass_enable = input.bool(false, "", inline = low_pass_group, group = low_pass_group)
+float low_pass_frequency = input.float(10, "Frequency", step = 0.25, minval = 2, inline = low_pass_group, group = low_pass_group)
+float low_pass_Q = input.float(0.5, "Q", step = 0.05, minval = 0.05, inline = low_pass_group, group = low_pass_group)
+
+// } High Shelf and Low Pass
+
+// inputs }
+
+// eq {
+
+float high_pass = high_pass(source, high_pass_frequency, high_pass_Q, high_pass_enable)
+float low_shelf = low_shelf(high_pass, low_shelf_frequency, low_shelf_slope, low_shelf_gain, low_shelf_enable)
+float bell_1 = bell(low_shelf, bell_1_frequency, bell_1_gain, bell_1_Q, bell_1_enable)
+float bell_2 = bell(bell_1, bell_2_frequency, bell_2_gain, bell_2_Q, bell_2_enable)
+float bell_3 = bell(bell_2, bell_3_frequency, bell_3_gain, bell_3_Q, bell_3_enable)
+float bell_4 = bell(bell_3, bell_4_frequency, bell_4_gain, bell_4_Q, bell_4_enable)
+float bell_5 = bell(bell_4, bell_5_frequency, bell_5_gain, bell_5_Q, bell_5_enable)
+float bell_6 = bell(bell_5, bell_6_frequency, bell_6_gain, bell_6_Q, bell_6_enable)
+float high_shelf = high_shelf(bell_6, high_shelf_frequency, high_shelf_slope, high_shelf_gain, high_shelf_enable)
+float low_pass = low_pass(high_shelf, low_pass_frequency, low_pass_Q, low_pass_enable)
+
+// eq }
+
+// plot {
+hline(0)
+plot(high_pass_enable ? na : low_pass, "6 Band Parametric EQ", force_overlay = true)
+plot(high_pass_enable ? low_pass : na, "6 Band Parametric EQ")
+
+// plot }
+
+// BODY }
+

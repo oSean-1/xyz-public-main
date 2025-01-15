@@ -1,0 +1,33 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © edb454
+
+//@version=5
+indicator("Wickiness Index", overlay = false)
+
+// Input for lookback period
+lookback = input.int(5, title = "Lookback Period", minval = 1)
+
+// Calculate wick lengths and body length
+upperWick = high - math.max(open, close)
+lowerWick = math.min(open, close) - low
+bodyLength = math.abs(close - open)
+
+// Handle division by zero (no body case)
+bodyLengthAdjusted = bodyLength == 0 ? 0.001 : bodyLength
+
+// Compute wick dominance (percentage of wick length relative to total range)
+totalRange = high - low
+wickinessPercent = (upperWick + lowerWick) / totalRange * 100
+
+// Average wickiness percentage over lookback period
+avgWickiness = ta.sma(wickinessPercent, lookback)
+
+// Normalize to 0-100 scale
+wickinessIndex = avgWickiness // Already scaled as percentage
+
+// Plot the Wickiness Index
+plot(wickinessIndex, title = "Wickiness Index", color = color.blue)
+
+// Add upper and lower bounds for visualization
+hline(70, "Upper Bound", color=color.gray)
+hline(30, "Lower Bound", color=color.gray)

@@ -1,0 +1,84 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Bunch-Q
+
+//@version=5
+indicator("Transformed Prices with Customizable Display", shorttitle="Amplitude Price Analyzer", overlay=false)
+
+// Получаем цену закрытия предыдущего дня
+// close_prev = request.security(syminfo.tickerid, "D", close[1])
+
+// Получаем цену закрытия предыдущего бара
+close_prev = close[1]
+
+// Вычисляем новые значения
+new_open = ((open / close_prev) - 1) * 100
+new_high = ((high / close_prev) - 1) * 100
+new_low = ((low / close_prev) - 1) * 100
+new_close = ((close / close_prev) - 1) * 100
+
+// Настройка цветов для свечей
+bull_color = color.teal
+bear_color = color.red
+bar_color = new_close >= new_open ? bull_color : bear_color
+
+// Переключатель для выбора типа отображения
+display_type = input.string("Candles", title="Display Type", options=["Candles", "Bars"])
+
+// Отображение: используем `na` для скрытия ненужного типа графика
+show_candles = display_type == "Candles"
+show_bars = display_type == "Bars"
+
+plotcandle(show_candles ? new_open : na, show_candles ? new_high : na, show_candles ? new_low : na, show_candles ? new_close : na, title="Candles", color=bar_color, wickcolor=bar_color, bordercolor=bar_color)
+plotbar(show_bars ? new_open : na, show_bars ? new_high : na, show_bars ? new_low : na, show_bars ? new_close : na, title="Bars", color=bar_color)
+
+
+lengthInput = input(252, "Period")
+
+// Создаем массив для хранения максимумов
+var float[] highs = array.new_float(0)
+
+// Заполняем массив максимумами последних 252 баров
+array.unshift(highs, new_high)
+if array.size(highs) > lengthInput
+    array.pop(highs)
+
+// Фильтруем бары
+var float[] filtered_highs = array.new_float(0)
+
+// Очищаем массив перед началом цикла 
+array.clear(filtered_highs)
+
+for i = 0 to array.size(highs) - 1
+    if (close[i] > open[i])
+        array.unshift(filtered_highs, array.get(highs, i))
+
+// Вычисляем среднее значение максимумов для отфильтрованных баров
+float average_highs = array.size(filtered_highs) > 0 ? array.avg(filtered_highs) : na
+
+// Отображение средней линии
+plot(average_highs, color=color.new(color.teal, 80), title="Average High Values", style = plot.style_area)
+
+
+// Создаем массив для хранения минимумов
+var float[] lows = array.new_float(0)
+
+// Заполняем массив Минимумов последних 252 баров
+array.unshift(lows, new_low)
+if array.size(lows) > lengthInput
+    array.pop(lows)
+
+// Фильтруем бары
+var float[] filtered_lows = array.new_float(0)
+
+// Очищаем массив перед началом цикла 
+array.clear(filtered_lows)
+
+for i = 0 to array.size(lows) - 1
+    if (close[i] < open[i])
+        array.unshift(filtered_lows, array.get(lows, i))
+
+// Вычисляем среднее значение максимумов для отфильтрованных баров
+float average_lows = array.size(filtered_lows) > 0 ? array.avg(filtered_lows) : na
+
+// Отображение средней линии
+plot(average_lows, color=color.new(color.red, 80), title="Average Low Values", style = plot.style_area)

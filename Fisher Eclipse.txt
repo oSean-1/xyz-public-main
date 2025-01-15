@@ -1,0 +1,95 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Uptrick
+
+
+//@version=6
+indicator("Uptrick: Fisher Eclipse", overlay=false)
+
+// === Inputs ===
+// Length settings
+length = input.int(34, minval=1, title="Length (Smoothed for Clear Signals)")
+
+// Signal Customization
+aggressiveness = input.string("Moderate", options=["Conservative", "Moderate", "Aggressive"], title="Signal Aggressiveness")
+minMovement = input.float(0.5, minval=0.0, title="Minimum Movement Filter (Noise Filter)", step=0.1)
+divergenceSensitivity = input.int(14, minval=1, title="Divergence Lookback (Bars)")
+intensityThreshold = input.float(3.0, minval=1.0, title="Intensity Threshold for Fisher Spikes")
+overboughtLevel = input.float(1.0, title="Overbought Threshold")
+oversoldLevel = input.float(-1.0, title="Oversold Threshold")
+
+// === Fisher Transform Calculation ===
+price = hl2
+maxHigh = ta.highest(price, length)
+minLow = ta.lowest(price, length)
+value = 2 * ((price - minLow) / (maxHigh - minLow) - 0.5)
+
+// Fisher and Signal Calculation
+fisher = 0.0
+fisher := 0.5 * math.log((1 + value) / (1 - value)) + 0.5 * nz(fisher[1])
+signal = ta.sma(fisher, 3)
+
+// === Aggressiveness Logic ===
+float buyThreshold = na
+float sellThreshold = na
+
+if aggressiveness == "Conservative"
+    buyThreshold := oversoldLevel - 0.5
+    sellThreshold := overboughtLevel + 0.5
+else if aggressiveness == "Moderate"
+    buyThreshold := oversoldLevel
+    sellThreshold := overboughtLevel
+else if aggressiveness == "Aggressive"
+    buyThreshold := oversoldLevel + 0.5
+    sellThreshold := overboughtLevel - 0.5
+
+// === Signal Generation ===
+validBuy = fisher < buyThreshold and math.abs(fisher - signal) > minMovement
+validSell = fisher > sellThreshold and math.abs(fisher - signal) > minMovement
+buySignal = validBuy and ta.crossover(fisher, signal)
+sellSignal = validSell and ta.crossunder(fisher, signal)
+
+// === Divergence Detection ===
+// Calculate highs and lows for price and Fisher
+priceHigh = ta.highest(price, divergenceSensitivity)
+priceLow = ta.lowest(price, divergenceSensitivity)
+fisherHigh = ta.highest(fisher, divergenceSensitivity)
+fisherLow = ta.lowest(fisher, divergenceSensitivity)
+
+// Divergence Conditions
+bullishDivergence = (priceLow < price[divergenceSensitivity]) and (fisherLow > fisher[divergenceSensitivity])
+bearishDivergence = (priceHigh > price[divergenceSensitivity]) and (fisherHigh < fisher[divergenceSensitivity])
+
+// Divergence Lines on Oscillator
+if bullishDivergence
+    line.new(x1=bar_index[divergenceSensitivity], y1=fisher[divergenceSensitivity], x2=bar_index, y2=fisher, color=color.aqua, width=2, style=line.style_dotted)
+
+if bearishDivergence
+    line.new(x1=bar_index[divergenceSensitivity], y1=fisher[divergenceSensitivity], x2=bar_index, y2=fisher, color=color.purple, width=2, style=line.style_dotted)
+
+// === Bar Coloring ===
+// Intensity Calculation
+fisherChange = math.abs(fisher - nz(fisher[1]))
+bullishIntensity = fisher > 0 and fisherChange > intensityThreshold
+bearishIntensity = fisher < 0 and fisherChange > intensityThreshold
+
+barcolor(bullishIntensity ? color.new(color.aqua, 0) : bearishIntensity ? color.new(color.purple, 0) : color.new(color.gray, 0), title="Bar Coloring Based on Intensity")
+
+// === Plotting ===
+plot(fisher, color=color.aqua, linewidth=2, title="Fisher")
+plot(signal, color=color.purple, linewidth=1, title="Signal")
+hline(overboughtLevel, "Overbought", color=color.purple, linestyle=hline.style_dashed)
+hline(oversoldLevel, "Oversold", color=color.aqua, linestyle=hline.style_dashed)
+
+// Buy/Sell Signal Visualization
+plotshape(buySignal, style=shape.labelup, color=color.new(color.aqua, 0), size=size.small, location=location.belowbar, title="Buy Signal", force_overlay=true)
+plotshape(sellSignal, style=shape.labeldown, color=color.new(color.purple, 0), size=size.small, location=location.abovebar, title="Sell Signal", force_overlay=true)
+
+// Divergence Visualization
+plotshape(bullishDivergence, style=shape.circle, color=color.new(color.aqua, 50), size=size.tiny, location=location.belowbar, title="Bullish Divergence", force_overlay=true)
+plotshape(bearishDivergence, style=shape.circle, color=color.new(color.purple, 50), size=size.tiny, location=location.abovebar, title="Bearish Divergence", force_overlay=true)
+
+// Alerts
+alertcondition(buySignal, title="Buy Alert", message="Buy Signal Triggered")
+alertcondition(sellSignal, title="Sell Alert", message="Sell Signal Triggered")
+alertcondition(bullishDivergence, title="Bullish Divergence Alert", message="Bullish Divergence Detected")
+alertcondition(bearishDivergence, title="Bearish Divergence Alert", message="Bearish Divergence Detected")

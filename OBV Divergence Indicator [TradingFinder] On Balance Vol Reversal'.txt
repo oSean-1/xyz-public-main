@@ -1,0 +1,216 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © TFlab
+
+//@version=6
+indicator('OBV Divergence Indicator [TradingFinder] On Balance Vol Reversal', shorttitle = 'TFlab OBV Divergence', overlay = true, max_bars_back = 5000, max_labels_count = 500, max_lines_count = 500)
+
+
+// Define "n" as the number of periods and keep a minimum value of 2 for error handling.
+n = input.int(title = 'Fractal Periods', defval = 4, minval = 2, group = 'Logic Setting')
+Show_Table = input.string('Yes', 'Show Table', options = ['Yes', 'No'], group = 'display Setting')
+Show_Label = input.string('Yes', 'Show Label', options = ['Yes', 'No'], group = 'display Setting')
+
+// ATR
+ATR = ta.atr(55)
+// OBV
+Hist = ta.obv
+
+//Trend/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+EMA = ta.ema(close, 50)
+up_trend = close[n] > EMA
+down_trend = close[n] < EMA
+
+//Fractal////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// UpFractal
+UpPivot = ta.pivothigh(n, n)
+
+// downFractal
+downPivot = ta.pivotlow(n, n)
+upFractal = bool(UpPivot) and up_trend
+downFractal = bool(downPivot) and down_trend
+
+
+// Bearish Divergennce Data
+
+//price Data
+High_Last_Price = ta.valuewhen(upFractal, high[n], 0)
+High_Per_Price = ta.valuewhen(upFractal, high[n], 1)
+
+//MACD hist Data
+High_Last_Hist = ta.valuewhen(upFractal, Hist[n], 0)
+High_Per_Hist = ta.valuewhen(upFractal, Hist[n], 1)
+
+//Bar index Data
+High_Last_Bar = ta.valuewhen(upFractal, bar_index[n], 0)
+High_Per_Bar = ta.valuewhen(upFractal, bar_index[n], 1)
+
+// Time Condition Bullish
+Time_Condition_Bear = High_Last_Bar + 30 > bar_index
+
+
+//Bearish Divergenc Detector////////////////////////
+Last_Bearish_Divergece = if Time_Condition_Bear and High_Last_Bar - High_Per_Bar < 30
+    High_Last_Price > High_Per_Price and High_Last_Hist < High_Per_Hist
+else
+    false
+    //count_Bear_Divergence
+var int CBearDive = 0
+
+if bool(ta.change(High_Last_Price)) and Last_Bearish_Divergece == true
+    CBearDive := CBearDive + 1
+    CBearDive
+else if Last_Bearish_Divergece == false
+    CBearDive := 0
+    CBearDive
+
+//Detecte change phase in Bearish Divergence
+
+var bool Bear_Phase = false
+
+len_back_for_Bear_Phase_check = if not na(High_Last_Bar - High_Per_Bar)
+    High_Last_Bar - High_Per_Bar
+else
+    1
+
+if bool(ta.change(High_Last_Price)) and Last_Bearish_Divergece == true
+    Bear_Phase := true
+    Bear_Phase
+else if Last_Bearish_Divergece == false
+    Bear_Phase := false
+    Bear_Phase
+
+
+// Bullish Divergennce Data
+
+//price Data
+Low_Last_Price = ta.valuewhen(downFractal, low[n], 0)
+Low_Per_Price = ta.valuewhen(downFractal, low[n], 1)
+
+//MACD hist Data
+Low_Last_Hist = ta.valuewhen(downFractal, Hist[n], 0)
+Low_Per_Hist = ta.valuewhen(downFractal, Hist[n], 1)
+
+//Bar index Data
+Low_Last_Bar = ta.valuewhen(downFractal, bar_index[n], 0)
+Low_Per_Bar = ta.valuewhen(downFractal, bar_index[n], 1)
+
+
+// Time Condition Bullish
+Time_Condition_Bull = Low_Last_Bar + 30 > bar_index
+
+//Bullish Divergenc Detector////////////////////////
+Last_Bullish_Divergece = if Time_Condition_Bull and Low_Last_Bar - Low_Per_Bar < 30
+    Low_Last_Price < Low_Per_Price and Low_Last_Hist > Low_Per_Hist
+else
+    false
+    //count_Bear_Divergence
+var int CBullDive = 0
+
+
+if bool(ta.change(Low_Last_Price)) and Last_Bullish_Divergece == true
+    CBullDive := CBullDive + 1
+    CBullDive
+else if Last_Bullish_Divergece == false
+    CBullDive := 0
+    CBullDive
+
+
+//Detecte and count change phase in Bullish Divergence
+//var int CBullPhase = 0
+var bool Bull_Phase = false
+len_back_for_Bull_Phase_check = if not na(Low_Last_Bar - Low_Per_Bar)
+    Low_Last_Bar - Low_Per_Bar
+else
+    1
+
+if bool(ta.change(Low_Last_Price)) and Last_Bullish_Divergece == true
+    Bull_Phase := true
+    Bull_Phase
+else if Last_Bullish_Divergece == false
+    Bull_Phase := false
+    Bull_Phase
+
+//Score Divergence
+text_power_bull = if CBullDive == 1
+    'Normal Bull Dive'
+else if CBullDive == 2
+    'Good Bull Dive'
+else if CBullDive >= 3
+    'Strong Bull Dive'
+else
+    '-'
+
+text_power_bear = if CBearDive == 1
+    'Normal Bear Dive'
+else if CBearDive == 2
+    'Good Bear Dive'
+else if CBearDive >= 3
+    'Strong Bear Dive'
+else
+    '-'
+
+//Table
+table bear_div_table = na
+
+bear_div_table := table.new(position = position.top_right, columns = 3, rows = 5, bgcolor = color.rgb(235, 234, 234, 75), frame_width = 1, frame_color = color.black, border_color = color.black, border_width = 1)
+a = false
+if Show_Table == 'Yes'
+    table.cell(table_id = bear_div_table, column = 0, row = 0, text = 'Type Divergence : ', text_size = size.small)
+    table.cell(table_id = bear_div_table, column = 0, row = 1, text = 'Exist : ', text_size = size.small)
+    table.cell(table_id = bear_div_table, column = 0, row = 2, text = 'Consecutive : ', text_size = size.small)
+
+    table.cell(table_id = bear_div_table, column = 1, row = 0, text = 'Bearish Divergence', text_color = color.rgb(216, 66, 66), text_size = size.small)
+    table.cell(table_id = bear_div_table, column = 1, row = 1, text = Last_Bearish_Divergece ? '+' : '-', text_color = color.rgb(216, 66, 66), text_size = size.small)
+    table.cell(table_id = bear_div_table, column = 1, row = 2, text = str.tostring(CBearDive), text_size = size.small)
+
+    table.cell(table_id = bear_div_table, column = 2, row = 0, text = 'Bullish Divergence', text_color = color.rgb(40, 177, 52), text_size = size.small)
+    table.cell(table_id = bear_div_table, column = 2, row = 1, text = Last_Bullish_Divergece ? '+' : '-', text_color = color.rgb(40, 177, 52), text_size = size.small)
+    table.cell(table_id = bear_div_table, column = 2, row = 2, text = str.tostring(CBullDive), text_size = size.small)
+
+    table.cell(table_id = bear_div_table, column = 0, row = 3, text = 'Divergence Quality : ', text_size = size.small)
+    table.cell(table_id = bear_div_table, column = 1, row = 3, text = text_power_bear, text_color = color.rgb(216, 66, 66), text_size = size.small)
+    table.cell(table_id = bear_div_table, column = 2, row = 3, text = text_power_bull, text_color = color.rgb(40, 177, 52), text_size = size.small)
+
+    //Check Change Phase
+    table.cell(table_id = bear_div_table, column = 0, row = 4, text = 'Change Phase Indicator : ', text_size = size.small)
+    table.cell(table_id = bear_div_table, column = 1, row = 4, text = Bear_Phase ? '+' : '-', text_color = color.rgb(216, 66, 66), text_size = size.small)
+    table.cell(table_id = bear_div_table, column = 2, row = 4, text = Bull_Phase ? '+' : '-', text_color = color.rgb(40, 177, 52), text_size = size.small)
+
+
+// plot
+
+//Divergence Line & Label
+
+
+Drawing() =>
+    var line BeLine = na
+    var line BuLine = na
+    var label BeLabel = na
+    var label BuLabel = na
+
+    // "MACD", "RSI" ,"AO"
+    if Last_Bullish_Divergece
+
+        BuLine := line.new(Low_Per_Bar, Low_Per_Price, Low_Last_Bar, Low_Last_Price, color = color.rgb(21, 151, 25), width = 2, force_overlay = true)
+        if Show_Label == 'Yes'
+            BuLabel := label.new(Low_Last_Bar, Low_Last_Price, '+RD', color = color.green, textcolor = color.white, size = size.tiny, style = label.style_label_up, force_overlay = true)
+            BuLabel
+        BuLine := line.new(Low_Per_Bar, Low_Per_Price, Low_Last_Bar, Low_Last_Price, color = color.rgb(21, 151, 25), width = 2, force_overlay = true)
+        if Show_Label == 'Yes'
+            BuLabel := label.new(Low_Last_Bar, Low_Last_Price, '+RD', color = color.green, textcolor = color.white, size = size.tiny, style = label.style_label_up, force_overlay = true)
+            BuLabel
+    if Last_Bearish_Divergece
+
+        BeLine := line.new(High_Per_Bar, High_Per_Price, High_Last_Bar, High_Last_Price, color = color.rgb(212, 44, 44), width = 2, force_overlay = true)
+        if Show_Label == 'Yes'
+            BeLabel := label.new(High_Last_Bar, High_Last_Price, '-RD', color = color.red, textcolor = color.white, size = size.tiny, style = label.style_label_down, force_overlay = true)
+            BeLabel
+        BeLine := line.new(High_Per_Bar, High_Per_Price, High_Last_Bar, High_Last_Price, color = color.rgb(212, 44, 44), width = 2, force_overlay = true)
+        if Show_Label == 'Yes'
+            BeLabel := label.new(High_Last_Bar, High_Last_Price, '-RD', color = color.red, textcolor = color.white, size = size.tiny, style = label.style_label_down, force_overlay = true)
+            BeLabel
+
+
+Drawing()
