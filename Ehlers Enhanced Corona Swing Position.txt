@@ -1,0 +1,1003 @@
+    // ____  __    ___   ________ ___________  ___________ __  ____ ___ 
+   // / __ )/ /   /   | / ____/ //_/ ____/   |/_  __<  / // / / __ |__ \
+  // / __  / /   / /| |/ /   / ,< / /   / /| | / /  / / // /_/ / / __/ /
+ // / /_/ / /___/ ___ / /___/ /| / /___/ ___ |/ /  / /__  __/ /_/ / __/ 
+// /_____/_____/_/  |_\____/_/ |_\____/_/  |_/_/  /_/  /_/  \____/____/  
+
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © blackcat1402
+//@version=4
+
+study(title="[blackcat] L3 Ehlers Enhanced Corona Swing Position", shorttitle="BCL3EICSP", overlay=false)
+
+//Inputs
+Price = input(hl2, title = "Price")
+LineR = input(255, title = "LineR")
+LineG = input(255, title = "LineG")
+LineB = input(0, title = "LineB")
+FuzzR = input(0, title = "FuzzR")
+FuzzG = input(172, title = "FuzzG")
+FuzzB = input(64, title = "FuzzB")
+
+//Vars
+BPDelta = 0.1
+BPGamma = 0.00
+alpha = 0.00
+BPBeta = 0.00
+//N = 0.00
+//Period = 0.00
+MaxAmpl = 0.00
+Num = 0.00
+Denom = 0.00
+DC = 0.00
+DomCyc = 0.00
+Color1 = 0
+Color2 = 0
+Color3 = 0
+alpha1 = 0.00
+HP = 0.00
+SmoothHP = 0.00
+gamma2 = 0.00
+alpha2 = 0.00
+beta2 = 0.00
+delta2 = 0.1
+BP2 = 0.00
+Q2 = 0.00
+Lead60 = 0.00
+HL = 0.00
+LL = 0.00
+Psn = 0.00
+Width = 0.00
+pi = 2 * asin(1)
+
+//arrays
+var IArray = array.new_float(62)
+var OldI = array.new_float(62)
+var OlderI = array.new_float(62)
+var Q = array.new_float(62)
+var OldQ = array.new_float(62)
+var OlderQ = array.new_float(62)
+var Real = array.new_float(62)
+var OldReal = array.new_float(62)
+var OlderReal = array.new_float(62)
+var Imag = array.new_float(62)
+var OldImag = array.new_float(62)
+var OlderImag = array.new_float(62)
+var Ampl = array.new_float(62)
+var OldAmpl = array.new_float(62)
+var DB = array.new_float(62)
+var OldDB = array.new_float(62)
+var Raster = array.new_float(52)
+var OldRaster = array.new_float(52)
+
+//RGB functions, courtesy of @RicardoSantos 
+f_error_limit_check_1(_input, _lower_limit, _higher_limit) =>
+    _output = false
+    if _input < _lower_limit or _input > _higher_limit
+        _output := true
+        _output
+
+RGB(_r, _g, _b) =>
+    _output = color(na)
+    if f_error_limit_check_1(_r, 0, 255) or f_error_limit_check_1(_g, 0, 255) or f_error_limit_check_1(_b, 0, 255)
+        _output := color.red
+        _output
+    //--------------------------------------------------------------------||
+    if round(_r / 51) == 0 and round(_g / 51) == 0 and round(_b / 51) == 0
+        _output := #000000
+        _output
+    if round(_r / 51) == 0 and round(_g / 51) == 0 and round(_b / 51) == 1
+        _output := #000033
+        _output
+    if round(_r / 51) == 0 and round(_g / 51) == 0 and round(_b / 51) == 2
+        _output := #000066
+        _output
+    if round(_r / 51) == 0 and round(_g / 51) == 0 and round(_b / 51) == 3
+        _output := #000099
+        _output
+    if round(_r / 51) == 0 and round(_g / 51) == 0 and round(_b / 51) == 4
+        _output := #0000cc
+        _output
+    if round(_r / 51) == 0 and round(_g / 51) == 0 and round(_b / 51) == 5
+        _output := #0000ff
+        _output
+    //--------------------------------------------------------------------||
+    if round(_r / 51) == 0 and round(_g / 51) == 1 and round(_b / 51) == 0
+        _output := #003300
+        _output
+    if round(_r / 51) == 0 and round(_g / 51) == 1 and round(_b / 51) == 1
+        _output := #003333
+        _output
+    if round(_r / 51) == 0 and round(_g / 51) == 1 and round(_b / 51) == 2
+        _output := #003366
+        _output
+    if round(_r / 51) == 0 and round(_g / 51) == 1 and round(_b / 51) == 3
+        _output := #003399
+        _output
+    if round(_r / 51) == 0 and round(_g / 51) == 1 and round(_b / 51) == 4
+        _output := #0033cc
+        _output
+    if round(_r / 51) == 0 and round(_g / 51) == 1 and round(_b / 51) == 5
+        _output := #0033ff
+        _output
+    //--------------------------------------------------------------------||
+    if round(_r / 51) == 0 and round(_g / 51) == 2 and round(_b / 51) == 0
+        _output := #006600
+        _output
+    if round(_r / 51) == 0 and round(_g / 51) == 2 and round(_b / 51) == 1
+        _output := #006633
+        _output
+    if round(_r / 51) == 0 and round(_g / 51) == 2 and round(_b / 51) == 2
+        _output := #006666
+        _output
+    if round(_r / 51) == 0 and round(_g / 51) == 2 and round(_b / 51) == 3
+        _output := #006699
+        _output
+    if round(_r / 51) == 0 and round(_g / 51) == 2 and round(_b / 51) == 4
+        _output := #0066cc
+        _output
+    if round(_r / 51) == 0 and round(_g / 51) == 2 and round(_b / 51) == 5
+        _output := #0066ff
+        _output
+    //--------------------------------------------------------------------||
+    if round(_r / 51) == 0 and round(_g / 51) == 3 and round(_b / 51) == 0
+        _output := #009900
+        _output
+    if round(_r / 51) == 0 and round(_g / 51) == 3 and round(_b / 51) == 1
+        _output := #009933
+        _output
+    if round(_r / 51) == 0 and round(_g / 51) == 3 and round(_b / 51) == 2
+        _output := #009966
+        _output
+    if round(_r / 51) == 0 and round(_g / 51) == 3 and round(_b / 51) == 3
+        _output := #009999
+        _output
+    if round(_r / 51) == 0 and round(_g / 51) == 3 and round(_b / 51) == 4
+        _output := #0099cc
+        _output
+    if round(_r / 51) == 0 and round(_g / 51) == 3 and round(_b / 51) == 5
+        _output := #0099ff
+        _output
+    //--------------------------------------------------------------------||
+    if round(_r / 51) == 0 and round(_g / 51) == 4 and round(_b / 51) == 0
+        _output := #00cc00
+        _output
+    if round(_r / 51) == 0 and round(_g / 51) == 4 and round(_b / 51) == 1
+        _output := #00cc33
+        _output
+    if round(_r / 51) == 0 and round(_g / 51) == 4 and round(_b / 51) == 2
+        _output := #00cc66
+        _output
+    if round(_r / 51) == 0 and round(_g / 51) == 4 and round(_b / 51) == 3
+        _output := #00cc99
+        _output
+    if round(_r / 51) == 0 and round(_g / 51) == 4 and round(_b / 51) == 4
+        _output := #00cccc
+        _output
+    if round(_r / 51) == 0 and round(_g / 51) == 4 and round(_b / 51) == 5
+        _output := #00ccff
+        _output
+    //--------------------------------------------------------------------||
+    if round(_r / 51) == 0 and round(_g / 51) == 5 and round(_b / 51) == 0
+        _output := #003300
+        _output
+    if round(_r / 51) == 0 and round(_g / 51) == 5 and round(_b / 51) == 1
+        _output := #003333
+        _output
+    if round(_r / 51) == 0 and round(_g / 51) == 5 and round(_b / 51) == 2
+        _output := #003366
+        _output
+    if round(_r / 51) == 0 and round(_g / 51) == 5 and round(_b / 51) == 3
+        _output := #003399
+        _output
+    if round(_r / 51) == 0 and round(_g / 51) == 5 and round(_b / 51) == 4
+        _output := #0033cc
+        _output
+    if round(_r / 51) == 0 and round(_g / 51) == 5 and round(_b / 51) == 5
+        _output := #0033ff
+        _output
+    //--------------------------------------------------------------------||
+    //--------------------------------------------------------------------||
+    if round(_r / 51) == 1 and round(_g / 51) == 0 and round(_b / 51) == 0
+        _output := #330000
+        _output
+    if round(_r / 51) == 1 and round(_g / 51) == 0 and round(_b / 51) == 1
+        _output := #330033
+        _output
+    if round(_r / 51) == 1 and round(_g / 51) == 0 and round(_b / 51) == 2
+        _output := #330066
+        _output
+    if round(_r / 51) == 1 and round(_g / 51) == 0 and round(_b / 51) == 3
+        _output := #330099
+        _output
+    if round(_r / 51) == 1 and round(_g / 51) == 0 and round(_b / 51) == 4
+        _output := #3300cc
+        _output
+    if round(_r / 51) == 1 and round(_g / 51) == 0 and round(_b / 51) == 5
+        _output := #3300ff
+        _output
+    //--------------------------------------------------------------------||
+    if round(_r / 51) == 1 and round(_g / 51) == 1 and round(_b / 51) == 0
+        _output := #333300
+        _output
+    if round(_r / 51) == 1 and round(_g / 51) == 1 and round(_b / 51) == 1
+        _output := #333333
+        _output
+    if round(_r / 51) == 1 and round(_g / 51) == 1 and round(_b / 51) == 2
+        _output := #333366
+        _output
+    if round(_r / 51) == 1 and round(_g / 51) == 1 and round(_b / 51) == 3
+        _output := #333399
+        _output
+    if round(_r / 51) == 1 and round(_g / 51) == 1 and round(_b / 51) == 4
+        _output := #3333cc
+        _output
+    if round(_r / 51) == 1 and round(_g / 51) == 1 and round(_b / 51) == 5
+        _output := #3333ff
+        _output
+    //--------------------------------------------------------------------||
+    if round(_r / 51) == 1 and round(_g / 51) == 2 and round(_b / 51) == 0
+        _output := #336600
+        _output
+    if round(_r / 51) == 1 and round(_g / 51) == 2 and round(_b / 51) == 1
+        _output := #336633
+        _output
+    if round(_r / 51) == 1 and round(_g / 51) == 2 and round(_b / 51) == 2
+        _output := #336666
+        _output
+    if round(_r / 51) == 1 and round(_g / 51) == 2 and round(_b / 51) == 3
+        _output := #336699
+        _output
+    if round(_r / 51) == 1 and round(_g / 51) == 2 and round(_b / 51) == 4
+        _output := #3366cc
+        _output
+    if round(_r / 51) == 1 and round(_g / 51) == 2 and round(_b / 51) == 5
+        _output := #3366ff
+        _output
+    //--------------------------------------------------------------------||
+    if round(_r / 51) == 1 and round(_g / 51) == 3 and round(_b / 51) == 0
+        _output := #339900
+        _output
+    if round(_r / 51) == 1 and round(_g / 51) == 3 and round(_b / 51) == 1
+        _output := #339933
+        _output
+    if round(_r / 51) == 1 and round(_g / 51) == 3 and round(_b / 51) == 2
+        _output := #339966
+        _output
+    if round(_r / 51) == 1 and round(_g / 51) == 3 and round(_b / 51) == 3
+        _output := #339999
+        _output
+    if round(_r / 51) == 1 and round(_g / 51) == 3 and round(_b / 51) == 4
+        _output := #3399cc
+        _output
+    if round(_r / 51) == 1 and round(_g / 51) == 3 and round(_b / 51) == 5
+        _output := #3399ff
+        _output
+    //--------------------------------------------------------------------||
+    if round(_r / 51) == 1 and round(_g / 51) == 4 and round(_b / 51) == 0
+        _output := #33cc00
+        _output
+    if round(_r / 51) == 1 and round(_g / 51) == 4 and round(_b / 51) == 1
+        _output := #33cc33
+        _output
+    if round(_r / 51) == 1 and round(_g / 51) == 4 and round(_b / 51) == 2
+        _output := #33cc66
+        _output
+    if round(_r / 51) == 1 and round(_g / 51) == 4 and round(_b / 51) == 3
+        _output := #33cc99
+        _output
+    if round(_r / 51) == 1 and round(_g / 51) == 4 and round(_b / 51) == 4
+        _output := #33cccc
+        _output
+    if round(_r / 51) == 1 and round(_g / 51) == 4 and round(_b / 51) == 5
+        _output := #33ccff
+        _output
+    //--------------------------------------------------------------------||
+    if round(_r / 51) == 1 and round(_g / 51) == 5 and round(_b / 51) == 0
+        _output := #333300
+        _output
+    if round(_r / 51) == 1 and round(_g / 51) == 5 and round(_b / 51) == 1
+        _output := #333333
+        _output
+    if round(_r / 51) == 1 and round(_g / 51) == 5 and round(_b / 51) == 2
+        _output := #333366
+        _output
+    if round(_r / 51) == 1 and round(_g / 51) == 5 and round(_b / 51) == 3
+        _output := #333399
+        _output
+    if round(_r / 51) == 1 and round(_g / 51) == 5 and round(_b / 51) == 4
+        _output := #3333cc
+        _output
+    if round(_r / 51) == 1 and round(_g / 51) == 5 and round(_b / 51) == 5
+        _output := #3333ff
+        _output
+    //--------------------------------------------------------------------||
+    //--------------------------------------------------------------------||
+    if round(_r / 51) == 2 and round(_g / 51) == 0 and round(_b / 51) == 0
+        _output := #660000
+        _output
+    if round(_r / 51) == 2 and round(_g / 51) == 0 and round(_b / 51) == 1
+        _output := #660033
+        _output
+    if round(_r / 51) == 2 and round(_g / 51) == 0 and round(_b / 51) == 2
+        _output := #660066
+        _output
+    if round(_r / 51) == 2 and round(_g / 51) == 0 and round(_b / 51) == 3
+        _output := #660099
+        _output
+    if round(_r / 51) == 2 and round(_g / 51) == 0 and round(_b / 51) == 4
+        _output := #6600cc
+        _output
+    if round(_r / 51) == 2 and round(_g / 51) == 0 and round(_b / 51) == 5
+        _output := #6600ff
+        _output
+    //--------------------------------------------------------------------||
+    if round(_r / 51) == 2 and round(_g / 51) == 1 and round(_b / 51) == 0
+        _output := #663300
+        _output
+    if round(_r / 51) == 2 and round(_g / 51) == 1 and round(_b / 51) == 1
+        _output := #663333
+        _output
+    if round(_r / 51) == 2 and round(_g / 51) == 1 and round(_b / 51) == 2
+        _output := #663366
+        _output
+    if round(_r / 51) == 2 and round(_g / 51) == 1 and round(_b / 51) == 3
+        _output := #663399
+        _output
+    if round(_r / 51) == 2 and round(_g / 51) == 1 and round(_b / 51) == 4
+        _output := #6633cc
+        _output
+    if round(_r / 51) == 2 and round(_g / 51) == 1 and round(_b / 51) == 5
+        _output := #6633ff
+        _output
+    //--------------------------------------------------------------------||
+    if round(_r / 51) == 2 and round(_g / 51) == 2 and round(_b / 51) == 0
+        _output := #666600
+        _output
+    if round(_r / 51) == 2 and round(_g / 51) == 2 and round(_b / 51) == 1
+        _output := #666633
+        _output
+    if round(_r / 51) == 2 and round(_g / 51) == 2 and round(_b / 51) == 2
+        _output := #666666
+        _output
+    if round(_r / 51) == 2 and round(_g / 51) == 2 and round(_b / 51) == 3
+        _output := #666699
+        _output
+    if round(_r / 51) == 2 and round(_g / 51) == 2 and round(_b / 51) == 4
+        _output := #6666cc
+        _output
+    if round(_r / 51) == 2 and round(_g / 51) == 2 and round(_b / 51) == 5
+        _output := #6666ff
+        _output
+    //--------------------------------------------------------------------||
+    if round(_r / 51) == 2 and round(_g / 51) == 3 and round(_b / 51) == 0
+        _output := #669900
+        _output
+    if round(_r / 51) == 2 and round(_g / 51) == 3 and round(_b / 51) == 1
+        _output := #669933
+        _output
+    if round(_r / 51) == 2 and round(_g / 51) == 3 and round(_b / 51) == 2
+        _output := #669966
+        _output
+    if round(_r / 51) == 2 and round(_g / 51) == 3 and round(_b / 51) == 3
+        _output := #669999
+        _output
+    if round(_r / 51) == 2 and round(_g / 51) == 3 and round(_b / 51) == 4
+        _output := #6699cc
+        _output
+    if round(_r / 51) == 2 and round(_g / 51) == 3 and round(_b / 51) == 5
+        _output := #6699ff
+        _output
+    //--------------------------------------------------------------------||
+    if round(_r / 51) == 2 and round(_g / 51) == 4 and round(_b / 51) == 0
+        _output := #66cc00
+        _output
+    if round(_r / 51) == 2 and round(_g / 51) == 4 and round(_b / 51) == 1
+        _output := #66cc33
+        _output
+    if round(_r / 51) == 2 and round(_g / 51) == 4 and round(_b / 51) == 2
+        _output := #66cc66
+        _output
+    if round(_r / 51) == 2 and round(_g / 51) == 4 and round(_b / 51) == 3
+        _output := #66cc99
+        _output
+    if round(_r / 51) == 2 and round(_g / 51) == 4 and round(_b / 51) == 4
+        _output := #66cccc
+        _output
+    if round(_r / 51) == 2 and round(_g / 51) == 4 and round(_b / 51) == 5
+        _output := #66ccff
+        _output
+    //--------------------------------------------------------------------||
+    if round(_r / 51) == 2 and round(_g / 51) == 5 and round(_b / 51) == 0
+        _output := #663300
+        _output
+    if round(_r / 51) == 2 and round(_g / 51) == 5 and round(_b / 51) == 1
+        _output := #663333
+        _output
+    if round(_r / 51) == 2 and round(_g / 51) == 5 and round(_b / 51) == 2
+        _output := #663366
+        _output
+    if round(_r / 51) == 2 and round(_g / 51) == 5 and round(_b / 51) == 3
+        _output := #663399
+        _output
+    if round(_r / 51) == 2 and round(_g / 51) == 5 and round(_b / 51) == 4
+        _output := #6633cc
+        _output
+    if round(_r / 51) == 2 and round(_g / 51) == 5 and round(_b / 51) == 5
+        _output := #6633ff
+        _output
+    //--------------------------------------------------------------------||
+    //--------------------------------------------------------------------||
+    if round(_r / 51) == 3 and round(_g / 51) == 0 and round(_b / 51) == 0
+        _output := #990000
+        _output
+    if round(_r / 51) == 3 and round(_g / 51) == 0 and round(_b / 51) == 1
+        _output := #990033
+        _output
+    if round(_r / 51) == 3 and round(_g / 51) == 0 and round(_b / 51) == 2
+        _output := #990066
+        _output
+    if round(_r / 51) == 3 and round(_g / 51) == 0 and round(_b / 51) == 3
+        _output := #990099
+        _output
+    if round(_r / 51) == 3 and round(_g / 51) == 0 and round(_b / 51) == 4
+        _output := #9900cc
+        _output
+    if round(_r / 51) == 3 and round(_g / 51) == 0 and round(_b / 51) == 5
+        _output := #9900ff
+        _output
+    //--------------------------------------------------------------------||
+    if round(_r / 51) == 3 and round(_g / 51) == 1 and round(_b / 51) == 0
+        _output := #993300
+        _output
+    if round(_r / 51) == 3 and round(_g / 51) == 1 and round(_b / 51) == 1
+        _output := #993333
+        _output
+    if round(_r / 51) == 3 and round(_g / 51) == 1 and round(_b / 51) == 2
+        _output := #993366
+        _output
+    if round(_r / 51) == 3 and round(_g / 51) == 1 and round(_b / 51) == 3
+        _output := #993399
+        _output
+    if round(_r / 51) == 3 and round(_g / 51) == 1 and round(_b / 51) == 4
+        _output := #9933cc
+        _output
+    if round(_r / 51) == 3 and round(_g / 51) == 1 and round(_b / 51) == 5
+        _output := #9933ff
+        _output
+    //--------------------------------------------------------------------||
+    if round(_r / 51) == 3 and round(_g / 51) == 2 and round(_b / 51) == 0
+        _output := #996600
+        _output
+    if round(_r / 51) == 3 and round(_g / 51) == 2 and round(_b / 51) == 1
+        _output := #996633
+        _output
+    if round(_r / 51) == 3 and round(_g / 51) == 2 and round(_b / 51) == 2
+        _output := #996666
+        _output
+    if round(_r / 51) == 3 and round(_g / 51) == 2 and round(_b / 51) == 3
+        _output := #996699
+        _output
+    if round(_r / 51) == 3 and round(_g / 51) == 2 and round(_b / 51) == 4
+        _output := #9966cc
+        _output
+    if round(_r / 51) == 3 and round(_g / 51) == 2 and round(_b / 51) == 5
+        _output := #9966ff
+        _output
+    //--------------------------------------------------------------------||
+    if round(_r / 51) == 3 and round(_g / 51) == 3 and round(_b / 51) == 0
+        _output := #999900
+        _output
+    if round(_r / 51) == 3 and round(_g / 51) == 3 and round(_b / 51) == 1
+        _output := #999933
+        _output
+    if round(_r / 51) == 3 and round(_g / 51) == 3 and round(_b / 51) == 2
+        _output := #999966
+        _output
+    if round(_r / 51) == 3 and round(_g / 51) == 3 and round(_b / 51) == 3
+        _output := #999999
+        _output
+    if round(_r / 51) == 3 and round(_g / 51) == 3 and round(_b / 51) == 4
+        _output := #9999cc
+        _output
+    if round(_r / 51) == 3 and round(_g / 51) == 3 and round(_b / 51) == 5
+        _output := #9999ff
+        _output
+    //--------------------------------------------------------------------||
+    if round(_r / 51) == 3 and round(_g / 51) == 4 and round(_b / 51) == 0
+        _output := #99cc00
+        _output
+    if round(_r / 51) == 3 and round(_g / 51) == 4 and round(_b / 51) == 1
+        _output := #99cc33
+        _output
+    if round(_r / 51) == 3 and round(_g / 51) == 4 and round(_b / 51) == 2
+        _output := #99cc66
+        _output
+    if round(_r / 51) == 3 and round(_g / 51) == 4 and round(_b / 51) == 3
+        _output := #99cc99
+        _output
+    if round(_r / 51) == 3 and round(_g / 51) == 4 and round(_b / 51) == 4
+        _output := #99cccc
+        _output
+    if round(_r / 51) == 3 and round(_g / 51) == 4 and round(_b / 51) == 5
+        _output := #99ccff
+        _output
+    //--------------------------------------------------------------------||
+    if round(_r / 51) == 3 and round(_g / 51) == 5 and round(_b / 51) == 0
+        _output := #993300
+        _output
+    if round(_r / 51) == 3 and round(_g / 51) == 5 and round(_b / 51) == 1
+        _output := #993333
+        _output
+    if round(_r / 51) == 3 and round(_g / 51) == 5 and round(_b / 51) == 2
+        _output := #993366
+        _output
+    if round(_r / 51) == 3 and round(_g / 51) == 5 and round(_b / 51) == 3
+        _output := #993399
+        _output
+    if round(_r / 51) == 3 and round(_g / 51) == 5 and round(_b / 51) == 4
+        _output := #9933cc
+        _output
+    if round(_r / 51) == 3 and round(_g / 51) == 5 and round(_b / 51) == 5
+        _output := #9933ff
+        _output
+    //--------------------------------------------------------------------||
+    //--------------------------------------------------------------------||
+    if round(_r / 51) == 4 and round(_g / 51) == 0 and round(_b / 51) == 0
+        _output := #cc0000
+        _output
+    if round(_r / 51) == 4 and round(_g / 51) == 0 and round(_b / 51) == 1
+        _output := #cc0033
+        _output
+    if round(_r / 51) == 4 and round(_g / 51) == 0 and round(_b / 51) == 2
+        _output := #cc0066
+        _output
+    if round(_r / 51) == 4 and round(_g / 51) == 0 and round(_b / 51) == 3
+        _output := #cc0099
+        _output
+    if round(_r / 51) == 4 and round(_g / 51) == 0 and round(_b / 51) == 4
+        _output := #cc00cc
+        _output
+    if round(_r / 51) == 4 and round(_g / 51) == 0 and round(_b / 51) == 5
+        _output := #cc00ff
+        _output
+    //--------------------------------------------------------------------||
+    if round(_r / 51) == 4 and round(_g / 51) == 1 and round(_b / 51) == 0
+        _output := #cc3300
+        _output
+    if round(_r / 51) == 4 and round(_g / 51) == 1 and round(_b / 51) == 1
+        _output := #cc3333
+        _output
+    if round(_r / 51) == 4 and round(_g / 51) == 1 and round(_b / 51) == 2
+        _output := #cc3366
+        _output
+    if round(_r / 51) == 4 and round(_g / 51) == 1 and round(_b / 51) == 3
+        _output := #cc3399
+        _output
+    if round(_r / 51) == 4 and round(_g / 51) == 1 and round(_b / 51) == 4
+        _output := #cc33cc
+        _output
+    if round(_r / 51) == 4 and round(_g / 51) == 1 and round(_b / 51) == 5
+        _output := #cc33ff
+        _output
+    //--------------------------------------------------------------------||
+    if round(_r / 51) == 4 and round(_g / 51) == 2 and round(_b / 51) == 0
+        _output := #cc6600
+        _output
+    if round(_r / 51) == 4 and round(_g / 51) == 2 and round(_b / 51) == 1
+        _output := #cc6633
+        _output
+    if round(_r / 51) == 4 and round(_g / 51) == 2 and round(_b / 51) == 2
+        _output := #cc6666
+        _output
+    if round(_r / 51) == 4 and round(_g / 51) == 2 and round(_b / 51) == 3
+        _output := #cc6699
+        _output
+    if round(_r / 51) == 4 and round(_g / 51) == 2 and round(_b / 51) == 4
+        _output := #cc66cc
+        _output
+    if round(_r / 51) == 4 and round(_g / 51) == 2 and round(_b / 51) == 5
+        _output := #cc66ff
+        _output
+    //--------------------------------------------------------------------||
+    if round(_r / 51) == 4 and round(_g / 51) == 3 and round(_b / 51) == 0
+        _output := #cc9900
+        _output
+    if round(_r / 51) == 4 and round(_g / 51) == 3 and round(_b / 51) == 1
+        _output := #cc9933
+        _output
+    if round(_r / 51) == 4 and round(_g / 51) == 3 and round(_b / 51) == 2
+        _output := #cc9966
+        _output
+    if round(_r / 51) == 4 and round(_g / 51) == 3 and round(_b / 51) == 3
+        _output := #cc9999
+        _output
+    if round(_r / 51) == 4 and round(_g / 51) == 3 and round(_b / 51) == 4
+        _output := #cc99cc
+        _output
+    if round(_r / 51) == 4 and round(_g / 51) == 3 and round(_b / 51) == 5
+        _output := #cc99ff
+        _output
+    //--------------------------------------------------------------------||
+    if round(_r / 51) == 4 and round(_g / 51) == 4 and round(_b / 51) == 0
+        _output := #cccc00
+        _output
+    if round(_r / 51) == 4 and round(_g / 51) == 4 and round(_b / 51) == 1
+        _output := #cccc33
+        _output
+    if round(_r / 51) == 4 and round(_g / 51) == 4 and round(_b / 51) == 2
+        _output := #cccc66
+        _output
+    if round(_r / 51) == 4 and round(_g / 51) == 4 and round(_b / 51) == 3
+        _output := #cccc99
+        _output
+    if round(_r / 51) == 4 and round(_g / 51) == 4 and round(_b / 51) == 4
+        _output := #cccccc
+        _output
+    if round(_r / 51) == 4 and round(_g / 51) == 4 and round(_b / 51) == 5
+        _output := #ccccff
+        _output
+    //--------------------------------------------------------------------||
+    if round(_r / 51) == 4 and round(_g / 51) == 5 and round(_b / 51) == 0
+        _output := #cc3300
+        _output
+    if round(_r / 51) == 4 and round(_g / 51) == 5 and round(_b / 51) == 1
+        _output := #cc3333
+        _output
+    if round(_r / 51) == 4 and round(_g / 51) == 5 and round(_b / 51) == 2
+        _output := #cc3366
+        _output
+    if round(_r / 51) == 4 and round(_g / 51) == 5 and round(_b / 51) == 3
+        _output := #cc3399
+        _output
+    if round(_r / 51) == 4 and round(_g / 51) == 5 and round(_b / 51) == 4
+        _output := #cc33cc
+        _output
+    if round(_r / 51) == 4 and round(_g / 51) == 5 and round(_b / 51) == 5
+        _output := #cc33ff
+        _output
+    //--------------------------------------------------------------------||
+    //--------------------------------------------------------------------||
+    if round(_r / 51) == 5 and round(_g / 51) == 0 and round(_b / 51) == 0
+        _output := #ff0000
+        _output
+    if round(_r / 51) == 5 and round(_g / 51) == 0 and round(_b / 51) == 1
+        _output := #ff0033
+        _output
+    if round(_r / 51) == 5 and round(_g / 51) == 0 and round(_b / 51) == 2
+        _output := #ff0066
+        _output
+    if round(_r / 51) == 5 and round(_g / 51) == 0 and round(_b / 51) == 3
+        _output := #ff0099
+        _output
+    if round(_r / 51) == 5 and round(_g / 51) == 0 and round(_b / 51) == 4
+        _output := #ff00cc
+        _output
+    if round(_r / 51) == 5 and round(_g / 51) == 0 and round(_b / 51) == 5
+        _output := #ff00ff
+        _output
+    //--------------------------------------------------------------------||
+    if round(_r / 51) == 5 and round(_g / 51) == 1 and round(_b / 51) == 0
+        _output := #ff3300
+        _output
+    if round(_r / 51) == 5 and round(_g / 51) == 1 and round(_b / 51) == 1
+        _output := #ff3333
+        _output
+    if round(_r / 51) == 5 and round(_g / 51) == 1 and round(_b / 51) == 2
+        _output := #ff3366
+        _output
+    if round(_r / 51) == 5 and round(_g / 51) == 1 and round(_b / 51) == 3
+        _output := #ff3399
+        _output
+    if round(_r / 51) == 5 and round(_g / 51) == 1 and round(_b / 51) == 4
+        _output := #ff33cc
+        _output
+    if round(_r / 51) == 5 and round(_g / 51) == 1 and round(_b / 51) == 5
+        _output := #ff33ff
+        _output
+    //--------------------------------------------------------------------||
+    if round(_r / 51) == 5 and round(_g / 51) == 2 and round(_b / 51) == 0
+        _output := #ff6600
+        _output
+    if round(_r / 51) == 5 and round(_g / 51) == 2 and round(_b / 51) == 1
+        _output := #ff6633
+        _output
+    if round(_r / 51) == 5 and round(_g / 51) == 2 and round(_b / 51) == 2
+        _output := #ff6666
+        _output
+    if round(_r / 51) == 5 and round(_g / 51) == 2 and round(_b / 51) == 3
+        _output := #ff6699
+        _output
+    if round(_r / 51) == 5 and round(_g / 51) == 2 and round(_b / 51) == 4
+        _output := #ff66cc
+        _output
+    if round(_r / 51) == 5 and round(_g / 51) == 2 and round(_b / 51) == 5
+        _output := #ff66ff
+        _output
+    //--------------------------------------------------------------------||
+    if round(_r / 51) == 5 and round(_g / 51) == 3 and round(_b / 51) == 0
+        _output := #ff9900
+        _output
+    if round(_r / 51) == 5 and round(_g / 51) == 3 and round(_b / 51) == 1
+        _output := #ff9933
+        _output
+    if round(_r / 51) == 5 and round(_g / 51) == 3 and round(_b / 51) == 2
+        _output := #ff9966
+        _output
+    if round(_r / 51) == 5 and round(_g / 51) == 3 and round(_b / 51) == 3
+        _output := #ff9999
+        _output
+    if round(_r / 51) == 5 and round(_g / 51) == 3 and round(_b / 51) == 4
+        _output := #ff99cc
+        _output
+    if round(_r / 51) == 5 and round(_g / 51) == 3 and round(_b / 51) == 5
+        _output := #ff99ff
+        _output
+    //--------------------------------------------------------------------||
+    if round(_r / 51) == 5 and round(_g / 51) == 4 and round(_b / 51) == 0
+        _output := #ffcc00
+        _output
+    if round(_r / 51) == 5 and round(_g / 51) == 4 and round(_b / 51) == 1
+        _output := #ffcc33
+        _output
+    if round(_r / 51) == 5 and round(_g / 51) == 4 and round(_b / 51) == 2
+        _output := #ffcc66
+        _output
+    if round(_r / 51) == 5 and round(_g / 51) == 4 and round(_b / 51) == 3
+        _output := #ffcc99
+        _output
+    if round(_r / 51) == 5 and round(_g / 51) == 4 and round(_b / 51) == 4
+        _output := #ffcccc
+        _output
+    if round(_r / 51) == 5 and round(_g / 51) == 4 and round(_b / 51) == 5
+        _output := #ffccff
+        _output
+    //--------------------------------------------------------------------||
+    if round(_r / 51) == 5 and round(_g / 51) == 5 and round(_b / 51) == 0
+        _output := #ff3300
+        _output
+    if round(_r / 51) == 5 and round(_g / 51) == 5 and round(_b / 51) == 1
+        _output := #ff3333
+        _output
+    if round(_r / 51) == 5 and round(_g / 51) == 5 and round(_b / 51) == 2
+        _output := #ff3366
+        _output
+    if round(_r / 51) == 5 and round(_g / 51) == 5 and round(_b / 51) == 3
+        _output := #ff3399
+        _output
+    if round(_r / 51) == 5 and round(_g / 51) == 5 and round(_b / 51) == 4
+        _output := #ff33cc
+        _output
+    if round(_r / 51) == 5 and round(_g / 51) == 5 and round(_b / 51) == 5
+        _output := #ff33ff
+        _output
+    _output
+
+//func
+median(src, length) =>
+    percentile_nearest_rank(src, length, 50)
+
+alpha1 := ( 1 - sin( 2*pi / 30 ) ) / cos( 2*pi / 30 )
+HP := 0.5 * ( 1 + alpha1 ) * ( Price - nz(Price[1]) ) + alpha1 * nz(HP[1]) 
+SmoothHP := ( HP + 2 * nz(HP[1]) + 3 * nz(HP[2]) + 3 * nz(HP[3]) + 2 * nz(HP[4]) + nz(HP[5]) ) / 12 
+
+if bar_index < 7
+    SmoothHP := Price - nz(Price[1]) 
+
+if bar_index == 1 
+    SmoothHP := 0.00
+
+BPDelta := -0.015 * bar_index + 0.5 
+
+if BPDelta < 0.1  
+	BPDelta := 0.1 
+
+if bar_index > 12 
+	for N = 12 to 60 
+		BPBeta := cos( 4*pi / N ) 
+		BPGamma := 1 / cos( 8*pi * BPDelta / N ) 
+		alpha := BPGamma - sqrt( BPGamma * BPGamma - 1 ) 
+		array.set(Q, N, ( 0.5 * N / 2*pi ) * ( SmoothHP - nz(SmoothHP[1]) ) )
+		array.set(IArray, N, SmoothHP) 
+		array.set(Real, N,  0.5 * ( 1 - alpha ) * ( nz(array.get(IArray, N)) - nz(array.get(OlderI,N)) ) + BPBeta * ( 1 + alpha ) * nz(array.get(OldReal,N)) - alpha * nz(array.get(OlderReal,N)) )
+		array.set(Imag, N, 0.5 * ( 1 - alpha ) * ( nz(array.get(Q,N)) - nz(array.get(OlderQ,N)) ) + BPBeta * ( 1 + alpha )* nz(array.get(OldImag,N)) - alpha * nz(array.get(OlderImag,N)) )
+		array.set(Ampl, N,  ( nz(array.get(Real,N)) * nz(array.get(Real,N)) + nz(array.get(Imag,N)) * nz(array.get(Imag,N)) ) )
+
+for N = 12 to 60 
+	array.set(OlderI, N,  nz(array.get(OldI, N))) 
+	array.set(OldI, N,  nz(array.get(IArray, N)))  
+	array.set(OlderQ, N,  nz(array.get(OldQ, N)))  
+	array.set(OldQ, N,  nz(array.get(Q, N)))  
+	array.set(OlderReal, N,  nz(array.get(OldReal, N)))  
+	array.set(OldReal, N,  nz(array.get(Real, N)))  
+	array.set(OlderImag, N,  nz(array.get(OldImag, N)))  
+	array.set(OldImag, N,  nz(array.get(Imag, N)))  
+	array.set(OldAmpl, N,  nz(array.get(Ampl, N)))  
+	array.set(OldDB, N,  nz(array.get(DB, N)))  
+	
+
+for N = 1 to 50 
+	array.set(OldRaster, N,  nz(array.get(Raster, N)))  
+
+MaxAmpl := nz(array.get(Ampl,12)) 
+
+for N = 12 to 60 
+	if nz(array.get(Ampl,N)) > MaxAmpl  
+		MaxAmpl := nz(array.get(Ampl,N)) 
+for N = 12 to 60 	
+	if MaxAmpl != 0 and (nz(array.get(Ampl,N)) / MaxAmpl) > 0  
+	    array.set(DB,N, -10 * log( 0.01 / ( 1 - 0.99 * nz(array.get(Ampl,N))  / MaxAmpl ) ) / log( 10 ) )
+	array.set(DB, N,  0.33 * nz(array.get(DB,N) + 0.67 * nz(array.get(OldDB,N))))
+	if nz(array.get(DB,N)) > 20  
+		array.set(DB,N, 20) 
+	 
+
+Num := 0 
+Denom := 0 
+
+for N = 12 to 60 
+	
+	if nz(array.get(DB,N)) <= 6  
+		
+		Num := Num + N * ( 20 - nz(array.get(DB,N) ) )
+		Denom := Denom + ( 20 - nz(array.get(DB,N) ) )
+		 
+	if Denom != 0  
+		DC := 0.5 * Num / Denom 
+	 
+DomCyc := median( DC, 5 ) 
+
+if DomCyc < 6  
+	DomCyc := 6 
+beta2 := cos( 2*pi / DomCyc ) 
+gamma2 := 1 / cos( 4*pi * delta2 / DomCyc ) 
+alpha2 := gamma2 - sqrt( gamma2 * gamma2 - 1 ) 
+BP2 := 0.5 * ( 1 - alpha2 ) * ( Price - nz(Price[2]) ) + beta2 * ( 1 + alpha2 ) * nz(BP2[1]) - alpha2 * nz(BP2[2]) 
+Q2 := ( DomCyc / 2*pi ) * ( BP2 - nz(BP2[1]) ) 
+Lead60 := 0.5 * BP2 + 0.866 * Q2 
+HL := Lead60 
+LL := Lead60 
+
+for count = 0 to 50 
+	
+	if nz(Lead60[count]) > HL  
+		HL := nz(Lead60[count]) 
+	if nz(Lead60[count]) < LL  
+		LL := nz(Lead60[count]) 
+	 
+Psn := ( Lead60 - LL ) / ( HL - LL ) 
+HL := Psn 
+LL := Psn 
+
+for count = 0 to 20 
+	
+	if nz(Psn[count]) > HL  
+		HL := nz(Psn[count]) 
+	if nz(Psn[count]) < LL  
+		LL := nz(Psn[count]) 
+	 
+
+if HL - LL > .85  
+	Width :=  .01 
+else 
+	Width := 0.15 * ( HL - LL ) 
+
+for N = 1 to 50 
+	
+	array.set(Raster,N, 20)
+	if N < ceil( 50 * Psn)  
+		array.set(Raster,N, 0.5 * ( pow( ( 20 * Psn - 0.4 * N ) / Width, 0.95 )  + 0.5 * nz(array.get(OldRaster,N)) ) )
+	if N > ceil( 50 * Psn)  
+		array.set(Raster,N, 0.5 * ( pow( ( -20 * Psn + 0.4 * N ) / Width, 0.95 ) + 0.5 * nz(array.get(OldRaster,N)) ) )
+	if N == ceil( 50 * Psn)  
+		array.set(Raster,N, 0.5 * nz(array.get(OldRaster,N))) 
+	if nz(array.get(Raster,N)) < 0  
+		array.set(Raster,N,0) 
+	if nz(array.get(Raster,N)) > 20  
+		array.set(Raster,N,20) 
+	if HL - LL > 0.8  
+		array.set(Raster,N,20)  
+	array.set(OldRaster,N, nz(array.get(Raster,N))) 
+	 
+N = 0
+
+N := 2  
+Plot2 = plot( 0.2 * N - 5, "S2", color = nz(array.get(Raster,N)) <= 10 ? RGB( ceil(LineR + nz(array.get(Raster,N)) * (FuzzR - LineR) / 10 ) , ceil(LineG + nz(array.get(Raster,N)) * (FuzzG - LineG) / 10 ) ,ceil(LineB + nz(array.get(Raster,N)) * (FuzzB - LineB) / 10 ) ) : RGB( ceil(FuzzR*(2 - nz(array.get(Raster,N)) / 10) ), ceil(FuzzG*(2 - nz(array.get(Raster,N)) / 10) ) , ceil(FuzzB*(2 - nz(array.get(Raster,N)) / 10) ) ),  linewidth = 8 )
+// N := 3  
+// Plot3 = plot( 0.2 * N - 5, "S3", color = nz(array.get(Raster,N)) <= 10 ? RGB( ceil(LineR + nz(array.get(Raster,N)) * (FuzzR - LineR) / 10 ) , ceil(LineG + nz(array.get(Raster,N)) * (FuzzG - LineG) / 10 ) ,ceil(LineB + nz(array.get(Raster,N)) * (FuzzB - LineB) / 10 ) ) : RGB( ceil(FuzzR*(2 - nz(array.get(Raster,N)) / 10) ), ceil(FuzzG*(2 - nz(array.get(Raster,N)) / 10) ) , ceil(FuzzB*(2 - nz(array.get(Raster,N)) / 10) ) ),  linewidth = 8 )
+N := 4  
+Plot4 = plot( 0.2 * N - 5, "S4", color = nz(array.get(Raster,N)) <= 10 ? RGB( ceil(LineR + nz(array.get(Raster,N)) * (FuzzR - LineR) / 10 ) , ceil(LineG + nz(array.get(Raster,N)) * (FuzzG - LineG) / 10 ) ,ceil(LineB + nz(array.get(Raster,N)) * (FuzzB - LineB) / 10 ) ) : RGB( ceil(FuzzR*(2 - nz(array.get(Raster,N)) / 10) ), ceil(FuzzG*(2 - nz(array.get(Raster,N)) / 10) ) , ceil(FuzzB*(2 - nz(array.get(Raster,N)) / 10) ) ),  linewidth = 8 )
+// N := 5  
+// Plot5 = plot( 0.2 * N - 5, "S5", color = nz(array.get(Raster,N)) <= 10 ? RGB( ceil(LineR + nz(array.get(Raster,N)) * (FuzzR - LineR) / 10 ) , ceil(LineG + nz(array.get(Raster,N)) * (FuzzG - LineG) / 10 ) ,ceil(LineB + nz(array.get(Raster,N)) * (FuzzB - LineB) / 10 ) ) : RGB( ceil(FuzzR*(2 - nz(array.get(Raster,N)) / 10) ), ceil(FuzzG*(2 - nz(array.get(Raster,N)) / 10) ) , ceil(FuzzB*(2 - nz(array.get(Raster,N)) / 10) ) ),  linewidth = 8 )
+N := 6  
+Plot6 = plot( 0.2 * N - 5, "S6", color = nz(array.get(Raster,N)) <= 10 ? RGB( ceil(LineR + nz(array.get(Raster,N)) * (FuzzR - LineR) / 10 ) , ceil(LineG + nz(array.get(Raster,N)) * (FuzzG - LineG) / 10 ) ,ceil(LineB + nz(array.get(Raster,N)) * (FuzzB - LineB) / 10 ) ) : RGB( ceil(FuzzR*(2 - nz(array.get(Raster,N)) / 10) ), ceil(FuzzG*(2 - nz(array.get(Raster,N)) / 10) ) , ceil(FuzzB*(2 - nz(array.get(Raster,N)) / 10) ) ),  linewidth = 8 )
+// N := 7  
+// Plot7 = plot( 0.2 * N - 5, "S7", color = nz(array.get(Raster,N)) <= 10 ? RGB( ceil(LineR + nz(array.get(Raster,N)) * (FuzzR - LineR) / 10 ) , ceil(LineG + nz(array.get(Raster,N)) * (FuzzG - LineG) / 10 ) ,ceil(LineB + nz(array.get(Raster,N)) * (FuzzB - LineB) / 10 ) ) : RGB( ceil(FuzzR*(2 - nz(array.get(Raster,N)) / 10) ), ceil(FuzzG*(2 - nz(array.get(Raster,N)) / 10) ) , ceil(FuzzB*(2 - nz(array.get(Raster,N)) / 10) ) ),  linewidth = 8 )
+N := 8  
+Plot8 = plot( 0.2 * N - 5, "S8", color = nz(array.get(Raster,N)) <= 10 ? RGB( ceil(LineR + nz(array.get(Raster,N)) * (FuzzR - LineR) / 10 ) , ceil(LineG + nz(array.get(Raster,N)) * (FuzzG - LineG) / 10 ) ,ceil(LineB + nz(array.get(Raster,N)) * (FuzzB - LineB) / 10 ) ) : RGB( ceil(FuzzR*(2 - nz(array.get(Raster,N)) / 10) ), ceil(FuzzG*(2 - nz(array.get(Raster,N)) / 10) ) , ceil(FuzzB*(2 - nz(array.get(Raster,N)) / 10) ) ),  linewidth = 8 )
+// N := 9  
+// Plot9 = plot( 0.2 * N - 5, "S9", color = nz(array.get(Raster,N)) <= 10 ? RGB( ceil(LineR + nz(array.get(Raster,N)) * (FuzzR - LineR) / 10 ) , ceil(LineG + nz(array.get(Raster,N)) * (FuzzG - LineG) / 10 ) ,ceil(LineB + nz(array.get(Raster,N)) * (FuzzB - LineB) / 10 ) ) : RGB( ceil(FuzzR*(2 - nz(array.get(Raster,N)) / 10) ), ceil(FuzzG*(2 - nz(array.get(Raster,N)) / 10) ) , ceil(FuzzB*(2 - nz(array.get(Raster,N)) / 10) ) ),  linewidth = 8 )
+N := 10  
+Plot10 = plot( 0.2 * N - 5, "S10", color = nz(array.get(Raster,N)) <= 10 ? RGB( ceil(LineR + nz(array.get(Raster,N)) * (FuzzR - LineR) / 10 ) , ceil(LineG + nz(array.get(Raster,N)) * (FuzzG - LineG) / 10 ) ,ceil(LineB + nz(array.get(Raster,N)) * (FuzzB - LineB) / 10 ) ) : RGB( ceil(FuzzR*(2 - nz(array.get(Raster,N)) / 10) ), ceil(FuzzG*(2 - nz(array.get(Raster,N)) / 10) ) , ceil(FuzzB*(2 - nz(array.get(Raster,N)) / 10) ) ),  linewidth = 8 )
+// N := 11  
+// Plot11 = plot( 0.2 * N - 5, "S11",color = nz(array.get(Raster,N)) <= 10 ? RGB( ceil(LineR + nz(array.get(Raster,N)) * (FuzzR - LineR) / 10 ) , ceil(LineG + nz(array.get(Raster,N)) * (FuzzG - LineG) / 10 ) ,ceil(LineB + nz(array.get(Raster,N)) * (FuzzB - LineB) / 10 ) ) : RGB( ceil(FuzzR*(2 - nz(array.get(Raster,N)) / 10) ), ceil(FuzzG*(2 - nz(array.get(Raster,N)) / 10) ) , ceil(FuzzB*(2 - nz(array.get(Raster,N)) / 10) ) ),  linewidth = 8 )
+N := 12  
+Plot12 = plot( 0.2 * N - 5, "S12",color = nz(array.get(Raster,N)) <= 10 ? RGB( ceil(LineR + nz(array.get(Raster,N)) * (FuzzR - LineR) / 10 ) , ceil(LineG + nz(array.get(Raster,N)) * (FuzzG - LineG) / 10 ) ,ceil(LineB + nz(array.get(Raster,N)) * (FuzzB - LineB) / 10 ) ) : RGB( ceil(FuzzR*(2 - nz(array.get(Raster,N)) / 10) ), ceil(FuzzG*(2 - nz(array.get(Raster,N)) / 10) ) , ceil(FuzzB*(2 - nz(array.get(Raster,N)) / 10) ) ),  linewidth = 8 )
+// N := 13  
+// Plot13 = plot( 0.2 * N - 5, "S13",color = nz(array.get(Raster,N)) <= 10 ? RGB( ceil(LineR + nz(array.get(Raster,N)) * (FuzzR - LineR) / 10 ) , ceil(LineG + nz(array.get(Raster,N)) * (FuzzG - LineG) / 10 ) ,ceil(LineB + nz(array.get(Raster,N)) * (FuzzB - LineB) / 10 ) ) : RGB( ceil(FuzzR*(2 - nz(array.get(Raster,N)) / 10) ), ceil(FuzzG*(2 - nz(array.get(Raster,N)) / 10) ) , ceil(FuzzB*(2 - nz(array.get(Raster,N)) / 10) ) ),  linewidth = 8 )
+N := 14  
+Plot14 = plot( 0.2 * N - 5, "S14",color = nz(array.get(Raster,N)) <= 10 ? RGB( ceil(LineR + nz(array.get(Raster,N)) * (FuzzR - LineR) / 10 ) , ceil(LineG + nz(array.get(Raster,N)) * (FuzzG - LineG) / 10 ) ,ceil(LineB + nz(array.get(Raster,N)) * (FuzzB - LineB) / 10 ) ) : RGB( ceil(FuzzR*(2 - nz(array.get(Raster,N)) / 10) ), ceil(FuzzG*(2 - nz(array.get(Raster,N)) / 10) ) , ceil(FuzzB*(2 - nz(array.get(Raster,N)) / 10) ) ),  linewidth = 8 )
+// N := 15  
+// Plot15 = plot( 0.2 * N - 5, "S15",color = nz(array.get(Raster,N)) <= 10 ? RGB( ceil(LineR + nz(array.get(Raster,N)) * (FuzzR - LineR) / 10 ) , ceil(LineG + nz(array.get(Raster,N)) * (FuzzG - LineG) / 10 ) ,ceil(LineB + nz(array.get(Raster,N)) * (FuzzB - LineB) / 10 ) ) : RGB( ceil(FuzzR*(2 - nz(array.get(Raster,N)) / 10) ), ceil(FuzzG*(2 - nz(array.get(Raster,N)) / 10) ) , ceil(FuzzB*(2 - nz(array.get(Raster,N)) / 10) ) ),  linewidth = 8 )
+N := 16  
+Plot16 = plot( 0.2 * N - 5, "S16",color = nz(array.get(Raster,N)) <= 10 ? RGB( ceil(LineR + nz(array.get(Raster,N)) * (FuzzR - LineR) / 10 ) , ceil(LineG + nz(array.get(Raster,N)) * (FuzzG - LineG) / 10 ) ,ceil(LineB + nz(array.get(Raster,N)) * (FuzzB - LineB) / 10 ) ) : RGB( ceil(FuzzR*(2 - nz(array.get(Raster,N)) / 10) ), ceil(FuzzG*(2 - nz(array.get(Raster,N)) / 10) ) , ceil(FuzzB*(2 - nz(array.get(Raster,N)) / 10) ) ),  linewidth = 8 )
+// N := 17  
+// Plot17 = plot( 0.2 * N - 5, "S17",color = nz(array.get(Raster,N)) <= 10 ? RGB( ceil(LineR + nz(array.get(Raster,N)) * (FuzzR - LineR) / 10 ) , ceil(LineG + nz(array.get(Raster,N)) * (FuzzG - LineG) / 10 ) ,ceil(LineB + nz(array.get(Raster,N)) * (FuzzB - LineB) / 10 ) ) : RGB( ceil(FuzzR*(2 - nz(array.get(Raster,N)) / 10) ), ceil(FuzzG*(2 - nz(array.get(Raster,N)) / 10) ) , ceil(FuzzB*(2 - nz(array.get(Raster,N)) / 10) ) ),  linewidth = 8 )
+N := 18  
+Plot18 = plot( 0.2 * N - 5, "S18",color = nz(array.get(Raster,N)) <= 10 ? RGB( ceil(LineR + nz(array.get(Raster,N)) * (FuzzR - LineR) / 10 ) , ceil(LineG + nz(array.get(Raster,N)) * (FuzzG - LineG) / 10 ) ,ceil(LineB + nz(array.get(Raster,N)) * (FuzzB - LineB) / 10 ) ) : RGB( ceil(FuzzR*(2 - nz(array.get(Raster,N)) / 10) ), ceil(FuzzG*(2 - nz(array.get(Raster,N)) / 10) ) , ceil(FuzzB*(2 - nz(array.get(Raster,N)) / 10) ) ),  linewidth = 8 )
+// N := 19  
+// Plot19 = plot( 0.2 * N - 5, "S19",color = nz(array.get(Raster,N)) <= 10 ? RGB( ceil(LineR + nz(array.get(Raster,N)) * (FuzzR - LineR) / 10 ) , ceil(LineG + nz(array.get(Raster,N)) * (FuzzG - LineG) / 10 ) ,ceil(LineB + nz(array.get(Raster,N)) * (FuzzB - LineB) / 10 ) ) : RGB( ceil(FuzzR*(2 - nz(array.get(Raster,N)) / 10) ), ceil(FuzzG*(2 - nz(array.get(Raster,N)) / 10) ) , ceil(FuzzB*(2 - nz(array.get(Raster,N)) / 10) ) ),  linewidth = 8 )
+N := 20  
+Plot20 = plot( 0.2 * N - 5, "S20",color = nz(array.get(Raster,N)) <= 10 ? RGB( ceil(LineR + nz(array.get(Raster,N)) * (FuzzR - LineR) / 10 ) , ceil(LineG + nz(array.get(Raster,N)) * (FuzzG - LineG) / 10 ) ,ceil(LineB + nz(array.get(Raster,N)) * (FuzzB - LineB) / 10 ) ) : RGB( ceil(FuzzR*(2 - nz(array.get(Raster,N)) / 10) ), ceil(FuzzG*(2 - nz(array.get(Raster,N)) / 10) ) , ceil(FuzzB*(2 - nz(array.get(Raster,N)) / 10) ) ),  linewidth = 8 )
+// N := 21  
+// Plot21 = plot( 0.2 * N - 5, "S21",color = nz(array.get(Raster,N)) <= 10 ? RGB( ceil(LineR + nz(array.get(Raster,N)) * (FuzzR - LineR) / 10 ) , ceil(LineG + nz(array.get(Raster,N)) * (FuzzG - LineG) / 10 ) ,ceil(LineB + nz(array.get(Raster,N)) * (FuzzB - LineB) / 10 ) ) : RGB( ceil(FuzzR*(2 - nz(array.get(Raster,N)) / 10) ), ceil(FuzzG*(2 - nz(array.get(Raster,N)) / 10) ) , ceil(FuzzB*(2 - nz(array.get(Raster,N)) / 10) ) ),  linewidth = 8 )
+N := 22  
+Plot22 = plot( 0.2 * N - 5, "S22",color = nz(array.get(Raster,N)) <= 10 ? RGB( ceil(LineR + nz(array.get(Raster,N)) * (FuzzR - LineR) / 10 ) , ceil(LineG + nz(array.get(Raster,N)) * (FuzzG - LineG) / 10 ) ,ceil(LineB + nz(array.get(Raster,N)) * (FuzzB - LineB) / 10 ) ) : RGB( ceil(FuzzR*(2 - nz(array.get(Raster,N)) / 10) ), ceil(FuzzG*(2 - nz(array.get(Raster,N)) / 10) ) , ceil(FuzzB*(2 - nz(array.get(Raster,N)) / 10) ) ),  linewidth = 8 )
+// N := 23  
+// Plot23 = plot( 0.2 * N - 5, "S23",color = nz(array.get(Raster,N)) <= 10 ? RGB( ceil(LineR + nz(array.get(Raster,N)) * (FuzzR - LineR) / 10 ) , ceil(LineG + nz(array.get(Raster,N)) * (FuzzG - LineG) / 10 ) ,ceil(LineB + nz(array.get(Raster,N)) * (FuzzB - LineB) / 10 ) ) : RGB( ceil(FuzzR*(2 - nz(array.get(Raster,N)) / 10) ), ceil(FuzzG*(2 - nz(array.get(Raster,N)) / 10) ) , ceil(FuzzB*(2 - nz(array.get(Raster,N)) / 10) ) ),  linewidth = 8 )
+N := 24  
+Plot24 = plot( 0.2 * N - 5, "S24",color = nz(array.get(Raster,N)) <= 10 ? RGB( ceil(LineR + nz(array.get(Raster,N)) * (FuzzR - LineR) / 10 ) , ceil(LineG + nz(array.get(Raster,N)) * (FuzzG - LineG) / 10 ) ,ceil(LineB + nz(array.get(Raster,N)) * (FuzzB - LineB) / 10 ) ) : RGB( ceil(FuzzR*(2 - nz(array.get(Raster,N)) / 10) ), ceil(FuzzG*(2 - nz(array.get(Raster,N)) / 10) ) , ceil(FuzzB*(2 - nz(array.get(Raster,N)) / 10) ) ),  linewidth = 8 )
+// N := 25  
+// Plot25 = plot( 0.2 * N - 5, "S25",color = nz(array.get(Raster,N)) <= 10 ? RGB( ceil(LineR + nz(array.get(Raster,N)) * (FuzzR - LineR) / 10 ) , ceil(LineG + nz(array.get(Raster,N)) * (FuzzG - LineG) / 10 ) ,ceil(LineB + nz(array.get(Raster,N)) * (FuzzB - LineB) / 10 ) ) : RGB( ceil(FuzzR*(2 - nz(array.get(Raster,N)) / 10) ), ceil(FuzzG*(2 - nz(array.get(Raster,N)) / 10) ) , ceil(FuzzB*(2 - nz(array.get(Raster,N)) / 10) ) ),  linewidth = 8 )
+N := 26  
+Plot26 = plot( 0.2 * N - 5, "S26",color = nz(array.get(Raster,N)) <= 10 ? RGB( ceil(LineR + nz(array.get(Raster,N)) * (FuzzR - LineR) / 10 ) , ceil(LineG + nz(array.get(Raster,N)) * (FuzzG - LineG) / 10 ) ,ceil(LineB + nz(array.get(Raster,N)) * (FuzzB - LineB) / 10 ) ) : RGB( ceil(FuzzR*(2 - nz(array.get(Raster,N)) / 10) ), ceil(FuzzG*(2 - nz(array.get(Raster,N)) / 10) ) , ceil(FuzzB*(2 - nz(array.get(Raster,N)) / 10) ) ),  linewidth = 8 )
+// N := 27  
+// Plot27 = plot( 0.2 * N - 5, "S27",color = nz(array.get(Raster,N)) <= 10 ? RGB( ceil(LineR + nz(array.get(Raster,N)) * (FuzzR - LineR) / 10 ) , ceil(LineG + nz(array.get(Raster,N)) * (FuzzG - LineG) / 10 ) ,ceil(LineB + nz(array.get(Raster,N)) * (FuzzB - LineB) / 10 ) ) : RGB( ceil(FuzzR*(2 - nz(array.get(Raster,N)) / 10) ), ceil(FuzzG*(2 - nz(array.get(Raster,N)) / 10) ) , ceil(FuzzB*(2 - nz(array.get(Raster,N)) / 10) ) ),  linewidth = 8 )
+N := 28  
+Plot28 = plot( 0.2 * N - 5, "S28",color = nz(array.get(Raster,N)) <= 10 ? RGB( ceil(LineR + nz(array.get(Raster,N)) * (FuzzR - LineR) / 10 ) , ceil(LineG + nz(array.get(Raster,N)) * (FuzzG - LineG) / 10 ) ,ceil(LineB + nz(array.get(Raster,N)) * (FuzzB - LineB) / 10 ) ) : RGB( ceil(FuzzR*(2 - nz(array.get(Raster,N)) / 10) ), ceil(FuzzG*(2 - nz(array.get(Raster,N)) / 10) ) , ceil(FuzzB*(2 - nz(array.get(Raster,N)) / 10) ) ),  linewidth = 8 )
+// N := 29  
+// Plot29 = plot( 0.2 * N - 5, "S29",color = nz(array.get(Raster,N)) <= 10 ? RGB( ceil(LineR + nz(array.get(Raster,N)) * (FuzzR - LineR) / 10 ) , ceil(LineG + nz(array.get(Raster,N)) * (FuzzG - LineG) / 10 ) ,ceil(LineB + nz(array.get(Raster,N)) * (FuzzB - LineB) / 10 ) ) : RGB( ceil(FuzzR*(2 - nz(array.get(Raster,N)) / 10) ), ceil(FuzzG*(2 - nz(array.get(Raster,N)) / 10) ) , ceil(FuzzB*(2 - nz(array.get(Raster,N)) / 10) ) ),  linewidth = 8 )
+N := 30  
+Plot30 = plot( 0.2 * N - 5, "S30",color = nz(array.get(Raster,N)) <= 10 ? RGB( ceil(LineR + nz(array.get(Raster,N)) * (FuzzR - LineR) / 10 ) , ceil(LineG + nz(array.get(Raster,N)) * (FuzzG - LineG) / 10 ) ,ceil(LineB + nz(array.get(Raster,N)) * (FuzzB - LineB) / 10 ) ) : RGB( ceil(FuzzR*(2 - nz(array.get(Raster,N)) / 10) ), ceil(FuzzG*(2 - nz(array.get(Raster,N)) / 10) ) , ceil(FuzzB*(2 - nz(array.get(Raster,N)) / 10) ) ),  linewidth = 8 )
+// N := 31  
+// Plot31 = plot( 0.2 * N - 5, "S31",color = nz(array.get(Raster,N)) <= 10 ? RGB( ceil(LineR + nz(array.get(Raster,N)) * (FuzzR - LineR) / 10 ) , ceil(LineG + nz(array.get(Raster,N)) * (FuzzG - LineG) / 10 ) ,ceil(LineB + nz(array.get(Raster,N)) * (FuzzB - LineB) / 10 ) ) : RGB( ceil(FuzzR*(2 - nz(array.get(Raster,N)) / 10) ), ceil(FuzzG*(2 - nz(array.get(Raster,N)) / 10) ) , ceil(FuzzB*(2 - nz(array.get(Raster,N)) / 10) ) ),  linewidth = 8 )
+N := 32  
+Plot32 = plot( 0.2 * N - 5, "S32",color = nz(array.get(Raster,N)) <= 10 ? RGB( ceil(LineR + nz(array.get(Raster,N)) * (FuzzR - LineR) / 10 ) , ceil(LineG + nz(array.get(Raster,N)) * (FuzzG - LineG) / 10 ) ,ceil(LineB + nz(array.get(Raster,N)) * (FuzzB - LineB) / 10 ) ) : RGB( ceil(FuzzR*(2 - nz(array.get(Raster,N)) / 10) ), ceil(FuzzG*(2 - nz(array.get(Raster,N)) / 10) ) , ceil(FuzzB*(2 - nz(array.get(Raster,N)) / 10) ) ),  linewidth = 8 )
+// N := 33  
+// Plot33 = plot( 0.2 * N - 5, "S33",color = nz(array.get(Raster,N)) <= 10 ? RGB( ceil(LineR + nz(array.get(Raster,N)) * (FuzzR - LineR) / 10 ) , ceil(LineG + nz(array.get(Raster,N)) * (FuzzG - LineG) / 10 ) ,ceil(LineB + nz(array.get(Raster,N)) * (FuzzB - LineB) / 10 ) ) : RGB( ceil(FuzzR*(2 - nz(array.get(Raster,N)) / 10) ), ceil(FuzzG*(2 - nz(array.get(Raster,N)) / 10) ) , ceil(FuzzB*(2 - nz(array.get(Raster,N)) / 10) ) ),  linewidth = 8 )
+N := 34  
+Plot34 = plot( 0.2 * N - 5, "S34",color = nz(array.get(Raster,N)) <= 10 ? RGB( ceil(LineR + nz(array.get(Raster,N)) * (FuzzR - LineR) / 10 ) , ceil(LineG + nz(array.get(Raster,N)) * (FuzzG - LineG) / 10 ) ,ceil(LineB + nz(array.get(Raster,N)) * (FuzzB - LineB) / 10 ) ) : RGB( ceil(FuzzR*(2 - nz(array.get(Raster,N)) / 10) ), ceil(FuzzG*(2 - nz(array.get(Raster,N)) / 10) ) , ceil(FuzzB*(2 - nz(array.get(Raster,N)) / 10) ) ),  linewidth = 8 )
+// N := 35  
+// Plot35 = plot( 0.2 * N - 5, "S35",color = nz(array.get(Raster,N)) <= 10 ? RGB( ceil(LineR + nz(array.get(Raster,N)) * (FuzzR - LineR) / 10 ) , ceil(LineG + nz(array.get(Raster,N)) * (FuzzG - LineG) / 10 ) ,ceil(LineB + nz(array.get(Raster,N)) * (FuzzB - LineB) / 10 ) ) : RGB( ceil(FuzzR*(2 - nz(array.get(Raster,N)) / 10) ), ceil(FuzzG*(2 - nz(array.get(Raster,N)) / 10) ) , ceil(FuzzB*(2 - nz(array.get(Raster,N)) / 10) ) ),  linewidth = 8 )
+N := 36  
+Plot36 = plot( 0.2 * N - 5, "S36",color = nz(array.get(Raster,N)) <= 10 ? RGB( ceil(LineR + nz(array.get(Raster,N)) * (FuzzR - LineR) / 10 ) , ceil(LineG + nz(array.get(Raster,N)) * (FuzzG - LineG) / 10 ) ,ceil(LineB + nz(array.get(Raster,N)) * (FuzzB - LineB) / 10 ) ) : RGB( ceil(FuzzR*(2 - nz(array.get(Raster,N)) / 10) ), ceil(FuzzG*(2 - nz(array.get(Raster,N)) / 10) ) , ceil(FuzzB*(2 - nz(array.get(Raster,N)) / 10) ) ),  linewidth = 8 )
+// N := 37  
+// Plot37 = plot( 0.2 * N - 5, "S37",color = nz(array.get(Raster,N)) <= 10 ? RGB( ceil(LineR + nz(array.get(Raster,N)) * (FuzzR - LineR) / 10 ) , ceil(LineG + nz(array.get(Raster,N)) * (FuzzG - LineG) / 10 ) ,ceil(LineB + nz(array.get(Raster,N)) * (FuzzB - LineB) / 10 ) ) : RGB( ceil(FuzzR*(2 - nz(array.get(Raster,N)) / 10) ), ceil(FuzzG*(2 - nz(array.get(Raster,N)) / 10) ) , ceil(FuzzB*(2 - nz(array.get(Raster,N)) / 10) ) ),  linewidth = 8 )
+N := 38  
+Plot38 = plot( 0.2 * N - 5, "S38",color = nz(array.get(Raster,N)) <= 10 ? RGB( ceil(LineR + nz(array.get(Raster,N)) * (FuzzR - LineR) / 10 ) , ceil(LineG + nz(array.get(Raster,N)) * (FuzzG - LineG) / 10 ) ,ceil(LineB + nz(array.get(Raster,N)) * (FuzzB - LineB) / 10 ) ) : RGB( ceil(FuzzR*(2 - nz(array.get(Raster,N)) / 10) ), ceil(FuzzG*(2 - nz(array.get(Raster,N)) / 10) ) , ceil(FuzzB*(2 - nz(array.get(Raster,N)) / 10) ) ),  linewidth = 8 )
+// N := 39  
+// Plot39 = plot( 0.2 * N - 5, "S39",color = nz(array.get(Raster,N)) <= 10 ? RGB( ceil(LineR + nz(array.get(Raster,N)) * (FuzzR - LineR) / 10 ) , ceil(LineG + nz(array.get(Raster,N)) * (FuzzG - LineG) / 10 ) ,ceil(LineB + nz(array.get(Raster,N)) * (FuzzB - LineB) / 10 ) ) : RGB( ceil(FuzzR*(2 - nz(array.get(Raster,N)) / 10) ), ceil(FuzzG*(2 - nz(array.get(Raster,N)) / 10) ) , ceil(FuzzB*(2 - nz(array.get(Raster,N)) / 10) ) ),  linewidth = 8 )
+N := 40  
+Plot40 = plot( 0.2 * N - 5, "S40",color = nz(array.get(Raster,N)) <= 10 ? RGB( ceil(LineR + nz(array.get(Raster,N)) * (FuzzR - LineR) / 10 ) , ceil(LineG + nz(array.get(Raster,N)) * (FuzzG - LineG) / 10 ) ,ceil(LineB + nz(array.get(Raster,N)) * (FuzzB - LineB) / 10 ) ) : RGB( ceil(FuzzR*(2 - nz(array.get(Raster,N)) / 10) ), ceil(FuzzG*(2 - nz(array.get(Raster,N)) / 10) ) , ceil(FuzzB*(2 - nz(array.get(Raster,N)) / 10) ) ),  linewidth = 8 )
+// N := 41  
+// Plot41 = plot( 0.2 * N - 5, "S41",color = nz(array.get(Raster,N)) <= 10 ? RGB( ceil(LineR + nz(array.get(Raster,N)) * (FuzzR - LineR) / 10 ) , ceil(LineG + nz(array.get(Raster,N)) * (FuzzG - LineG) / 10 ) ,ceil(LineB + nz(array.get(Raster,N)) * (FuzzB - LineB) / 10 ) ) : RGB( ceil(FuzzR*(2 - nz(array.get(Raster,N)) / 10) ), ceil(FuzzG*(2 - nz(array.get(Raster,N)) / 10) ) , ceil(FuzzB*(2 - nz(array.get(Raster,N)) / 10) ) ),  linewidth = 8 )
+N := 42  
+Plot42 = plot( 0.2 * N - 5, "S42",color = nz(array.get(Raster,N)) <= 10 ? RGB( ceil(LineR + nz(array.get(Raster,N)) * (FuzzR - LineR) / 10 ) , ceil(LineG + nz(array.get(Raster,N)) * (FuzzG - LineG) / 10 ) ,ceil(LineB + nz(array.get(Raster,N)) * (FuzzB - LineB) / 10 ) ) : RGB( ceil(FuzzR*(2 - nz(array.get(Raster,N)) / 10) ), ceil(FuzzG*(2 - nz(array.get(Raster,N)) / 10) ) , ceil(FuzzB*(2 - nz(array.get(Raster,N)) / 10) ) ),  linewidth = 8 )
+// N := 43  
+// Plot43 = plot( 0.2 * N - 5, "S43",color = nz(array.get(Raster,N)) <= 10 ? RGB( ceil(LineR + nz(array.get(Raster,N)) * (FuzzR - LineR) / 10 ) , ceil(LineG + nz(array.get(Raster,N)) * (FuzzG - LineG) / 10 ) ,ceil(LineB + nz(array.get(Raster,N)) * (FuzzB - LineB) / 10 ) ) : RGB( ceil(FuzzR*(2 - nz(array.get(Raster,N)) / 10) ), ceil(FuzzG*(2 - nz(array.get(Raster,N)) / 10) ) , ceil(FuzzB*(2 - nz(array.get(Raster,N)) / 10) ) ),  linewidth = 8 )
+N := 44  
+Plot44 = plot( 0.2 * N - 5, "S44",color = nz(array.get(Raster,N)) <= 10 ? RGB( ceil(LineR + nz(array.get(Raster,N)) * (FuzzR - LineR) / 10 ) , ceil(LineG + nz(array.get(Raster,N)) * (FuzzG - LineG) / 10 ) ,ceil(LineB + nz(array.get(Raster,N)) * (FuzzB - LineB) / 10 ) ) : RGB( ceil(FuzzR*(2 - nz(array.get(Raster,N)) / 10) ), ceil(FuzzG*(2 - nz(array.get(Raster,N)) / 10) ) , ceil(FuzzB*(2 - nz(array.get(Raster,N)) / 10) ) ),  linewidth = 8 )
+// N := 45  
+// Plot45 = plot( 0.2 * N - 5, "S45",color = nz(array.get(Raster,N)) <= 10 ? RGB( ceil(LineR + nz(array.get(Raster,N)) * (FuzzR - LineR) / 10 ) , ceil(LineG + nz(array.get(Raster,N)) * (FuzzG - LineG) / 10 ) ,ceil(LineB + nz(array.get(Raster,N)) * (FuzzB - LineB) / 10 ) ) : RGB( ceil(FuzzR*(2 - nz(array.get(Raster,N)) / 10) ), ceil(FuzzG*(2 - nz(array.get(Raster,N)) / 10) ) , ceil(FuzzB*(2 - nz(array.get(Raster,N)) / 10) ) ),  linewidth = 8 )
+N := 46  
+Plot46 = plot( 0.2 * N - 5, "S46",color = nz(array.get(Raster,N)) <= 10 ? RGB( ceil(LineR + nz(array.get(Raster,N)) * (FuzzR - LineR) / 10 ) , ceil(LineG + nz(array.get(Raster,N)) * (FuzzG - LineG) / 10 ) ,ceil(LineB + nz(array.get(Raster,N)) * (FuzzB - LineB) / 10 ) ) : RGB( ceil(FuzzR*(2 - nz(array.get(Raster,N)) / 10) ), ceil(FuzzG*(2 - nz(array.get(Raster,N)) / 10) ) , ceil(FuzzB*(2 - nz(array.get(Raster,N)) / 10) ) ),  linewidth = 8 )
+// N := 47  
+// Plot47 = plot( 0.2 * N - 5, "S47",color = nz(array.get(Raster,N)) <= 10 ? RGB( ceil(LineR + nz(array.get(Raster,N)) * (FuzzR - LineR) / 10 ) , ceil(LineG + nz(array.get(Raster,N)) * (FuzzG - LineG) / 10 ) ,ceil(LineB + nz(array.get(Raster,N)) * (FuzzB - LineB) / 10 ) ) : RGB( ceil(FuzzR*(2 - nz(array.get(Raster,N)) / 10) ), ceil(FuzzG*(2 - nz(array.get(Raster,N)) / 10) ) , ceil(FuzzB*(2 - nz(array.get(Raster,N)) / 10) ) ),  linewidth = 8 )
+N := 48  
+Plot48 = plot( 0.2 * N - 5, "S48",color = nz(array.get(Raster,N)) <= 10 ? RGB( ceil(LineR + nz(array.get(Raster,N)) * (FuzzR - LineR) / 10 ) , ceil(LineG + nz(array.get(Raster,N)) * (FuzzG - LineG) / 10 ) ,ceil(LineB + nz(array.get(Raster,N)) * (FuzzB - LineB) / 10 ) ) : RGB( ceil(FuzzR*(2 - nz(array.get(Raster,N)) / 10) ), ceil(FuzzG*(2 - nz(array.get(Raster,N)) / 10) ) , ceil(FuzzB*(2 - nz(array.get(Raster,N)) / 10) ) ),  linewidth = 8 )
+// N := 49  
+// Plot49 = plot( 0.2 * N - 5, "S49",color = nz(array.get(Raster,N)) <= 10 ? RGB( ceil(LineR + nz(array.get(Raster,N)) * (FuzzR - LineR) / 10 ) , ceil(LineG + nz(array.get(Raster,N)) * (FuzzG - LineG) / 10 ) ,ceil(LineB + nz(array.get(Raster,N)) * (FuzzB - LineB) / 10 ) ) : RGB( ceil(FuzzR*(2 - nz(array.get(Raster,N)) / 10) ), ceil(FuzzG*(2 - nz(array.get(Raster,N)) / 10) ) , ceil(FuzzB*(2 - nz(array.get(Raster,N)) / 10) ) ),  linewidth = 8 )
+N := 50  
+Plot50 = plot( 0.2 * N - 5, "S50",color = nz(array.get(Raster,N)) <= 10 ? RGB( ceil(LineR + nz(array.get(Raster,N)) * (FuzzR - LineR) / 10 ) , ceil(LineG + nz(array.get(Raster,N)) * (FuzzG - LineG) / 10 ) ,ceil(LineB + nz(array.get(Raster,N)) * (FuzzB - LineB) / 10 ) ) : RGB( ceil(FuzzR*(2 - nz(array.get(Raster,N)) / 10) ), ceil(FuzzG*(2 - nz(array.get(Raster,N)) / 10) ) , ceil(FuzzB*(2 - nz(array.get(Raster,N)) / 10) ) ),  linewidth = 8 )
+
+Plot1 = plot( 10 * Psn - 5, "S51", color= RGB( LineR, LineG, LineB ), transp=20, linewidth=2 ) 

@@ -1,0 +1,403 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+
+//@version=6
+
+// Define required imports for the script
+import insidermike/LSTM/1 as lstm
+import kaigouthro/calc/8
+import kaigouthro/hsvColor/16 as color
+
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+// W.ARITAS - Neuro RSI
+// Software Developed by initials AM (@wikitrades)
+// Copyright (C) 2025
+//
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+/// Technical Indicator - Neuro RSI
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+indicator(title =  'Neuro RSI by W.ARITAS', shorttitle  =  'Neuro RSI by W.ARITAS', max_bars_back = 988, calc_bars_count=7337, overlay = false ) 
+
+g1 = '░=░=░ 𝙂𝙚𝙣𝙚𝙧𝙖𝙡 𝙨𝙚𝙩𝙩𝙞𝙣𝙜𝙨'
+use_bound = input.bool(defval = true, title = 'Show OB/OS Boundaries', group = g1)
+src = input.source(defval = volume, title = 'Source', group = g1)
+sml = input.int(defval=14, minval=3, maxval=144, step=1, title="Curve Smoothing Length", group=g1)
+
+g2 = '░=░=░ 𝘼𝙡𝙜𝙤𝙧𝙞𝙩𝙝𝙢 𝙨𝙚𝙩𝙩𝙞𝙣𝙜𝙨'
+jdynamic = input.float(defval= 0.987,   title = '  Jurik Dynamic Factor(D: 0.987)', group=g2)
+sLen = input.int(defval = 32,           title = '  Harmonic Frequency (D: 32)', group = g2)
+osc_freq = input.float(defval = 0.0042, title = '  Oscillator Frequency (D: 0.0042)', group = g2)
+osc_len = input.int(defval = 24,        title = '  Oscillator Length (D: 24)', group = g2)
+osc_sense = input.float(defval = 3.5,   title = '  Oscillator Sensitivity Threshold (D: 3.5)', group=g2)
+kalman_q = input.float(defval = 0.65,   title = '  Kalman Filter Process Noise (D: 0.65)', group=g2)
+kalman_r = input.float(defval = 0.5,    title = '  Kalman Filter Measurement Noise (D: 0.5)', group=g2)
+
+g3 = '░=░=░ 𝙈𝙇 𝙈𝙤𝙙𝙚𝙡'
+fml_lr = input.float(defval = 0.0035,   title = '  LSTM Learning Rate (D: 0.0035)', group=g3)
+fml_units = input.int(defval = 54,      title = '  LSTM Units (D: 54)', group=g3)
+fml_bands = input.int(defval = 9,       title = '  LSTM Wavelet Bands (D: 9)', group=g3)
+fml_len = input.int(defval = 40,        title = '  LSTM Length (D: 40)', group=g3)
+
+/// Static Variables
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+// Define constant for mathematical calculations (Φ)
+var fi = 1 + math.rphi
+
+// Define constant for mathematical calculations (π)
+var pi = math.pi
+
+/// Dynamic Variables
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+// Initialize Non-Repainting Data Sources
+cSrc = close[barstate.isrealtime ? 1 : 0] // Close Price (non-Repainting)
+vol = volume[barstate.isrealtime ? 1 : 0] // Volume (non-Repainting)
+
+/// Color Gradient Functions
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+c_any_size(int size, array<color> _c, bool _switchMode = false) =>
+    cols = array.size(_c) - 1
+    array<color> colray = array.new_color()
+    array<int> percol = calc.split(size, cols)
+    _c2 = array.get(_c, 0)
+
+    for k = 1 to cols by 1
+        _count = array.get(percol, k - 1)
+        _c1 = _c2
+        _c2 := array.get(_c, k)
+
+        for i = 1 to _count by 1
+            switch _count
+                1 => array.push(colray, _c2)
+                => 
+            	    switch  
+            	        _switchMode => array.push(colray, color.hsl_gradient(i, 1, _count, _c1, _c2))
+            	        => array.push(colray, color.hsv_gradient(i, 1, _count, _c1, _c2))
+
+    colray
+
+c_make_gradient(int size, color _1, color _2, color _3 = na, color _4 = na, color _5 = na, color _6 = na, color _7 = na, color _8 = na, color _9 = na, color _10 = na, bool _mode = false) =>
+    count = 10
+    count := count + (na(_10) ? -1 : 0)
+    count := count + (na(_9) ? -1 : 0)
+    count := count + (na(_8) ? -1 : 0)
+    count := count + (na(_7) ? -1 : 0)
+    count := count + (na(_6) ? -1 : 0)
+    count := count + (na(_5) ? -1 : 0)
+    count := count + (na(_4) ? -1 : 0)
+    count := count + (na(_3) ? -1 : 0)
+
+    _array = switch count
+        10 => array.from(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10)
+        9 => array.from(_1, _2, _3, _4, _5, _6, _7, _8, _9)
+        8 => array.from(_1, _2, _3, _4, _5, _6, _7, _8)
+        7 => array.from(_1, _2, _3, _4, _5, _6, _7)
+        6 => array.from(_1, _2, _3, _4, _5, _6)
+        5 => array.from(_1, _2, _3, _4, _5)
+        4 => array.from(_1, _2, _3, _4)
+        3 => array.from(_1, _2, _3)
+        2 => array.from(_1, _2)
+
+    gradient = c_any_size(size, _array, _mode)
+    gradient
+
+
+smart_gradient(x, g) =>
+    idx = math.round(x * 199)
+    idx := math.max(0, math.min(199, idx))
+    array.get(g, idx)
+
+// Create a gradient of 200 colors from ten different colors.
+var init_colors = c_make_gradient(200, #13ff00, #ccff33, #fcf300, #30c5d2, #003be9, #440f65, #8711c1, #f90c71, #ff000c, #ffffff)
+
+
+/// Helper Functions
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+sma(float src, int len) =>
+    sum = 0.0
+    for i = 0 to len - 1
+        sum += nz(src[i])
+    sum / len
+
+ema(float src, int len) =>
+    alpha = 2 / (len + 1)  // Smoothing factor
+    var float ema_val = na
+    ema_val := na(ema_val[1]) ? src : alpha * src + (1 - alpha) * ema_val[1]
+    ema_val
+
+rma(float src, float len) =>
+    alpha = 1 / len  // RMA smoothing factor
+    var float rma_val = na
+    rma_val := na(rma_val[1]) ? src : alpha * src + (1 - alpha) * rma_val[1]
+    rma_val
+
+
+rsi(float src, int len) =>
+    gain = ta.change(src) > 0 ? ta.change(src) : 0
+    loss = ta.change(src) < 0 ? math.abs(ta.change(src)) : 0
+
+    avg_gain = rma(gain, len)
+    avg_loss = rma(loss, len)
+
+    avg_loss == 0 ? 100 : avg_gain == 0 ? 0 : 100 - (100 / (1 + avg_gain / avg_loss))
+
+/// Rescaling Functions
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+rescale(float src, int len) =>
+    mV = 0.0
+    ama = 0.
+    alpha = math.abs(rsi(src - ama[1], len) / 100 - 0.5)
+    ama := nz(ama[1] + math.pow(alpha, (fi)) * (src - ama[1]), src)
+
+    mV := rsi(ama, len)
+
+    mV / 100
+
+div_factor(float value, int numDivisions, float factor) =>
+    result = value
+    for i = 1 to numDivisions
+        result := result / value
+    result * factor
+
+center(float value) =>
+    math.abs(value) * math.sign(value)
+
+ama(float src, int len, bool real) =>
+    mV = 0.0
+
+    ama = 0.
+    alpha = math.abs(ta.rsi(src - ama[1], len) / 100 - 0.5)
+    ama := nz(ama[1] + math.pow(alpha,(math.rphi+1)) * (src - ama[1]), src)
+
+    if real
+        mV := ta.rsi(ama, len)
+        mV
+    if not real
+        mV := ta.ema(ta.rsi(ta.ema(src, math.floor(len / 2)), len), math.floor(len / 2))
+        mV
+    mV
+
+/// Quantum Functions
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+intensity(float src1, float src2) =>
+
+    raw_adjustment = src1 * src2 / 32
+    fibonacci_adjusted = raw_adjustment * fi - fi * 100
+    scaled_value = fibonacci_adjusted / 5
+    scaled_value
+
+/// Filter Functions
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+rsx(float src, int loopback, float spd) =>
+    vol = ta.stdev(src, loopback)
+    adaptiveLength = math.min(math.round(loopback * (1 + vol / src * 1.5)), 50)
+
+    src_out = 100 * src
+
+    mom0 = ta.change(src_out)
+    moa0 = math.abs(mom0)
+
+    Kg = 3 / (adaptiveLength + 2.0)
+    Hg = 1 - Kg
+
+    f28 = 0.0, f30 = 0.0
+    f28 := Kg * mom0 + Hg * nz(f28[1])
+    f30 := Hg * nz(f30[1]) + Kg * f28
+    mom_out = f28 * (spd + 1.0) - f30 * spd
+
+    f78 = 0.0, f80 = 0.0
+    f78 := Hg * nz(f78[1]) + Kg * moa0
+    f80 := Kg * f78 + Hg * nz(f80[1])
+    moa_out = f78 * (spd + 1.0) - f80 * spd
+
+    rsiout = math.max(math.min((mom_out / moa_out + 1.0) * 50.0, 100.0), 0.0)
+
+    rsiout
+
+jurik(float src, int len, float dynamic) =>
+    phaseRatio = dynamic * pi / 8
+    beta = 0.45 * (len - 1) / (0.45 * (len - 1) + 2)
+    alpha = math.pow(beta, 2)
+
+    var float e0 = na, float e1 = na, float e2 = na, float jma = na
+    e0 := (1 - alpha) * src + alpha * nz(e0[1])
+    e1 := (src - e0) * (1 - beta) + beta * nz(e1[1])
+    e2 := (e0 + phaseRatio * e1 - nz(jma[1])) * math.pow(1 - alpha, 2) + math.pow(alpha, 2) * nz(e2[1])
+    jma := e2 + nz(jma[1])
+
+    freq = fi * pi / (len + dynamic * 2)
+    expDecay = math.exp(-freq)
+    c2 = 2 * expDecay * math.cos(freq)
+    c3 = -math.pow(expDecay, 2)
+    c1 = 1 - c2 - c3
+
+    var float wavelet_smoothed = na
+    wavelet_smoothed := c1 * (jma + nz(jma[1])) * 0.5 + c2 * nz(wavelet_smoothed[1]) + c3 * nz(wavelet_smoothed[2])
+
+    wavelet_smoothed * (1 + dynamic * 0.01)
+
+/// Signal Processing Functions
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+am(float src, float roc) =>
+
+    scaled_signal = src * (1 + roc / 100)
+    scaled_signal
+
+kalman(float src, float Q, float R) =>
+    var float P = 1.0
+    var float X = na
+
+    K = P / (P + R)
+    X := na(X) ? src : X + K * (src - X)
+    P := (1 - K) * P + Q
+    X
+
+/// Algorithm Functions
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+acceleration(src, len) =>
+    velocity = ta.ema(src - src[1], len)                      // Velocity: EMA of difference
+    previous_velocity = ta.ema(src[1] - src[2], len)          // Previous Velocity
+    acc = ta.ema(velocity - previous_velocity, len)           // Acceleration: EMA of velocity change
+    acc
+
+fibonacci_sum(src, length) =>
+    // Initialize the first two Fibonacci numbers
+    fib_1 = 1
+    fib_2 = 1
+
+    // Start sum accumulator
+    fib_sma_sum = 0.0
+
+    // Generate Fibonacci numbers, calculate SMA for each, and sum them up
+    for i = 0 to (length - 1)
+        fib_len = i == 0 ? fib_1 : (i == 1 ? fib_2 : (fib_1 + fib_2))
+        if i > 1
+            fib_1 := fib_2
+            fib_2 := fib_len
+        // Calculate SMA and add it to the sum
+        fib_sma_sum := fib_sma_sum + ta.sma(src, fib_len)
+
+    // Return the average of the SMAs
+    fib_sma_sum / length
+
+rsp(float src, int len, float kalman_q, float kalman_r, float osc_sense, int osc_len, float osc_freq, float jdynamic) =>
+    fib_l1 = 0.344
+    fib_l2 = 0.453
+    fib_l3 = 0.618
+
+    mag = 100
+    standard_len = 14
+    fib_len = 5
+
+    adapt_sense = ta.ema(ta.stdev(cSrc, standard_len), standard_len) / mag
+    dynamic_sense = math.max(osc_sense, adapt_sense)
+
+    prediction = ta.rsi(src, 14)
+    prediction_res = rescale(prediction, len)
+    prediction_acc = acceleration(ta.roc(prediction_res, 1), len)
+
+    pred_fib = prediction_acc > fib_l1 ? prediction_res * fi : prediction_acc > fib_l2 ? prediction_res * (fi + 1) : prediction_acc > fib_l3 ? prediction_res * (fi + 2) : prediction_res
+    prediction_filtered = kalman(pred_fib, kalman_q, kalman_r)
+
+    pro_signal = ta.rsi(prediction_filtered, len)
+    rsi_signal = ta.rsi(cSrc, standard_len)
+
+    mix_dataset = intensity(pro_signal, rsi_signal) * pi
+    mixed_filtered = kalman(mix_dataset, kalman_q, kalman_r)
+
+    mle_signal = lstm.render(mixed_filtered, fml_len, fml_lr, fml_units, fml_bands)
+    ml_filtered = jurik(mle_signal, len, jdynamic)
+
+    rescaled = rsx(mle_signal, len, dynamic_sense) / mag
+    norm = ama(rescaled, len, true)
+    smoothed = jurik(norm, len, jdynamic)
+
+    fibonacci_sum(smoothed, fib_len)
+
+
+    
+wave(float src, float strength, int len, float fml_lr, int fml_units, int fml_bands) =>
+    intensity_wave = ta.ema(intensity(src, strength), 5) * 10
+    rescaled_wave = center(intensity_wave + div_factor(fi, 2, 10))
+    
+    amplitude_wave = (am(rescaled_wave, 100) - 100) / fi
+    ml_refined_wave = lstm.render(amplitude_wave, fml_len, fml_lr, fml_units, fml_bands)
+    doppler_wave = amplitude_wave * (1 + ta.change(ml_refined_wave, 1))
+    
+    grav_mass = src * -src
+    ripple_effect = math.sin(grav_mass / pi)
+    
+    grav_pull_wave = doppler_wave * ripple_effect
+    enhanced_wave = doppler_wave + grav_pull_wave + ta.change(src, 1)
+    
+    normalized_prsi_edge = (enhanced_wave / (1 + fi) + fi * 1000 / fi) / 100
+    normalized_doppler_wave = doppler_wave / 100
+    
+    refined_prsi = am(normalized_doppler_wave, normalized_prsi_edge)
+    
+    quantum_prsi_cloud = am(refined_prsi, src)
+    
+    filtered_prsi_cloud = (quantum_prsi_cloud - ta.sma(quantum_prsi_cloud, len)) * fi
+    weighted_prsi_cloud = math.abs(filtered_prsi_cloud) * ripple_effect
+    
+    final_cloud = am(quantum_prsi_cloud, weighted_prsi_cloud)
+    
+    prsi = (refined_prsi * 199) / 10
+    pc = (final_cloud * 199) / 10
+    
+    [prsi, pc]
+
+create_signal() =>
+
+    rsp = rsp(src, sLen, kalman_q, kalman_r, osc_sense, osc_len, osc_freq , jdynamic)
+    
+    float prsi = na
+    float pc = na
+    color colors = na
+    
+    rsi = ta.rsi(cSrc,sml)
+
+    [psi, pcl] = wave(rsp, rsi, fml_len, fml_lr, fml_units, fml_bands)
+    
+    colors := smart_gradient(rsp/100, init_colors)                                    
+
+    prsi := psi * 10
+    pc := pcl * 10
+
+    [rsp,prsi,pc,colors]
+
+/// Visualisation
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+// Initialize Probability variables
+[rsp,prsi,pc,colors] = create_signal()
+
+probability = plot(prsi, color = colors, editable = false, linewidth = 2, title = 'Probability')
+probability_cloud = plot(pc, color = color.new(colors, 60), editable = false, title = 'Probability Cloud')
+
+// Initialise Fills
+fill(probability, probability_cloud, color.new(colors, 72), editable = false)
+
+/// Boundries
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+ttl = hline(720, linestyle = hline.style_dotted, linewidth = 1, color = use_bound ? color.new(#c62ff9, 90) : na)
+tfl = hline(830, linestyle = hline.style_dotted, linewidth = 1, color = use_bound ? color.new(#c62ff9, 60) : na)
+mtp = hline(23.6, linestyle = hline.style_dotted, linewidth = 1, color = use_bound ? color.new(#2aff00, 70) : na)
+mbt = hline(-236, linestyle = hline.style_dotted, linewidth = 1, color = use_bound ? color.new(#f90c71, 60) : na)
+bfl = hline(-720, linestyle = hline.style_dotted, linewidth = 1, color = use_bound ? color.new(#2aff00, 60) : na)
+bbl = hline(-830, linestyle = hline.style_dotted, linewidth = 1, color = use_bound ? color.new(#2aff00, 90) : na)
+fill(ttl, tfl, color = use_bound ? color.new(#c62ff9, 89) : na)
+fill(bbl, bfl, color = use_bound ? color.new(#2aff00, 89) : na)
+
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+/// EOF
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░

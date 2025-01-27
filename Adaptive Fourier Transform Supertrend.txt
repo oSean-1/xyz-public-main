@@ -1,0 +1,198 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © QuantAlgo
+
+//@version=6
+indicator(title="Adaptive Fourier Transform Supertrend [QuantAlgo]", overlay=true)
+
+//              ╔════════════════════════════════╗              //
+//              ║      USER-DEFINED SETTINGS     ║              //
+//              ╚════════════════════════════════╝              //
+
+// Input Groups
+var string core_settings     = "════════ Core Settings ════════"
+var string fourier_settings  = "════════ Fourier Settings ════════"
+var string supertrend_settings = "════════ Supertrend Settings ════════"
+var string visual_settings   = "════════ Visual Settings ════════"
+
+// Tooltips
+tooltip_source     = "Select the price data to analyze (Close, Open, High, Low, etc.)"
+tooltip_period     = "Base period for Fourier transform calculations. Affects trend detection sensitivity."
+tooltip_smooth     = "Smoothing period for the Fourier output. Higher values create smoother signals."
+tooltip_weight     = "Weight for harmonic components. Higher values increase sensitivity to shorter trends."
+tooltip_vol_len    = "Period for volatility calculations. Affects band width adaptability."
+tooltip_vol_mult   = "Multiplier for volatility bands. Higher values create wider bands."
+tooltip_vol_smooth = "Smoothing period for volatility. Higher values create more stable bands."
+tooltip_bars       = "Enable/disable coloring of price bars based on the trend."
+tooltip_signals    = "Show/hide trend change signals on the chart."
+tooltip_bull_color = "Color for bullish signals and uptrends."
+tooltip_bear_color = "Color for bearish signals and downtrends."
+
+// Core Settings
+price_source = input.source(close, "Price Source", 
+     group=core_settings, 
+     tooltip=tooltip_source)
+     
+// Fourier Settings
+fft_period = input.int(14, "Base Period", 
+     minval=4, 
+     group=fourier_settings, 
+     tooltip=tooltip_period)
+fft_smooth = input.int(7, "Smoothing", 
+     minval=1, 
+     group=fourier_settings, 
+     tooltip=tooltip_smooth)
+harmonic_weight = input.float(0.5, "Harmonic Weight", 
+     minval=0, maxval=1, step=0.1, 
+     group=fourier_settings, 
+     tooltip=tooltip_weight)
+
+// Volatility Settings
+vol_length = input.int(10, "Volatility Length", 
+     minval=1, 
+     group=supertrend_settings, 
+     tooltip=tooltip_vol_len)
+vol_mult = input.float(2.0, "Volatility Multiplier", 
+     minval=0.1, step=0.1, 
+     group=supertrend_settings, 
+     tooltip=tooltip_vol_mult)
+vol_smooth = input.int(10, "Volatility Smoothing", 
+     minval=1, 
+     group=supertrend_settings, 
+     tooltip=tooltip_vol_smooth)
+
+// Visual Settings
+bull_color = input.color(#00ffaa, "Bullish Color", 
+     group=visual_settings, 
+     tooltip=tooltip_bull_color)
+bear_color = input.color(#ff0000, "Bearish Color", 
+     group=visual_settings, 
+     tooltip=tooltip_bear_color)
+enable_bars = input.bool(true, "Color Price Bars", 
+     group=visual_settings, 
+     tooltip=tooltip_bars)
+show_signals = input.bool(true, "Show Signals", 
+     group=visual_settings, 
+     tooltip=tooltip_signals)
+
+//              ╔════════════════════════════════╗              //
+//              ║          CALCULATIONS          ║              //
+//              ╚════════════════════════════════╝              //
+
+// FFT Trend Function
+get_fft_trend(src, len) =>
+    wave1 = ta.ema(src, len)
+    wave2 = ta.ema(src, math.floor(len/2))
+    wave3 = ta.ema(src, math.floor(len/3))
+    trend = wave1 + harmonic_weight * (wave2 - wave1) + harmonic_weight * harmonic_weight * (wave3 - wave2)
+    trend
+
+// Volatility Function
+get_adaptive_volatility() =>
+    atr = ta.atr(vol_length)
+    std = ta.stdev(close, vol_length)
+    vol = math.avg(atr, std)
+    vol
+
+// Main calculations
+fft_trend = get_fft_trend(price_source, fft_period)
+fft_trend := ta.ema(fft_trend, fft_smooth)
+
+volatility = get_adaptive_volatility()
+volatility := ta.ema(volatility, vol_smooth)
+
+upper_band = fft_trend + volatility * vol_mult
+lower_band = fft_trend - volatility * vol_mult
+
+//              ╔════════════════════════════════╗              //
+//              ║        SIGNAL GENERATION       ║              //
+//              ╚════════════════════════════════╝              //
+
+// Trend determination
+var int trend = 0
+var float trend_band = na
+
+if close > trend_band and close > fft_trend
+    trend := 1
+    trend_band := lower_band
+else if close < trend_band and close < fft_trend
+    trend := -1
+    trend_band := upper_band
+else
+    trend_band := trend == 1 ? lower_band : trend == -1 ? upper_band : fft_trend
+
+// Track trend changes
+var prev_trend = 0
+trend_changed = trend != prev_trend
+prev_trend := trend
+
+//              ╔════════════════════════════════╗              //
+//              ║         VISUALIZATION          ║              //
+//              ╚════════════════════════════════╝              //
+
+// Transparency values
+transparency_bullish = 70
+transparency_bearish = 95
+
+// Plot Supertrend Lines
+bullish_trend_plot = plot(trend == 1 ? trend_band : na, "Bullish Trend", 
+     color=color.new(bull_color, transparency_bullish), 
+     style=plot.style_linebr)
+     
+bearish_trend_plot = plot(trend == -1 ? trend_band : na, "Bearish Trend", 
+     color=color.new(bear_color, transparency_bearish), 
+     style=plot.style_linebr)
+     
+body_middle = plot(barstate.isfirst ? na : (open + close) / 2, "Body Middle", 
+     display=display.none)
+
+// Fill areas between trend lines
+fill(body_middle, bullish_trend_plot, 
+     (open + close) / 2, trend_band, 
+     color.new(bull_color, transparency_bearish), 
+     color.new(bull_color, transparency_bullish))
+     
+fill(body_middle, bearish_trend_plot, 
+     trend_band, (open + close) / 2, 
+     color.new(bear_color, transparency_bullish), 
+     color.new(bear_color, transparency_bearish))
+
+// Plot trend shift signals
+plotshape(show_signals and trend_changed and trend == 1 ? trend_band : na, 
+     "Bullish Signal", shape.labelup, location.absolute, 
+     bull_color, text="𝑳", textcolor=#000000, size=size.small)
+     
+plotshape(show_signals and trend_changed and trend == -1 ? trend_band : na, 
+     "Bearish Signal", shape.labeldown, location.absolute, 
+     bear_color, text="𝑺", textcolor=#ffffff, size=size.small)
+
+// Bar coloring
+var color bar_color = #ffffff
+if trend == 1
+    bar_color := bull_color
+else if trend == -1
+    bar_color := bear_color
+
+barcolor(enable_bars ? bar_color : na)
+
+//              ╔════════════════════════════════╗              //
+//              ║             ALERTS             ║              //
+//              ╚════════════════════════════════╝              //
+
+alertcondition(trend_changed and trend == 1, 
+     title="Fourier Supertrend Bullish",
+     message="Fourier Supertrend Bullish Signal {{exchange}}:{{ticker}}")
+
+alertcondition(trend_changed and trend == -1, 
+     title="Fourier Supertrend Bearish",
+     message="Fourier Supertrend Bearish Signal {{exchange}}:{{ticker}}")
+
+//              ╔════════════════════════════════╗              //
+//              ║           CREATED BY           ║              //
+//              ╚════════════════════════════════╝              //
+
+// ██████╗ ██╗   ██╗ █████╗ ███╗   ██╗████████╗     █████╗ ██╗      ██████╗  ██████╗ 
+//██╔═══██╗██║   ██║██╔══██╗████╗  ██║╚══██╔══╝    ██╔══██╗██║     ██╔════╝ ██╔═══██╗
+//██║   ██║██║   ██║███████║██╔██╗ ██║   ██║       ███████║██║     ██║  ███╗██║   ██║
+//██║▄▄ ██║██║   ██║██╔══██║██║╚██╗██║   ██║       ██╔══██║██║     ██║   ██║██║   ██║
+//╚██████╔╝╚██████╔╝██║  ██║██║ ╚████║   ██║       ██║  ██║███████╗╚██████╔╝╚██████╔╝
+// ╚══▀▀═╝  ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═══╝   ╚═╝       ╚═╝  ╚═╝╚══════╝ ╚═════╝  ╚═════╝

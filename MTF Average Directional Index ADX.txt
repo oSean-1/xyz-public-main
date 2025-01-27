@@ -1,0 +1,77 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © AccountantX
+//@version=5
+indicator("Strength Measurement -HT", shorttitle="Strength Measurement", format=format.price, precision=2, overlay=false)
+
+// Inputs for ADX parameters
+adxlen = input(7, title="ADX Smoothing")
+dilen = input(10, title="DI Length")
+
+// Inputs for timeframe selection
+use_5min = input(true, title="Use 5 Minute Timeframe")
+use_15min = input(true, title="Use 15 Minute Timeframe")
+use_30min = input(true, title="Use 30 Minute Timeframe")
+use_1h = input(true, title="Use 1 Hour Timeframe")
+use_4h = input(true, title="Use 4 Hour Timeframe")
+
+// Input for smoothing the average ADX
+smooth_len = input(5, title="Smoothing Length for Average ADX")
+
+// Function to calculate ADX
+dirmov(len) =>
+    up = ta.change(high)
+    down = -ta.change(low)
+    plusDM = na(up) ? na : (up > down and up > 0 ? up : 0)
+    minusDM = na(down) ? na : (down > up and down > 0 ? down : 0)
+    truerange = ta.rma(ta.tr(true), len)
+    plus = fixnan(100 * ta.rma(plusDM, len) / truerange)
+    minus = fixnan(100 * ta.rma(minusDM, len) / truerange)
+    [plus, minus]
+
+adx(dilen, adxlen) =>
+    [plus, minus] = dirmov(dilen)
+    sum = plus + minus
+    adx = 100 * ta.rma(math.abs(plus - minus) / (sum == 0 ? 1 : sum), adxlen)
+    adx
+
+// Calculate ADX for different time frames based on user input
+adx_5min = use_5min ? request.security(syminfo.tickerid, "5", adx(dilen, adxlen)) : 0
+adx_15min = use_15min ? request.security(syminfo.tickerid, "15", adx(dilen, adxlen)) : 0
+adx_30min = use_30min ? request.security(syminfo.tickerid, "30", adx(dilen, adxlen)) : 0
+adx_1h = use_1h ? request.security(syminfo.tickerid, "60", adx(dilen, adxlen)) : 0
+adx_4h = use_4h ? request.security(syminfo.tickerid, "240", adx(dilen, adxlen)) : 0
+
+
+// Calculate the number of active timeframes
+num_timeframes = 0  // Initialize to 0
+if use_5min
+    num_timeframes += 1
+if use_15min
+    num_timeframes += 1
+if use_30min
+    num_timeframes += 1
+if use_1h
+    num_timeframes += 1
+if use_4h
+    num_timeframes += 1
+
+// Average the ADX values, avoiding division by zero
+average_adx = num_timeframes > 0 ? (adx_5min + adx_15min + adx_30min + adx_1h + adx_4h) / num_timeframes : 0
+
+// Smooth the average ADX
+smoothed_adx = ta.sma(average_adx, smooth_len)
+
+// Determine color based on trend and power level of the smoothed ADX
+color_histogram = smoothed_adx > smoothed_adx[1] ? (smoothed_adx < 25 ? color.new(color.green, 70) : (smoothed_adx < 50 ? color.green : color.new(color.green, 0))) :(smoothed_adx < 25 ? color.new(color.red, 70) : (smoothed_adx < 50 ? color.red : color.new(color.red, 0)))
+
+// Plot the smoothed average ADX as a histogram
+plot(smoothed_adx, title="Average ADX", style=plot.style_columns, color=color_histogram)
+
+// Add levels for reference
+hline(20, "Weak trend", color=color.red, linestyle=hline.style_dotted)
+hline(45, "Strong trend", color=color.yellow, linestyle=hline.style_dotted)
+hline(70, "Very strong trend", color=color.green, linestyle=hline.style_dotted)
+
+// Alert conditions (example)
+alertcondition(ta.crossover(smoothed_adx, 50), title="Strong Trend Up", message="Strong uptrend detected!")
+alertcondition(ta.crossunder(smoothed_adx, 25), title="Weak Trend", message="Trend weakening!")

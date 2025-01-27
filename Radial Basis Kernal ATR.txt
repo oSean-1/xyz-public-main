@@ -1,0 +1,116 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © BackQuant
+import TradingView/ta/9 as ta
+
+//@version=6
+indicator(
+ "Radial Basis Kernal ATR [BackQuant]",
+ shorttitle="RBF Kernal ATR [BackQuant]",
+ overlay=true,
+ timeframe="",
+ timeframe_gaps=true
+ )
+
+// Define User Inputs
+simple bool       showAtr                 =        input.bool(true, "Plot RBF Kernal Atr on Chart?")
+series float      source                  =        input.source(close, "Source", group = "RBF Kernal")
+simple int        period                  =        input.int(5, "Kernel Length", minval=1, group = "RBF Kernal")
+simple float      gamma1                  =        input.float(0.1, "Gamma Adjustment Factor", step=0.01, minval=0.01, group = "RBF Kernal")
+simple int        periodAtr               =        input.int(14, "ATR Period", group = " Atr")
+simple float      factorAtr               =        input.float(1.7, "Factor", step = 0.01, group = " Atr")
+simple bool       paintCandles            =        input.bool(false, "Paint Candles According to trend?")
+simple bool       showMA                  =        input.bool(false, "Show Atr Moving Average as Confluence?",group = "Confluence")
+string            movingAverageType       =        input.string("Ema", title="MA Type", options=["SMA", "Hull", "Ema", "Wma", ""],group = "Confluence")
+simple int        movingAveragePeriod     =        input.int(50, "Moving Average Period", group = "Confluence")
+simple color      longColour              =       #00ff00
+simple color      shortColour             =       #ff0000
+
+// Caluclation Start
+variance(src, length) =>
+    mean = ta.sma(src, length)
+    var_sum = 0.0
+    for i = 0 to length - 1
+        var_sum := var_sum + math.pow(src[i] - mean, 2)
+    var_sum / length
+
+// Radial Basis Function Kernel
+RBFKernel(src, length, gamma_factor) =>
+    variance = variance(src, length)
+    gamma = gamma_factor / (2 * variance)  // dyn adjust gamma
+    weight_sum = 0.0
+    kernel_sum = 0.0
+    for i = 0 to length - 1
+        distance = math.pow(src - src[i], 2)  // ||x - x'||^2
+        weight = math.exp(-gamma * distance)  // e^(-γ * ||x - x'||^2)
+        kernel_sum := kernel_sum + weight * src[i]
+        weight_sum := weight_sum + weight
+    kernel_sum / weight_sum  // norm
+AtrWithBands(period, source, lookback, atrFactor,gamma)=>
+  
+    Out = RBFKernel(source,period,gamma)
+
+    atr = ta.atr(lookback)
+    trueRange = atr * atrFactor 
+
+    Atr = Out 
+    Atr := nz(Atr[1], Atr)
+
+    trueRangeUpper = Out + trueRange
+    trueRangeLower  = Out - trueRange 
+
+    if trueRangeLower > Atr 
+        Atr := trueRangeLower
+    if trueRangeUpper < Atr 
+        Atr := trueRangeUpper
+    Atr 
+
+// Function Out
+Atr = AtrWithBands(period, source, periodAtr, factorAtr,gamma1)
+
+movingAverage(source, length, type) =>
+    switch type
+        "SMA" => ta.sma(source, length)
+        "Hull" => ta.hma(source, length)
+        "Ema" => ta.ema(source, length)
+        "Wma" => ta.wma(source, length)
+        "Dema" => ta.dema(source, length)
+
+maOut = movingAverage(Atr, movingAveragePeriod, movingAverageType)
+
+
+// long and short conditions
+AtrLong = ta.crossover(Atr, Atr[1])
+AtrShort = ta.crossunder(Atr, Atr[1])
+
+// Colouring
+var color Trend = #ffffff
+if AtrLong
+    Trend := longColour
+if AtrShort
+    Trend := shortColour
+
+// Plotting
+plot(
+ showAtr ? Atr : na, 
+ "ATR", 
+ color=Trend, 
+ linewidth = 2
+ )
+
+barcolor(paintCandles ? Trend : na)
+
+plot(showMA ? maOut : na, "Moving Average", color.white, 2, plot.style_line)
+/////////////////////////////////////////////////////////////// © BackQuant ///////////////////////////////////////////////////////////////
+// Alerts
+alertcondition(
+ AtrLong, 
+ title="Kernel ATR Trend Up", 
+ message="Kernel ATR Trend Up - {{ticker}} - {{interval}}"
+ )
+
+alertcondition(
+ AtrShort, 
+ title="Kernel ATR Trend Down",
+ message="Kernel ATR Trend Down - {{ticker}} - {{interval}}"
+ )
+
