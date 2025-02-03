@@ -1,0 +1,338 @@
+// This work is licensed under a Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0) https://creativecommons.org/licenses/by-nc-sa/4.0/
+// © PhenLabs
+
+//@version=6
+indicator('Smart Market Bias [PhenLabs]', shorttitle = 'PhenLabs - SMBI', overlay = true, dynamic_requests = true)
+
+// === INPUT GROUPS ===  
+g_main = '⚙️ Main Settings'  
+g_dash = '📊 Dashboard Settings'  
+g_style = '🎨 Style Settings'
+
+// === TIMEFRAME INPUT ===  
+current_tf = timeframe.period
+
+// === MAIN SETTINGS ===  
+dashboard_position = input.string('Top Right', '📍 Dashboard Position', options = ['Top Right', 'Top Left', 'Bottom Right', 'Bottom Left', 'Middle Right', 'Middle Left'], group = g_dash)  
+show_htf_bias = input.bool(true, '⏱️ Show Higher Timeframe Bias', group = g_main)  
+_size = input.string('Normal', '📝 Text Size', options = ['Tiny', 'Small', 'Normal', 'Large', 'Huge'], group = g_style)  
+bull_color = input.color(color.rgb(76, 175, 80), 'Bullish Color', group = g_style)  
+bear_color = input.color(color.rgb(255, 82, 82), 'Bearish Color', group = g_style) 
+// === HTF TIMEFRAME INPUTS ===
+htf1 = input.timeframe('15', 'HTF 1 Timeframe', options=['1', '3', '5', '15', '30', '60', '120', '240', 'D', 'W'], group=g_main)
+htf2 = input.timeframe('60', 'HTF 2 Timeframe', options=['1', '3', '5', '15', '30', '60', '120', '240', 'D', 'W'], group=g_main)
+htf3 = input.timeframe('240', 'HTF 3 Timeframe', options=['1', '3', '5', '15', '30', '60', '120', '240', 'D', 'W'], group=g_main)
+htf4 = input.timeframe('D', 'HTF 4 Timeframe', options=['1', '3', '5', '15', '30', '60', '120', '240', 'D', 'W'], group=g_main)
+htf5 = input.timeframe('W', 'HTF 5 Timeframe', options=['1', '3', '5', '15', '30', '60', '120', '240', 'D', 'W'], group=g_main)
+// === CALCULATION PARAMETERS ===  
+lookback = 70
+kl_window = 70
+num_bins = 12
+rsi_len = 16
+bb_period = 26
+min_strength = 0.7
+use_trend_filter = true
+use_vol_filter = true
+
+// === UTILITY FUNCTIONS ===  
+custom_tanh(x) =>
+    exp_p = math.exp(x)
+    exp_n = math.exp(-x)
+    (exp_p - exp_n) / (exp_p + exp_n)
+
+// Function to convert timeframe to minutes  
+tf_to_minutes(tf) =>
+    int result = 0
+    if tf == '1'
+        result := 1
+        result
+    else if tf == '3'
+        result := 3
+        result
+    else if tf == '5'
+        result := 5
+        result
+    else if tf == '15'
+        result := 15
+        result
+    else if tf == '30'
+        result := 30
+        result
+    else if tf == '60'
+        result := 60
+        result
+    else if tf == '240'
+        result := 240
+        result
+    else if tf == 'D'
+        result := 1440 // Daily in minutes  
+        result
+    result
+
+// === FIXED COMPLEXITY CALCULATION ===  
+get_complexity_score() =>
+    // Calculate returns  
+    returns = array.new_float(0)
+    for i = 0 to lookback - 2 by 1
+        ret = (close[i] - close[i + 1]) / close[i + 1]
+        array.push(returns, ret)
+
+    // Calculate mean and standard deviation of returns  
+    mean_ret = array.sum(returns) / array.size(returns)
+
+    var_sum = 0.0
+    for i = 0 to array.size(returns) - 1 by 1
+        diff = array.get(returns, i) - mean_ret
+        var_sum := var_sum + diff * diff
+        var_sum
+
+    std_ret = math.sqrt(var_sum / array.size(returns))
+
+    // Calculate zero crossings  
+    crossings = 0
+    prev_sign = array.get(returns, 0) >= 0
+
+    for i = 1 to array.size(returns) - 1 by 1
+        curr_sign = array.get(returns, i) >= 0
+        if curr_sign != prev_sign
+            crossings := crossings + 1
+            crossings
+        prev_sign := curr_sign
+        prev_sign
+
+    // Calculate trend strength  
+    up_count = 0.0
+    down_count = 0.0
+    for i = 0 to array.size(returns) - 1 by 1
+        ret = array.get(returns, i)
+        if ret > 0
+            up_count := up_count + 1
+            up_count
+        else if ret < 0
+            down_count := down_count + 1
+            down_count
+
+    trend_ratio = math.abs(up_count - down_count) / array.size(returns)
+
+    // Combine metrics  
+    crossing_norm = crossings / (array.size(returns) - 1) // Normalize crossings  
+    complexity = (1 - trend_ratio) * crossing_norm * (std_ret / (math.abs(mean_ret) + 0.0001))
+
+    // Determine direction  
+    direction = up_count > down_count ? 1 : -1
+
+    // Final score  
+    score = direction * (1 - complexity)
+    math.min(math.max(score, -1), 1) // Ensure bounds
+
+// === KL DIVERGENCE CALCULATION ===  
+get_kl_score() =>
+    // Calculate historical and recent price distributions  
+    hist_prices = array.new_float(0)
+    recent_prices = array.new_float(0)
+
+    for i = 0 to kl_window - 1 by 1
+        array.push(hist_prices, close[i + kl_window])
+        array.push(recent_prices, close[i])
+
+    // Get min and max for price bins  
+    all_prices = array.copy(hist_prices)
+    array.concat(all_prices, recent_prices)
+    min_price = array.min(all_prices)
+    max_price = array.max(all_prices)
+    bin_size = (max_price - min_price) / num_bins
+
+    // Initialize probability arrays  
+    hist_prob = array.new_float(num_bins, 0)
+    recent_prob = array.new_float(num_bins, 0)
+
+    // Calculate distributions  
+    for i = 0 to array.size(hist_prices) - 1 by 1
+        hist_bin = math.floor((array.get(hist_prices, i) - min_price) / bin_size)
+        if hist_bin == num_bins // Handle edge case  
+            hist_bin := num_bins - 1
+            hist_bin
+        hist_val = array.get(hist_prob, hist_bin) + 1
+        array.set(hist_prob, hist_bin, hist_val)
+
+        recent_bin = math.floor((array.get(recent_prices, i) - min_price) / bin_size)
+        if recent_bin == num_bins // Handle edge case  
+            recent_bin := num_bins - 1
+            recent_bin
+        recent_val = array.get(recent_prob, recent_bin) + 1
+        array.set(recent_prob, recent_bin, recent_val)
+
+    // Normalize probabilities  
+    for i = 0 to num_bins - 1 by 1
+        hist_val = array.get(hist_prob, i) / array.size(hist_prices)
+        array.set(hist_prob, i, hist_val)
+        recent_val = array.get(recent_prob, i) / array.size(recent_prices)
+        array.set(recent_prob, i, recent_val)
+
+    // Calculate KL divergence  
+    kl_div = 0.0
+    for i = 0 to num_bins - 1 by 1
+        p = array.get(recent_prob, i)
+        q = array.get(hist_prob, i)
+        if p > 0 and q > 0
+            kl_div := kl_div + p * math.log(p / q)
+            kl_div
+
+    // Determine direction and normalize  
+    direction = close > close[kl_window] ? 1 : -1
+    score = direction * math.min(kl_div, 2) / 2 // Normalize to [-1, 1]  
+    score
+
+// === TREND AND VOLUME FILTERS ===  
+trend_strength() =>
+    ema20 = ta.ema(close, 20)
+    ema50 = ta.ema(close, 50)
+    math.abs(ema20 - ema50) / close
+
+volume_strength() =>
+    sma_vol = ta.sma(volume, 20)
+    volume / sma_vol
+
+filter_score() =>
+    score = 0.0
+    if use_trend_filter and trend_strength() > 0.01
+        score := score + 50
+        score
+    if use_vol_filter and volume_strength() > 1.5
+        score := score + 50
+        score
+    score
+
+// === MAIN CALCULATIONS ===  
+complexity_val = get_complexity_score()
+kl_val = get_kl_score()
+rsi_raw = ta.rsi(close, rsi_len)
+rsi_val = (rsi_raw - 50) / 50
+[bb_middle, bb_upper, bb_lower] = ta.bb(close, bb_period, 2)
+bb_band = (bb_upper - bb_lower) / bb_middle // Calculate BB width  
+
+// === SCORE NORMALIZATION ===  
+complexity_pct = (complexity_val + 1) / 2 * 100
+kl_pct = (kl_val + 1) / 2 * 100
+bb_pct = (bb_band + 1) / 2 * 100
+
+// === COMPOSITE SCORE ===  
+components = array.from(complexity_val, kl_val, rsi_val, bb_band)
+weights = array.from(0.4, 0.3, 0.2, 0.1)
+total_score = 0.0
+for i = 0 to array.size(components) - 1 by 1
+    total_score := total_score + array.get(components, i) * array.get(weights, i)
+    total_score
+
+final_score = total_score * (filter_score() >= min_strength ? 1 : 0.5)
+final_pct = (final_score + 1) / 2 * 100
+
+// === COLOR FUNCTION ===  
+get_cell_color(value, metric_type, min_strength_param, bull_color_param, bear_color_param) =>
+    base_transparency = 85
+    norm_value = switch metric_type
+        'complexity' => math.min(math.max((value + 1) / 2, 0), 1)
+        'kl' => math.min(math.max((value + 1) / 2, 0), 1)
+        'rsi' => math.min(math.max(value / 100, 0), 1)
+        'bb' => math.min(math.max((value + 1) / 2, 0), 1)
+        'strength' => math.min(math.max(value / 100, 0), 1)
+        'composite' => math.min(math.max((value + 1) / 2, 0), 1)
+        => 0.5
+
+    transparency = math.round(base_transparency * (1 - math.abs(2 * norm_value - 1)))
+
+    if norm_value < 0.5
+        color.new(bear_color_param, transparency)
+    else if norm_value > 0.5
+        color.new(bull_color_param, transparency)
+    else
+        color.new(#2A2A2A, base_transparency)
+
+// === GET TEXT SIZE ===  
+get_text_size(size) =>
+    switch size
+        'Tiny' => size.tiny
+        'Small' => size.small
+        'Normal' => size.normal
+        'Large' => size.large
+        'Huge' => size.huge
+        => size.auto
+
+// === POSITION FUNCTION ===  
+get_position(pos_string) =>
+    switch pos_string
+        'Top Right' => position.top_right
+        'Top Left' => position.top_left
+        'Bottom Right' => position.bottom_right
+        'Bottom Left' => position.bottom_left
+        'Middle Right' => position.middle_right
+        'Middle Left' => position.middle_left
+        => position.top_right
+
+// === HTF DECLARATIONS ===
+var float htf_bias_1 = na
+var float htf_bias_2 = na
+var float htf_bias_3 = na
+var float htf_bias_4 = na
+var float htf_bias_5 = na
+// Calculate HTF values  
+if show_htf_bias
+    htf_bias_1 := request.security(syminfo.tickerid, htf1, final_score)
+    htf_bias_2 := request.security(syminfo.tickerid, htf2, final_score)
+    htf_bias_3 := request.security(syminfo.tickerid, htf3, final_score)
+    htf_bias_4 := request.security(syminfo.tickerid, htf4, final_score)
+    htf_bias_5 := request.security(syminfo.tickerid, htf5, final_score)
+
+// === TOOLTIPS ===  
+var complexity_tooltip = 'Complexity measures how chaotic the price movement is. Higher values (green) indicate clear directional movement, while lower values (red) suggest choppy conditions.'
+var kl_tooltip = 'KL Divergence compares recent price distribution to past. Green shows strengthening trend, red shows potential reversal.'
+var rsi_tooltip = 'Relative Strength Index shows momentum. Above 50% (green) indicates bullish momentum, below 50% (red) indicates bearish momentum.'
+var bb_tooltip = 'Position within Bollinger Bands. High values (green) indicate overbought, low values (red) indicate oversold conditions.'
+var bias_tooltip = 'Overall market bias combining all metrics. Above 50% suggests bullish bias, below 50% suggests bearish bias.'
+var htf_tooltip = 'Market bias calculated on higher timeframes. Useful for understanding larger trend context.'
+
+// === DASHBOARD TABLE ===  
+var table dashboard = table.new(get_position(dashboard_position), show_htf_bias ? 7 : 3, 8)
+
+table.cell(dashboard, 0, 0, '𓄀 MARKET BIAS', bgcolor = color.new(#001757, 50), text_color = color.white, text_size = get_text_size(_size), text_font_family = font.family_monospace)
+table.cell(dashboard, 0, 1, 'Complexity: ' + str.tostring(complexity_pct, '#.00') + '%', bgcolor = get_cell_color(complexity_val, 'complexity', min_strength, bull_color, bear_color), text_color = color.white, text_size = get_text_size(_size), text_font_family = font.family_monospace)
+table.cell_set_tooltip(dashboard, 0, 1, complexity_tooltip)
+
+table.cell(dashboard, 0, 2, 'KL: ' + str.tostring(kl_pct, '#.00') + '%', bgcolor = get_cell_color(kl_val, 'kl', min_strength, bull_color, bear_color), text_color = color.white, text_size = get_text_size(_size), text_font_family = font.family_monospace)
+table.cell_set_tooltip(dashboard, 0, 2, kl_tooltip)
+
+table.cell(dashboard, 0, 3, 'RSI: ' + str.tostring(rsi_raw, '#.00') + '%', bgcolor = get_cell_color(rsi_raw, 'rsi', min_strength, bull_color, bear_color), text_color = color.white, text_size = get_text_size(_size), text_font_family = font.family_monospace)
+table.cell_set_tooltip(dashboard, 0, 3, rsi_tooltip)
+
+table.cell(dashboard, 0, 4, 'BB %: ' + str.tostring(bb_pct, '#.00') + '%', bgcolor = get_cell_color(bb_band, 'bb', min_strength, bull_color, bear_color), text_color = color.white, text_size = get_text_size(_size), text_font_family = font.family_monospace)
+table.cell_set_tooltip(dashboard, 0, 4, bb_tooltip)
+
+table.cell(dashboard, 0, 5, 'Bias: ' + str.tostring(final_pct, '#.00') + '%', bgcolor = get_cell_color(final_score, 'composite', min_strength, bull_color, bear_color), text_color = color.white, text_size = get_text_size(_size), text_font_family = font.family_monospace)
+table.cell_set_tooltip(dashboard, 0, 5, bias_tooltip)
+
+if show_htf_bias
+    table.cell(dashboard, 1, 0, 'HTF BIAS', bgcolor = color.new(#001757, 50), text_color = color.white, text_size = get_text_size(_size), text_font_family = font.family_monospace)
+    if not na(htf_bias_1)  
+        htf_pct_1 = (htf_bias_1 + 1) / 2 * 100  
+        table.cell(dashboard, 1, 1, htf1 + ': ' + str.tostring(htf_pct_1, '#.00') + '%', bgcolor = get_cell_color(htf_bias_1, 'composite', min_strength, bull_color, bear_color), text_color = color.white, text_size = get_text_size(_size), text_font_family = font.family_monospace)  
+        table.cell_set_tooltip(dashboard, 1, 1, htf_tooltip)  
+
+    if not na(htf_bias_2)  
+        htf_pct_2 = (htf_bias_2 + 1) / 2 * 100  
+        table.cell(dashboard, 1, 2, htf2 + ': ' + str.tostring(htf_pct_2, '#.00') + '%', bgcolor = get_cell_color(htf_bias_2, 'composite', min_strength, bull_color, bear_color), text_color = color.white, text_size = get_text_size(_size), text_font_family = font.family_monospace)  
+        table.cell_set_tooltip(dashboard, 1, 2, htf_tooltip)  
+
+    if not na(htf_bias_3)  
+        htf_pct_3 = (htf_bias_3 + 1) / 2 * 100  
+        table.cell(dashboard, 1, 3, htf3 + ': ' + str.tostring(htf_pct_3, '#.00') + '%', bgcolor = get_cell_color(htf_bias_3, 'composite', min_strength, bull_color, bear_color), text_color = color.white, text_size = get_text_size(_size), text_font_family = font.family_monospace)  
+        table.cell_set_tooltip(dashboard, 1, 3, htf_tooltip)  
+
+    if not na(htf_bias_4)  
+        htf_pct_4 = (htf_bias_4 + 1) / 2 * 100  
+        table.cell(dashboard, 1, 4, htf4 + ': ' + str.tostring(htf_pct_4, '#.00') + '%', bgcolor = get_cell_color(htf_bias_4, 'composite', min_strength, bull_color, bear_color), text_color = color.white, text_size = get_text_size(_size), text_font_family = font.family_monospace)  
+        table.cell_set_tooltip(dashboard, 1, 4, htf_tooltip)  
+
+    if not na(htf_bias_5)  
+        htf_pct_5 = (htf_bias_5 + 1) / 2 * 100  
+        table.cell(dashboard, 1, 5, htf5 + ': ' + str.tostring(htf_pct_5, '#.00') + '%', bgcolor = get_cell_color(htf_bias_5, 'composite', min_strength, bull_color, bear_color), text_color = color.white, text_size = get_text_size(_size), text_font_family = font.family_monospace)  
+        table.cell_set_tooltip(dashboard, 1, 5, htf_tooltip)  

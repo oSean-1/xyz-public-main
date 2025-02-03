@@ -1,0 +1,65 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © daurendemidov
+
+//@version=5
+indicator('Quantum Liquidity Fractal', shorttitle='QLF', overlay=false, max_labels_count=500, precision=4)
+
+//===== Кастомные функции =====
+tanh(x) =>
+    x_max = 20
+    x_clamped = math.min(math.max(x, -x_max), x_max)
+    (math.exp(x_clamped) - math.exp(-x_clamped)) / (math.exp(x_clamped) + math.exp(-x_clamped)) + 1e-9
+
+//===== Модули индикатора =====
+darkPoolDetect() =>
+    window = input.int(30, "Volume Window", minval=5, maxval=100)
+    zThreshold = input.float(4.5, "Z-Score Threshold", minval=2.0, maxval=6.0)
+    ewma = ta.ema(volume, window)
+    ewmstd = ta.stdev(volume, window)
+    zScore = (volume - ewma) / (ewmstd + 1e-9)
+    1 / (1 + math.exp(-(zScore - zThreshold)))
+
+clusterRecognize() =>
+    clusterWindow = input.int(20, "Cluster Window", minval=10, maxval=50)
+    priceChange = ta.roc(close, 1)
+    volChange = ta.roc(volume, 1)
+    volatilityScore = ta.stdev(priceChange, clusterWindow) 
+    volumeDispersion = ta.stdev(volChange, clusterWindow)
+    math.log(math.abs(volatilityScore * volumeDispersion) + 1e-9)
+
+entropyFilter() =>
+    entropyWindow = input.int(21, "Entropy Window", minval=10, maxval=50)
+    priceVolatility = ta.stdev(ta.roc(close, 1), entropyWindow)
+    volumeVolatility = ta.stdev(ta.roc(volume, 1), entropyWindow)
+    tanh(priceVolatility * volumeVolatility)
+
+hftPhaseDetect() =>
+    phaseWindow = input.int(50, "Phase Window", minval=20, maxval=100)
+    noise = close - ta.ema(close, 5)
+    phase = 0.0
+    if barstate.isconfirmed
+        for i = 0 to phaseWindow-1
+            if i <= bar_index
+                delta = noise[i] - noise[i+1]
+                phase += math.sin(math.pi*delta) * math.exp(-0.1*i)
+    phase / (phaseWindow + 1e-9)
+
+//===== Интеграция =====
+var float compositeScore = 0.0
+darkPoolScore = darkPoolDetect()
+clusterScore = clusterRecognize()
+entropyScore = entropyFilter()
+hftScore = hftPhaseDetect()
+
+compositeScore := 0.4*darkPoolScore + 0.3*clusterScore + 0.2*(1 - entropyScore) + 0.1*hftScore
+
+//===== Визуализация =====
+threshold = input.float(0.68, "Signal Threshold", minval=0.1, maxval=1.0, step=0.01)
+
+plot(compositeScore, "QLF Score", color.new(color.blue, 0), linewidth=2)
+hline(threshold, "Upper", color.new(color.red, 50), hline.style_dotted)
+hline(-threshold, "Lower", color.new(color.green, 50), hline.style_dotted)
+hline(0, "Zero", color.new(color.gray, 80))
+
+plotshape(compositeScore > threshold,  style=shape.triangleup, color=color.green, location=location.top, size=size.small)
+plotshape(compositeScore < -threshold, style=shape.triangledown, color=color.red, location=location.bottom, size=size.small)

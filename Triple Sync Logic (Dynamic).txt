@@ -1,0 +1,48 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © EnviCapital
+
+
+//@version=6
+indicator("Triple Sync Logic (Dynamic)", overlay=false)
+ 
+// Inputs
+length    = input.int(14, "Base Period")
+dynLen    = input.int(100, "Dynamic Lookback")
+ 
+// DMI/ADX
+dmiPlus   = ta.rma(math.max(ta.change(high), 0), length)
+dmiMinus  = ta.rma(math.max(-ta.change(low), 0), length)
+dx        = (math.abs(dmiPlus - dmiMinus) / (dmiPlus + dmiMinus)) * 100
+adx       = ta.rma(dx, length)
+ 
+// Stoch RSI
+rsiValue  = ta.rsi(close, length)
+stochRsi  = (rsiValue - ta.lowest(rsiValue, length)) / (ta.highest(rsiValue, length) - ta.lowest(rsiValue, length))
+ 
+// CCI
+cci       = ta.cci(close, length)
+ 
+// Combined
+snakeLine = (adx + stochRsi * 100 + cci) / 3
+ 
+// Dynamic Levels
+sh = ta.highest(snakeLine, dynLen)
+sl = ta.lowest(snakeLine, dynLen)
+dr = sh - sl
+upperLevel = sl + dr * 0.8
+lowerLevel = sl + dr * 0.2
+ 
+// Plots
+plot(snakeLine, color=color.blue, linewidth=2)
+plot(upperLevel, color=color.red, style=plot.style_line)
+plot(lowerLevel, color=color.green, style=plot.style_line)
+ 
+// Background
+bgcolor(snakeLine > upperLevel ? color.new(color.red, 80) :
+       snakeLine < lowerLevel ? color.new(color.green, 80) : na)
+ 
+// Signals
+longCondition  = ta.crossover(snakeLine, lowerLevel)
+shortCondition = ta.crossunder(snakeLine, upperLevel)
+plotshape(longCondition,  location=location.bottom, color=color.green, style=shape.labelup,   title="Long")
+plotshape(shortCondition, location=location.top,    color=color.red,   style=shape.labeldown, title="Short")

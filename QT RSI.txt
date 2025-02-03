@@ -1,0 +1,845 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © insidermike
+
+
+//@version=6
+
+// Define required imports for the script
+import kaigouthro/calc/8
+import kaigouthro/hsvColor/16 as color
+
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+// W.ARITAS - QT RSI
+// Software Developed by initials AM (@insidermike)
+// Copyright (C) 2025
+//
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+/// Technical Indicator - QT RSI
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+indicator(title  =  'QT RSI [ W.ARITAS ]', shorttitle  =  'QT RSI [ W.ARITAS ]', max_bars_back = 988, calc_bars_count=7337, overlay = false ) 
+
+g1 = '░=░=░ 𝙂𝙚𝙣𝙚𝙧𝙖𝙡 𝙨𝙚𝙩𝙩𝙞𝙣𝙜𝙨'
+use_bound = input.bool(defval = true, title = 'Show OB/OS Boundaries', group = g1)
+src = input.source(defval = volume, title = 'Source', group = g1)
+sml = input.int(defval=14, minval=3, maxval=144, step=1, title="Curve Smoothing Length", group=g1)
+
+g2 = '░=░=░ 𝘼𝙡𝙜𝙤𝙧𝙞𝙩𝙝𝙢 𝙨𝙚𝙩𝙩𝙞𝙣𝙜𝙨'
+jdynamic = input.float(defval= 0.987,   title = '  Jurik Dynamic Factor(D: 0.987)', group=g2)
+sLen = input.int(defval = 32,           title = '  Harmonic Frequency (D: 32)', group = g2)
+osc_freq = input.float(defval = 0.0042, title = '  Oscillator Frequency (D: 0.0042)', group = g2)
+osc_len = input.int(defval = 24,        title = '  Oscillator Length (D: 24)', group = g2)
+osc_sense = input.float(defval = 3.5,   title = '  Oscillator Sensitivity Threshold (D: 3.5)', group=g2)
+kalman_q = input.float(defval = 0.65,   title = '  Kalman Filter Process Noise (D: 0.65)', group=g2)
+kalman_r = input.float(defval = 0.5,    title = '  Kalman Filter Measurement Noise (D: 0.5)', group=g2)
+
+g3 = '░=░=░ 𝙈𝙇 𝙈𝙤𝙙𝙚𝙡'
+fml_lr = input.float(defval = 0.0035,   title = '  LSTM Learning Rate (D: 0.0035)', group=g3)
+fml_units = input.int(defval = 54,      title = '  LSTM Units (D: 54)', group=g3)
+fml_bands = input.int(defval = 9,       title = '  LSTM Wavelet Bands (D: 9)', group=g3)
+fml_len = input.int(defval = 40,        title = '  LSTM Length (D: 40)', group=g3)
+
+g4 = '░=░=░ 𝙎𝙩𝙧𝙖𝙩𝙚𝙜𝙮 𝙎𝙚𝙩𝙩𝙞𝙣𝙜𝙨'
+upper_bound = input.int(defval = 90,    title = '  RSI Upper Bound (D: 90)', group=g4)
+lower_bound = input.int(defval = 10,    title = '  RSI Lower Bound (D: 10)', group=g4)
+
+/// Static Variables
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+// Define constant for mathematical calculations (Φ)
+var fi = 1 + math.rphi
+
+// Define constant for mathematical calculations (π)
+var pi = math.pi
+
+/// Dynamic Variables
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+// Initialize Non-Repainting Data Sources
+cSrc   =  close[barstate.isrealtime ? 1 : 0]
+oSrc   =  open [barstate.isrealtime ? 1 : 0]
+hSrc   =  high [barstate.isrealtime ? 1 : 0]
+lSrc   =  low  [barstate.isrealtime ? 1 : 0]
+
+
+/// Machine Learning
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+// Optimized Hybrid Model Weights
+var W_LSTM = 0.60     // Enhanced weight for LSTM
+var W_WAVELET = 0.40  // Enhanced weight for wavelet subbands
+    
+/// Helper Functions
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+tanh(float x) =>
+    exp_pos = math.exp(x)
+    exp_neg = math.exp(-x)
+    (exp_pos - exp_neg) / (exp_pos + exp_neg)
+
+sparse_weights(predictions, sparsity_factor) =>
+    total_weight = 0.0
+    var float[] weights = array.new_float(array.size(predictions), 0.0)
+
+    for i = 0 to array.size(predictions) - 1
+        weight = math.exp(-sparsity_factor * array.get(predictions, i))
+        total_weight += weight
+        array.set(weights, i, weight)
+
+    for i = 0 to array.size(weights) - 1
+        array.set(weights, i, array.get(weights, i) / total_weight)
+
+    weights
+
+wavelet_transform_subbands(src, length, bands) =>
+    var float[] inputArray = array.new_float(length, 0.0)
+    for i = 0 to length - 1
+        value = (i < array.size(src)) ? array.get(src, i) : array.get(src, 0)
+        array.set(inputArray, i, value)
+
+    var float[] subbands = array.new_float(bands, 0.0)
+    for band = 1 to bands
+        wavelet_sum = 0.0
+        for i = 0 to length - 1
+            weight = math.exp(-i / (length * band))
+            wavelet_sum += array.get(inputArray, i) * math.sin(2 * math.pi * i / (length * band)) * weight
+        array.set(subbands, band - 1, wavelet_sum)
+    subbands
+
+fibonacci_wavelet_fusion(series float src, int len, int fib_bands, float scale_factor) =>
+    var float[] fibonacci_weights = array.new_float(fib_bands, 0.0)
+    var float[] wavelet_coeffs = array.new_float(fib_bands, 0.0)
+    var float[] triangulated_values = array.new_float(len, 0.0)
+
+    array.set(fibonacci_weights, 0, 1.0)
+    array.set(fibonacci_weights, 1, 1.0)
+    for i = 2 to fib_bands - 1
+        array.set(fibonacci_weights, i, array.get(fibonacci_weights, i - 1) + array.get(fibonacci_weights, i - 2))
+
+    fib_sum = array.sum(fibonacci_weights)
+    for i = 0 to fib_bands - 1
+        fib_val = array.get(fibonacci_weights, i) / fib_sum
+        array.set(fibonacci_weights, i, fib_val)
+
+    for band = 0 to fib_bands - 1
+        scale = math.pow(scale_factor, array.get(fibonacci_weights, band))
+        wavelet_sum = 0.0
+        for i = 0 to len - 1
+            value = nz(src[i], src[0])
+            weight = math.exp(-i / (len * scale))
+            wavelet_sum += value * math.sin(2 * math.pi * i / (len * scale)) * weight
+        array.set(wavelet_coeffs, band, wavelet_sum)
+
+    for i = 1 to len - 1
+        delta_x = nz(src[i], src[0]) - nz(src[i - 1], src[0])
+        delta_y = array.get(wavelet_coeffs, i % fib_bands) - array.get(wavelet_coeffs, (i - 1) % fib_bands)
+        triangulated_value = math.sqrt(delta_x * delta_x + delta_y * delta_y)
+        array.set(triangulated_values, i, triangulated_value)
+
+    triangulated_sum = 0.0
+    for i = 0 to len - 1
+        weight = array.get(fibonacci_weights, i % fib_bands)
+        triangulated_sum += weight * array.get(triangulated_values, i)
+
+    triangulated_sum / len
+
+/// ML Model
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+lstm_model(array<float> inputVector, int len, float learningRate, int units) =>
+    cellState = array.new_float(units, 0.0)
+    hiddenState = array.new_float(units, 0.0)
+
+    for i = 0 to array.size(inputVector) - 1
+        inputValue = array.get(inputVector, i)
+
+        forgetGate = 1 / (1 + math.exp(-(learningRate * inputValue)))
+        inputGate = 1 / (1 + math.exp(-(learningRate * inputValue)))
+        candidateValue = tanh(learningRate * inputValue)
+        outputGate = 1 / (1 + math.exp(-(learningRate * inputValue)))
+
+        prevCellState = array.get(cellState, i % units)
+        newCellState = forgetGate * prevCellState + inputGate * candidateValue
+        array.set(cellState, i % units, newCellState)
+
+        newHiddenValue = outputGate * tanh(newCellState)
+        array.set(hiddenState, i % units, newHiddenValue)
+
+    array.sum(hiddenState) / units
+
+hybrid_model(array<float> inputVector, int len, float learningRate, int units, int bands) =>
+    lstm_pred = lstm_model(inputVector, len, learningRate, units)
+    subbands = wavelet_transform_subbands(inputVector, len, bands)
+
+    var float[] subband_predictions = array.new_float(array.size(subbands), 0.0)
+    for i = 0 to array.size(subbands) - 1
+        subband_pred = lstm_model(subbands, len, learningRate, units)
+        array.set(subband_predictions, i, subband_pred)
+
+    weights = sparse_weights(subband_predictions, sparsity_factor=0.08)
+
+    weighted_sum = 0.0
+    for i = 0 to array.size(subband_predictions) - 1
+        weighted_sum += array.get(subband_predictions, i) * array.get(weights, i)
+
+    hybrid_pred = W_LSTM * lstm_pred + W_WAVELET * weighted_sum
+    hybrid_pred
+
+/// Main Function
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+render(float src, int len,float lr, int units, int bands) =>
+    source = math.abs(src)
+    src_normalized = fibonacci_wavelet_fusion(source, len, 5 , lr)
+
+    var float[] inputArray = array.new_float(len, 0.0)
+    for i = 0 to len - 1
+        array.set(inputArray, i, nz(source[i], source[0]))
+
+    hybrid_model(inputArray, len,lr,units,bands)
+
+/// Color Gradient Functions
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+c_any_size(int size, array<color> _c, bool _switchMode = false) =>
+    cols = array.size(_c) - 1
+    array<color> colray = array.new_color()
+    array<int> percol = calc.split(size, cols)
+    _c2 = array.get(_c, 0)
+
+    for k = 1 to cols by 1
+        _count = array.get(percol, k - 1)
+        _c1 = _c2
+        _c2 := array.get(_c, k)
+
+        for i = 1 to _count by 1
+            switch _count
+                1 => array.push(colray, _c2)
+                => 
+            	    switch  
+            	        _switchMode => array.push(colray, color.hsl_gradient(i, 1, _count, _c1, _c2))
+            	        => array.push(colray, color.hsv_gradient(i, 1, _count, _c1, _c2))
+
+    colray
+
+c_make_gradient(int size, color _1, color _2, color _3 = na, color _4 = na, color _5 = na, color _6 = na, color _7 = na, color _8 = na, color _9 = na, color _10 = na, bool _mode = false) =>
+    count = 10
+    count := count + (na(_10) ? -1 : 0)
+    count := count + (na(_9) ? -1 : 0)
+    count := count + (na(_8) ? -1 : 0)
+    count := count + (na(_7) ? -1 : 0)
+    count := count + (na(_6) ? -1 : 0)
+    count := count + (na(_5) ? -1 : 0)
+    count := count + (na(_4) ? -1 : 0)
+    count := count + (na(_3) ? -1 : 0)
+
+    _array = switch count
+        10 => array.from(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10)
+        9 => array.from(_1, _2, _3, _4, _5, _6, _7, _8, _9)
+        8 => array.from(_1, _2, _3, _4, _5, _6, _7, _8)
+        7 => array.from(_1, _2, _3, _4, _5, _6, _7)
+        6 => array.from(_1, _2, _3, _4, _5, _6)
+        5 => array.from(_1, _2, _3, _4, _5)
+        4 => array.from(_1, _2, _3, _4)
+        3 => array.from(_1, _2, _3)
+        2 => array.from(_1, _2)
+
+    gradient = c_any_size(size, _array, _mode)
+    gradient
+
+
+smart_gradient(x, g) =>
+    idx = math.round(x * 199)
+    idx := math.max(0, math.min(199, idx))
+    array.get(g, idx)
+
+// Create a gradient of 200 colors from ten different colors.
+var init_colors = c_make_gradient(200, #13ff00, #ccff33, #fcf300, #30c5d2, #003be9, #440f65, #8711c1, #f90c71, #ff000c, #ffffff)
+
+/// Helper Functions
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+sma(float src, int len) =>
+    sum = 0.0
+    for i = 0 to len - 1
+        sum += nz(src[i])
+    sum / len
+
+ema(float src, int len) =>
+    alpha = 2 / (len + 1)  // Smoothing factor
+    var float ema_val = na
+    ema_val := na(ema_val[1]) ? src : alpha * src + (1 - alpha) * ema_val[1]
+    ema_val
+
+rma(float src, float len) =>
+    alpha = 1 / len  // RMA smoothing factor
+    var float rma_val = na
+    rma_val := na(rma_val[1]) ? src : alpha * src + (1 - alpha) * rma_val[1]
+    rma_val
+
+
+rsi(float src, int len) =>
+    gain = ta.change(src) > 0 ? ta.change(src) : 0
+    loss = ta.change(src) < 0 ? math.abs(ta.change(src)) : 0
+
+    avg_gain = rma(gain, len)
+    avg_loss = rma(loss, len)
+
+    avg_loss == 0 ? 100 : avg_gain == 0 ? 0 : 100 - (100 / (1 + avg_gain / avg_loss))
+
+/// Rescaling Functions
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+rescale(float src, int len) =>
+    mV = 0.0
+    ama = 0.
+    alpha = math.abs(rsi(src - ama[1], len) / 100 - 0.5)
+    ama := nz(ama[1] + math.pow(alpha, (fi)) * (src - ama[1]), src)
+
+    mV := rsi(ama, len)
+
+    mV / 100
+
+div_factor(float value, int numDivisions, float factor) =>
+    result = value
+    for i = 1 to numDivisions
+        result := result / value
+    result * factor
+
+center(float value) =>
+    math.abs(value) * math.sign(value)
+
+ama(float src, int len, bool real) =>
+    mV = 0.0
+
+    ama = 0.
+    alpha = math.abs(ta.rsi(src - ama[1], len) / 100 - 0.5)
+    ama := nz(ama[1] + math.pow(alpha,(math.rphi+1)) * (src - ama[1]), src)
+
+    if real
+        mV := ta.rsi(ama, len)
+        mV
+    if not real
+        mV := ta.ema(ta.rsi(ta.ema(src, math.floor(len / 2)), len), math.floor(len / 2))
+        mV
+    mV
+
+/// Quantum Mechanics Functions
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+shannon_entropy(float src, int len) =>
+
+    log_returns = math.log(math.max(src, 1e-10) / math.max(src[1], 1e-10))  
+    entropy = -1 * math.sum(log_returns * math.log(math.abs(log_returns) + 1e-10), len)
+    entropy
+
+wavelet_transform(float source,float scale_factor, bool dynamic_scaling,int level_count) =>
+
+    morlet_base_freq = 0.6
+    dynamic_scale = dynamic_scaling ? ta.ema(source, level_count) / scale_factor : scale_factor
+    wavelet_levels = array.new_float(level_count, 0.0)
+    
+    for i = 0 to level_count - 1
+        freq = morlet_base_freq * math.pow(2, i)
+        coeff = source * math.cos(2 * pi * freq) - ta.sma(source, level_count)
+        array.set(wavelet_levels, i, coeff)
+    
+    fused_wavelet = array.sum(wavelet_levels) / level_count
+    adaptive_wavelet = fused_wavelet * dynamic_scale
+
+    adaptive_wavelet
+
+energy_levels(float src,int base_lookback = 25,int max_iterations = 10,float scale_factor = 1.0,bool dynamic_scaling = true,int wavelet_levels = 5) =>
+
+    a = 0
+    b = 1
+    c = 0
+
+    signal_change = wavelet_transform(ta.change(src, base_lookback), scale_factor, dynamic_scaling, wavelet_levels)
+    f = math.floor(math.abs(signal_change) * pi)
+    fibonacci_sum = 0
+
+    while fibonacci_sum < f and c < max_iterations
+        fibonacci_sum := a + b
+        a := b
+        b := fibonacci_sum
+        c := c + 1
+
+    smoothed_energy = wavelet_transform(c, scale_factor, dynamic_scaling, wavelet_levels)
+    max_energy = ta.highest(smoothed_energy, base_lookback)
+    normalized_energy = smoothed_energy / (max_energy + 1e-6)
+
+    normalized_energy
+
+curve_trajectory_fibonacci(series float src, int len, int fib_bands, float scale_factor) =>
+
+    var float[] fibonacci_weights = array.new_float(fib_bands, 0.0)
+    var float[] wavelet_coeffs = array.new_float(fib_bands, 0.0)
+    var float[] triangulated_values = array.new_float(len, 0.0)
+
+    // Generate Fibonacci Sequence
+    array.set(fibonacci_weights, 0, 1.0)
+    array.set(fibonacci_weights, 1, 1.0)
+    for i = 2 to fib_bands - 1
+        array.set(fibonacci_weights, i, array.get(fibonacci_weights, i - 1) + array.get(fibonacci_weights, i - 2))
+
+    // Normalize Fibonacci weights
+    fib_sum = array.sum(fibonacci_weights)
+    for i = 0 to fib_bands - 1
+        fib_val = array.get(fibonacci_weights, i) / fib_sum
+        array.set(fibonacci_weights, i, fib_val)
+
+    // Wavelet Decomposition with Fibonacci Scaling
+    for band = 0 to fib_bands - 1
+        scale = math.pow(scale_factor, array.get(fibonacci_weights, band))
+        wavelet_sum = 0.0
+        for i = 0 to len - 1
+            value = nz(src[i], src[0]) // Safely get source values
+            weight = math.exp(-i / (len * scale))
+            wavelet_sum += value * math.sin(2 * math.pi * i / (len * scale)) * weight
+        array.set(wavelet_coeffs, band, wavelet_sum)
+
+    // Triangulation for Curve Symmetry Detection
+    for i = 1 to len - 1
+        delta_x = nz(src[i], src[0]) - nz(src[i - 1], src[0]) // Safely handle `src` indexing
+        delta_y = array.get(wavelet_coeffs, i % fib_bands) - array.get(wavelet_coeffs, (i - 1) % fib_bands)
+        triangulated_value = math.sqrt(delta_x * delta_x + delta_y * delta_y)
+        array.set(triangulated_values, i, triangulated_value)
+
+    // Fibonacci-Weighted Fusion
+    triangulated_sum = 0.0
+    for i = 0 to len - 1
+        weight = array.get(fibonacci_weights, i % fib_bands)
+        triangulated_sum += weight * array.get(triangulated_values, i)
+
+    triangulated_sum / len
+
+/// Math Functions
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+percentile_array(array<float> arr, int p) =>
+    array.sort(arr, order.ascending)
+    idx = math.round(array.size(arr) * p / 100) - 1
+    array.get(arr, math.max(0, math.min(idx, array.size(arr) - 1)))
+
+intensity(float src1, float src2) =>
+
+    raw_adjustment = src1 * src2 / 32
+    fibonacci_adjusted = raw_adjustment * fi - fi * 100
+    scaled_value = fibonacci_adjusted / 5
+    scaled_value
+
+/// Filter Functions
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+rsx(float src, int loopback, float spd) =>
+
+    vol = ta.stdev(src, loopback)
+    adaptiveLength = math.min(math.round(loopback * (1 + vol / src * 1.5)), 50)
+
+    src_out = 100 * src
+
+    mom0 = ta.change(src_out)
+    moa0 = math.abs(mom0)
+
+    Kg = 3 / (adaptiveLength + 2.0)
+    Hg = 1 - Kg
+
+    f28 = 0.0, f30 = 0.0
+    f28 := Kg * mom0 + Hg * nz(f28[1])
+    f30 := Hg * nz(f30[1]) + Kg * f28
+    mom_out = f28 * (spd + 1.0) - f30 * spd
+
+    f78 = 0.0, f80 = 0.0
+    f78 := Hg * nz(f78[1]) + Kg * moa0
+    f80 := Kg * f78 + Hg * nz(f80[1])
+    moa_out = f78 * (spd + 1.0) - f80 * spd
+
+    rsiout = math.max(math.min((mom_out / moa_out + 1.0) * 50.0, 100.0), 0.0)
+
+    rsiout
+
+jurik(float src, int len, float dynamic) =>
+
+    phaseRatio = dynamic * pi / 8
+    beta = 0.45 * (len - 1) / (0.45 * (len - 1) + 2)
+    alpha = math.pow(beta, 2)
+
+    var float e0 = na, float e1 = na, float e2 = na, float jma = na
+    e0 := (1 - alpha) * src + alpha * nz(e0[1])
+    e1 := (src - e0) * (1 - beta) + beta * nz(e1[1])
+    e2 := (e0 + phaseRatio * e1 - nz(jma[1])) * math.pow(1 - alpha, 2) + math.pow(alpha, 2) * nz(e2[1])
+    jma := e2 + nz(jma[1])
+
+    freq = fi * pi / (len + dynamic * 2)
+    expDecay = math.exp(-freq)
+    c2 = 2 * expDecay * math.cos(freq)
+    c3 = -math.pow(expDecay, 2)
+    c1 = 1 - c2 - c3
+
+    var float wavelet_smoothed = na
+    wavelet_smoothed := c1 * (jma + nz(jma[1])) * 0.5 + c2 * nz(wavelet_smoothed[1]) + c3 * nz(wavelet_smoothed[2])
+
+    wavelet_smoothed * (1 + dynamic * 0.01)
+
+jurik_advanced(src, len, phase, small_threshold, amplification_factor) =>
+
+    // Static variables for adaptive filtering
+    volty = 0.0, avolty = 0.0, vsum = 0.0, bsmax = src, bsmin = src
+    len1 = math.max(math.log(math.sqrt(0.5 * (len - 1))) / math.log(2.0) + 2.0, 0)
+    len2 = math.sqrt(0.5 * (len - 1)) * len1
+    pow1 = math.max(len1 - 2.0, 0.5)
+    beta = 0.45 * (len - 1) / (0.45 * (len - 1) + 2)
+    div = 1.0 / (10.0 + 10.0 * (math.min(math.max(len - 10, 0), 100)) / 100)
+    phaseRatio = phase < -100 ? 0.5 : phase > 100 ? 2.5 : 1.5 + phase * 0.01
+    bet = len2 / (len2 + 1)
+
+    // Amplify small signals
+    src_amplified = src < small_threshold ? src * amplification_factor : src
+
+    // Price volatility
+    del1 = src_amplified - nz(bsmax[1])
+    del2 = src_amplified - nz(bsmin[1])
+    volty := math.abs(del1) > math.abs(del2) ? math.abs(del1) : math.abs(del2)
+
+    // Relative price volatility factor
+    vsum := nz(vsum[1]) + div * (volty - nz(volty[10]))
+    avolty := nz(avolty[1]) + (2.0 / (math.max(4.0 * len, 30) + 1.0)) * (vsum - nz(avolty[1]))
+    dVolty = avolty > 0 ? volty / avolty : 0
+    dVolty := math.max(1, math.min(math.pow(len1, 1.0 / pow1), dVolty))
+    
+    // Jurik volatility bands
+    pow2 = math.pow(dVolty, pow1)
+    Kv = math.pow(bet, math.sqrt(pow2))
+    bsmax := del1 > 0 ? src_amplified : src_amplified - Kv * del1
+    bsmin := del2 < 0 ? src_amplified : src_amplified - Kv * del2
+    
+    // Jurik Dynamic Factor
+    alpha = math.pow(beta, pow2)
+
+    // Smoothing with Kalman and Jurik filters
+    jma = 0.0, ma1 = 0.0, det0 = 0.0, e2 = 0.0
+    ma1 := (1 - alpha) * src_amplified + alpha * nz(ma1[1])
+    det0 := (src_amplified - ma1) * (1 - beta) + beta * nz(det0[1])
+    ma2 = ma1 + phaseRatio * det0
+    e2 := (ma2 - nz(jma[1])) * math.pow(1 - alpha, 2) + math.pow(alpha, 2) * nz(e2[1])
+    jma := e2 + nz(jma[1])
+    jma
+
+/// Signal Processing Functions
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+am(float src, float roc) =>
+
+    scaled_signal = src * (1 + roc / 100)
+    scaled_signal
+
+kalman(float src, float Q, float R) =>
+    var float P = 1.0
+    var float X = na
+
+    K = P / (P + R)
+    X := na(X) ? src : X + K * (src - X)
+    P := (1 - K) * P + Q
+    X
+
+/// RSI Strategy
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+predict_rsi(src) =>
+    
+    // Function Parameters
+    uncertainty_space = 25
+    wavelet_levels = 7
+    base_lookback = 20
+    len_factor = 1.8
+    entropy_weight = 0.6
+
+    if na(src)
+        na
+
+    // Kalman Smoothing
+    kalman_smoothed_src = kalman(src, 0.9, 0.7)
+    if na(kalman_smoothed_src)
+        na
+
+    // Compute Adaptive Energy
+    adaptive_energy = energy_levels(kalman_smoothed_src, base_lookback, wavelet_levels)
+    if na(adaptive_energy)
+        na
+
+    // Adaptive Lookback
+    adaptive_len = math.round(len_factor * (1 + adaptive_energy / 100))
+    adaptive_len := na(adaptive_len) or adaptive_len <= 0 ? base_lookback : adaptive_len
+
+    // Weighted Price Change
+    price_change = ta.change(src)
+    up = rma(math.max(price_change, 0), adaptive_len)
+    down = rma(-math.min(price_change, 0), adaptive_len)
+
+    if na(up) or na(down) or down == 0
+        na
+    else
+        energy_weight = adaptive_energy / 10
+        up_weighted = up * energy_weight
+        down_weighted = down * energy_weight
+
+        // RSI Calculation
+        rsi = down_weighted == 0 ? 100 : up_weighted == 0 ? 0 : 100 - 100 / (1 + up_weighted / down_weighted)
+
+        // Apply Percentile Thresholds
+        len_window = 100
+        var rsi_window = array.new_float(len_window, 0.0)
+        if array.size(rsi_window) < len_window
+            array.push(rsi_window, rsi)
+        else
+            array.shift(rsi_window)
+            array.push(rsi_window, rsi)
+
+        if array.size(rsi_window) < len_window
+            na
+        else
+            upper_threshold = percentile_array(rsi_window, 75) // Adjusted for safety
+            lower_threshold = percentile_array(rsi_window, 25)
+
+            bo_buy = not na(rsi) and rsi > upper_threshold
+            bo_sell = not na(rsi) and rsi < lower_threshold
+
+            // Stochastic Probability
+            stoch = ta.stoch(hSrc, lSrc, cSrc, 14)
+            stoch_condition = ta.crossover(stoch, 80) or ta.crossunder(stoch, 20)
+            stochastic_probability = bo_sell and ta.crossover(stoch, 80) ? 0.15 : bo_buy and ta.crossunder(stoch, 20) ? -0.15 : 0
+
+            // Quantum Oscillator
+            noise_filtered_src = rma(src, base_lookback * (1 + entropy_weight * adaptive_energy))
+            price_diff = noise_filtered_src - nz(src[1], src)
+            momentum_ratio = rma(price_diff, base_lookback)
+            oscq = 100 * (momentum_ratio / (1 + math.abs(adaptive_energy))) - 50
+            q_buy = ta.crossover(oscq, 0)
+            q_sell = ta.crossunder(oscq, 0)
+
+            osc_probability = q_sell ? 0.6 : q_buy ? -0.6 : 0
+
+            // Output
+            final_signal = stochastic_probability * 0.3 + osc_probability * 0.7
+            final_signal
+
+/// Algorithm Functions
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+fibonacci_sum(src, length) =>
+    // Initialize the first two Fibonacci numbers
+    fib_1 = 1
+    fib_2 = 1
+
+    // Start sum accumulator
+    fib_sma_sum = 0.0
+
+    // Generate Fibonacci numbers, calculate SMA for each, and sum them up
+    for i = 0 to (length - 1)
+        fib_len = i == 0 ? fib_1 : (i == 1 ? fib_2 : (fib_1 + fib_2))
+        if i > 1
+            fib_1 := fib_2
+            fib_2 := fib_len
+        // Calculate SMA and add it to the sum
+        fib_sma_sum := fib_sma_sum + ta.sma(src, fib_len)
+
+    // Return the average of the SMAs
+    fib_sma_sum / length
+
+acceleration(src, len) =>
+    velocity = ema(src - src[1], len)                      // Velocity: EMA of difference
+    previous_velocity = ema(src[1] - src[2], len)          // Previous Velocity
+    acc = ema(velocity - previous_velocity, len)           // Acceleration: EMA of velocity change
+    acc
+
+strenght(src, len,jdynamic,kalman_q,kalman_r) =>
+
+    // Calculate speed and acceleration
+    speed = ta.roc(src, 1)                         // Rate of change (speed)
+    acc = acceleration(speed, len)                 // Acceleration based on velocity
+    
+    // Smooth the acceleration
+    smoothed_acc = ta.sma(acc, len)                // Smoothed acceleration
+
+    // Fibonacci Parameters for Strength Thresholds
+    fib_l1 = 0.344                                 // Low Strength threshold (Fibonacci)
+    fib_l2 = 0.453                                 // Medium Strength threshold (Fibonacci)
+    fib_l3 = 0.618                                 // High Strength threshold (Fibonacci)
+
+    // Dynamically scale acceleration length with Fibonacci weights
+    fib_acc_len = math.round((len / fi)/fi)        // Use Fibonacci-based acceleration length
+    fib_acc = fibonacci_sum(acc, fib_acc_len)     // Fibonacci-smoothed acceleration
+
+    // Apply Strength Calculation
+    scaled_strength = fib_acc > fib_l1 ? smoothed_acc * fib_l1 : fib_acc > fib_l2 ? smoothed_acc * fib_l2 : fib_acc > fib_l3 ? smoothed_acc * fib_l3 : smoothed_acc * 0.5
+
+    // Final Strength Calculation with RSI for Momentum Detection
+    strength_score = ta.rsi(scaled_strength, len)
+
+    smoothed = jurik(strength_score, len, jdynamic) 
+
+    kalman(smoothed, kalman_q, kalman_r)
+
+rsp(float src, int len, float kalman_q, float kalman_r, float osc_sense, int osc_len, float osc_freq , float jdynamic) =>
+
+    // Machine Learning Parameters
+    sml_lr = 0.00275  // Lower learning rate for smoother convergence
+    sml_units = 72    // Increased LSTM units for enhanced context awareness
+    sml_bands = 12    // Additional wavelet bands for granular signal extraction
+    sml_len = 45     // Extended ML lookback period
+
+    // Advanced Parameters
+    mag = 120  // Adjusted sensitivity magnitude
+    standard_len = 18  // Adjusted standard length for volatility
+
+    // Adaptive Sensitivity with Multi-Dimensional Volatility Adjustment
+    adapt_sense = ta.ema(ta.stdev(src, standard_len), standard_len) / mag           // Adaptive sensitivity based on standard deviation
+    implied_vol = ta.atr(len) / src                                                 // Implied volatility adjustment
+    dynamic_sense = math.max(osc_sense, adapt_sense + implied_vol)                  // Combine adaptive and implied volatility
+
+    // Initialize Probability Prediction
+    prediction = predict_rsi(src)                                                   // Main probability prediction (WARITAS)
+    sm_pred = jurik(prediction, len, jdynamic)                                      // Jurik smoothing on prediction
+    kl_pred = kalman(sm_pred, kalman_q, kalman_r)                                   // Kalman refinement on smoothed signal
+
+    // Strength Calculation with Fibonacci Amplification
+    ps = strenght(kl_pred, len, jdynamic, kalman_q, kalman_r)                       // Enhanced strength calculation
+    ps_fib = fibonacci_sum(ps, 7)                                                   // Fibonacci-based amplification for micro-signal detection
+
+    // RSI-Based Strength Enhancement
+    rsi = ta.rsi(src, 14)                                                           // RSI signal extraction
+    rs = strenght(rsi, len, jdynamic, kalman_q, kalman_r)                           // Strength refinement with Kalman and Jurik filters
+
+    // Dataset Fusion with Improved Wavelet Filtering
+    mix_dataset = intensity(ps_fib, rs) * pi                                        // Fusion of strength signals with intensity normalization
+    mix_filtered = jurik(mix_dataset, len, jdynamic)                                // Jurik filtering for noise reduction
+    mix_symmetry = curve_trajectory_fibonacci(mix_filtered, len, 7, 1.2)            // Extract advanced Fibonacci-based wavelet symmetry
+    mix_dataset := mix_symmetry * pi
+
+    // Signal Filtering and Oscillator Refinement
+    mixed_filtered = kalman(mix_dataset, kalman_q, kalman_r)                        // Final Kalman filtering
+
+    // Machine Learning Enhancement
+    mle_signal = render(mixed_filtered, sml_len, sml_lr, sml_units, sml_bands) // Further enhancement with deep LSTM
+
+    // Advanced Data Processing with Jurik Filter
+    jma_output = jurik_advanced(mle_signal, len, 10, 0.005, 15.0)                   // Jurik smoothing with amplification for edge detection
+
+    // Rescale Signal with Enhanced RSX
+    rescaled = rsx(jma_output, len, dynamic_sense)                                  // Rescale with RSX
+    
+    // Normalization and Final Smoothing
+    norm = ama(rescaled, len, true) + math.pi                                       // Normalize signal with adaptive moving average
+    smoothed = jurik(norm, len, jdynamic)                                           // Final Jurik smoothing for output consistency
+
+    // Fibonacci Smoothing for Output Stability
+    fib_smooth = fibonacci_sum(smoothed, 9)                                         // Final smoothing with extended Fibonacci averaging
+
+    // Return the final enhanced signal
+    strenght(fib_smooth, len, jdynamic, kalman_q, kalman_r)
+
+wave(float src, float strength, int len, float fml_lr, int fml_units, int fml_bands) =>
+    intensity_wave = ta.ema(intensity(src, strength), 5) * 10
+    rescaled_wave = center(intensity_wave + div_factor(fi, 2, 10))
+    
+    amplitude_wave = (am(rescaled_wave, 100) - 100) / fi
+    ml_refined_wave = render(amplitude_wave, fml_len, fml_lr, fml_units, fml_bands)
+    doppler_wave = amplitude_wave * (1 + ta.change(ml_refined_wave, 1))
+    
+    grav_mass = src * -src
+    ripple_effect = math.sin(grav_mass / pi)
+    
+    grav_pull_wave = doppler_wave * ripple_effect
+    enhanced_wave = doppler_wave + grav_pull_wave + ta.change(src, 1)
+    
+    normalized_prsi_edge = (enhanced_wave / (1 + fi) + fi * 1000 / fi) / 100
+    normalized_doppler_wave = doppler_wave / 100
+    
+    refined_prsi = am(normalized_doppler_wave, normalized_prsi_edge)
+    
+    quantum_prsi_cloud = am(refined_prsi, src)
+    
+    filtered_prsi_cloud = (quantum_prsi_cloud - ta.sma(quantum_prsi_cloud, len)) * fi
+    weighted_prsi_cloud = math.abs(filtered_prsi_cloud) * ripple_effect
+    
+    final_cloud = am(quantum_prsi_cloud, weighted_prsi_cloud)
+    
+    prsi = (refined_prsi * 199) / 10
+    pc = (final_cloud * 199) / 10
+    
+    [prsi, pc]
+
+create_signal() =>
+
+    rsp = rsp(src, sLen, kalman_q, kalman_r, osc_sense, osc_len, osc_freq , jdynamic)
+    
+    float prsi = na
+    float pc = na
+    color colors = na
+    
+    rsi = ta.rsi(cSrc,sml)
+
+    [psi, pcl] = wave(rsp, rsi, fml_len, fml_lr, fml_units, fml_bands)
+    
+    colors := smart_gradient(rsp/100, init_colors)                                    
+
+    prsi := psi * 10
+    pc := pcl * 10
+
+    [rsp,prsi,pc,colors]
+
+/// Visualisation
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+// Initialize Probability variables
+[rsp,prsi,pc,colors] = create_signal()
+
+rsi = plot(prsi, color = colors, editable = false, linewidth = 2, title = 'RSI')
+rsi_cloud = plot(pc, color = color.new(colors, 60), editable = false, title = 'RSI Cloud')
+
+// Initialise Fills
+fill(rsi, rsi_cloud, color.new(colors, 72), editable = false)
+
+/// Boundries
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+ttl = hline(720, linestyle = hline.style_dotted, linewidth = 1, color = use_bound ? color.new(#c62ff9, 90) : na)
+tfl = hline(830, linestyle = hline.style_dotted, linewidth = 1, color = use_bound ? color.new(#c62ff9, 60) : na)
+mtp = hline(23.6, linestyle = hline.style_dotted, linewidth = 1, color = use_bound ? color.new(#2aff00, 70) : na)
+mbt = hline(-236, linestyle = hline.style_dotted, linewidth = 1, color = use_bound ? color.new(#f90c71, 60) : na)
+bfl = hline(-720, linestyle = hline.style_dotted, linewidth = 1, color = use_bound ? color.new(#2aff00, 60) : na)
+bbl = hline(-830, linestyle = hline.style_dotted, linewidth = 1, color = use_bound ? color.new(#2aff00, 90) : na)
+fill(ttl, tfl, color = use_bound ? color.new(#c62ff9, 89) : na)
+fill(bbl, bfl, color = use_bound ? color.new(#2aff00, 89) : na)
+
+/// Info Box
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+round_to_three_decimals(value) =>
+    math.round(value * 1000) / 1000
+
+t(val) => str.tostring(val)
+
+tab = table.new(position=position.top_right, columns=7, rows=20,frame_color = color.new(#003be9,28),bgcolor = color.new(color.black, 58), frame_width = 1)
+
+msg(int row, int col, string msg_str, clr) =>
+    table.cell(table_id=tab, column=col, row=row, text=msg_str, text_color=clr)
+
+col = color.white
+
+logo = '𝘘𝘛 𝗥𝗦𝗜'
+
+bearish_rsp = rsp > 72
+bullish_rsp = rsp > 23.6 and rsp < 61.8
+
+main_color = bullish_rsp ? #ccff33 : bearish_rsp ? #f90c71 :  #30c5d2
+
+sign = bearish_rsp ?' ▼ ' :  bullish_rsp ? ' ▲ ' : ' ➔  '
+
+msg(0,0, " " + logo + " ", col)
+msg(2,0, sign + " " + t(round_to_three_decimals(rsp)) +" ",main_color)
+
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+/// EOF
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░

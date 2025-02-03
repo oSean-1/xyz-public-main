@@ -1,0 +1,126 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © botnet101
+
+//@version=6
+indicator("Overnight vs Intra-day Performance", precision=2, overlay=false)
+
+// #############################################################################
+// ###                         INPUT PARAMETERS                              ###
+// #############################################################################
+// Time range selection
+in_start_time = input.time(timestamp("1 Jan 2014"), title="Start Time", group="Time Settings")
+in_end_time = input.time(timestamp("1 Jan 2099"), title="End Time", group="Time Settings")
+in_window = time >= in_start_time and time <= in_end_time  // Boolean flag for current time window
+
+// Display configuration
+tableLocation = input.string("Top Right", options=["Top Left", "Top Right", "Bottom Left", "Bottom Right"], group="Table Settings")
+fontSize = input.string("Auto", "Font Size", options=["Auto", "Small", "Normal", "Large"], group="Table Settings")
+
+// #############################################################################
+// ###                           CORE VARIABLES                              ###
+// #############################################################################
+var float total_performance = 0.0          // Cumulative total returns percentage
+var float intra_day_performance = 0.0      // Cumulative intraday returns percentage
+var float overnight_performance = 0.0      // Cumulative overnight returns percentage
+
+// Compound growth factors (start at 1 = 100%)
+var float overnight_growth = 1.0           // Geometric growth factor for overnight returns
+var float intra_growth = 1.0               // Geometric growth factor for intraday returns
+var float total_growth = 1.0               // Geometric growth factor for total returns
+
+// Time tracking variables
+var int first_bar_time = na                // Timestamp of first bar in analysis window
+var int _last_bar_time = na                // Timestamp of most recent bar in window
+
+// #############################################################################
+// ###                         UTILITY CONVERSIONS                           ###
+// #############################################################################
+// Convert user inputs to Pine Script constants
+fontSizeMap = fontSize == "Auto" ? size.auto : fontSize == "Small" ? size.small : fontSize == "Normal" ? size.normal : fontSize == "Large" ? size.large : na
+tableLocationMap = tableLocation == "Top Left" ? position.top_left : tableLocation == "Top Right" ? position.top_right : tableLocation == "Bottom Left" ? position.bottom_left : tableLocation == "Bottom Right" ? position.bottom_right : na
+
+// #############################################################################
+// ###                         MAIN CALCULATIONS                             ###
+// #############################################################################
+if in_window
+    // Track time boundaries of analysis window
+    if na(first_bar_time)
+        first_bar_time := time            // Initialize first bar timestamp
+    _last_bar_time := time                // Update last bar timestamp
+    
+    // Calculate daily returns components
+    float overnight_return = nz((open - close[1])/close[1], 0)  // Return between previous close and today's open
+    float intra_return = (close - open)/open                     // Return during trading hours
+    float total_return = nz((close/close[1] - 1), 0)             // Combined overnight + intraday return
+    
+    // Update geometric growth factors (compounded returns)
+    overnight_growth := overnight_growth * (1 + overnight_return)
+    intra_growth := intra_growth * (1 + intra_return)
+    total_growth := total_growth * (1 + total_return)
+    
+    // Update cumulative percentage returns (simple sum)
+    overnight_performance := overnight_performance + nz(100 * (open - close[1])/close[1])
+    intra_day_performance := intra_day_performance + 100 * (close - open)/open
+    total_performance := intra_day_performance + overnight_performance
+
+// #############################################################################
+// ###                         VISUALIZATION                                 ###
+// #############################################################################
+// Plot performance metrics
+plot(overnight_performance, color=color.red, title="Overnight Returns")
+plot(intra_day_performance, color=color.blue, title="Intraday Returns")
+plot(total_performance, color=color.white, title="Total Returns")
+
+// Initialize results table
+var tbl = table.new(tableLocationMap, columns=3, rows=4)
+
+// Final calculations and display on last bar
+if barstate.islastconfirmedhistory
+    // Calculate analysis duration in years
+    float milliseconds_per_year = 1000 * 60 * 60 * 24 * 365.2425  // Julian year in milliseconds
+    int duration = _last_bar_time - first_bar_time
+    float years = duration / milliseconds_per_year
+    
+    // Calculate Compound Annual Growth Rates (CAGR)
+    cagr_overnight = years > 0 ? (math.pow(overnight_growth, 1/years) - 1) : na
+    cagr_intra = years > 0 ? (math.pow(intra_growth, 1/years) - 1) : na
+    cagr_total = years > 0 ? (math.pow(total_growth, 1/years) - 1) : na
+
+    // ======================
+    // RESULTS TABLE
+    // ======================
+    // Header row
+    table.cell(tbl, 1, 0, "CAGR", text_color=color.white, text_size=fontSizeMap)
+    
+    // Total Returns row
+    table.cell(tbl, 0, 1, "Total", text_color=color.white)
+    table.cell(tbl, 1, 1, years > 0 ? str.tostring(cagr_total, "#.##%") : "N/A", text_color=color.white)
+    
+    // Overnight Returns row
+    table.cell(tbl, 0, 2, "Overnight", text_color=color.white)
+    table.cell(tbl, 1, 2, years > 0 ? str.tostring(cagr_overnight, "#.##%") : "N/A", text_color=color.white)
+    
+    // Intra-Day Returns row
+    table.cell(tbl, 0, 3, "Intra-Day", text_color=color.white)
+    table.cell(tbl, 1, 3, years > 0 ? str.tostring(cagr_intra, "#.##%") : "N/A", text_color=color.white)
+
+    // ======================
+    // CHART LABELS
+    // ======================
+    // Total Returns label
+    label.new(bar_index, total_performance, 
+         text="Total Returns:\n" + str.tostring(total_performance, "#.##") + "%\nCAGR: " + 
+         (years > 0 ? str.tostring(cagr_total, "#.##") + "%" : "N/A"), 
+         style=label.style_label_left, color=color.new(color.white, 100), textcolor=color.white)
+
+    // Overnight Returns label
+    label.new(bar_index, overnight_performance, 
+         text="Overnight Returns:\n" + str.tostring(overnight_performance, "#.##") + "%\nCAGR: " + 
+         (years > 0 ? str.tostring(cagr_overnight, "#.##") + "%" : "N/A"), 
+         style=label.style_label_left, color=color.new(color.red, 100), textcolor=color.white)
+
+    // Intra-Day Returns label
+    label.new(bar_index, intra_day_performance, 
+         text="Intra-day Returns:\n" + str.tostring(intra_day_performance, "#.##") + "%\nCAGR: " + 
+         (years > 0 ? str.tostring(cagr_intra, "#.##") + "%" : "N/A"), 
+         style=label.style_label_left, color=color.new(color.blue, 100), textcolor=color.white)

@@ -1,0 +1,88 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Finntech1
+
+
+//@version=5
+indicator("Volume & Trend Confluence Oscillator", overlay=false)
+
+// ===== Input Parameters =====
+length         = input.int(20, title="Volume Lookback Length")                // Lookback for volume stats & smoothing
+zThreshold     = input.float(2.0, title="Volume Spike Threshold", minval=1.0)   // Volume spike threshold (Z-Score)
+emaLength      = input.int(34, title="EMA Length for Trend")                    // EMA period for trend analysis
+momentumLength = input.int(14, title="Momentum Lookback Length")                // Lookback for momentum calculation
+
+// --- New Filtering Inputs ---
+minOscMove         = input.float(0.2, title="Minimum Oscillator Movement for Signal", step=0.1)   // Minimum move to consider a crossover valid
+confirmationPeriod = input.int(2, title="Confirmation Lookback Period", minval=1)                  // Number of bars to confirm oversold/overbought condition
+markerOffset       = input.float(0.1, title="Marker Vertical Offset", step=0.05)                   // Vertical offset for signal marker placement
+useTrendFilter     = input.bool(true, title="Use Trend Filter for Signals")                         // When enabled, buy/sell signals require the prevailing trend to agree
+
+// ===== Volume Z-Score Calculation =====
+meanVolume   = ta.sma(volume, length)
+stdDevVolume = ta.stdev(volume, length)
+zScoreVolume = stdDevVolume != 0 ? (volume - meanVolume) / stdDevVolume : 0
+
+// If the volume Z-Score is significant (absolute value above threshold), apply it as a multiplier.
+// Otherwise, use a neutral multiplier (1.0) so that minor volume fluctuations don’t affect momentum.
+volumeMultiplier = math.abs(zScoreVolume) >= zThreshold ? zScoreVolume : 1.0
+
+// ===== Trend Calculation Using EMA =====
+emaTrend       = ta.ema(close, emaLength)
+emaSlope       = emaTrend - emaTrend[1]      // Measure the change in EMA to gauge trend direction
+trendDirection = emaSlope >= 0 ? 1.0 : -1.0  // +1 if uptrend, -1 if downtrend
+
+// Set the background color according to trend (green for up, red for down)
+bgTrendColor = trendDirection > 0 ? color.new(color.green, 85) : color.new(color.red, 85)
+//bgcolor(bgTrendColor, title="Trend Background")
+
+// ===== Momentum Calculation and Weighting =====
+// Calculate rate-of-change momentum
+momentum = ta.roc(close, momentumLength)
+
+// Weight momentum by checking if its sign agrees with the overall trend.
+// If momentum aligns with the trend, use full weighting; otherwise, reduce its value.
+momentumAgreement = (momentum * trendDirection > 0) ? 1.0 : 0.5
+
+// Combine the momentum with the volume multiplier and the trend agreement factor.
+momentumWeighted = momentum * volumeMultiplier * momentumAgreement
+
+// Smooth the weighted momentum to derive a cleaner oscillator (signalLine)
+// Also preserve the raw momentum-weighted value (momentumLine) for visual reference.
+signalLine   = ta.ema(momentumWeighted, length)
+momentumLine = momentumWeighted
+
+// ===== Plotting the Oscillator and Reference Lines =====
+hline(0, "Zero Line", color=color.gray, linestyle=hline.style_dotted)
+overboughtLevel = 1.5
+oversoldLevel   = -1.5
+//hline(overboughtLevel, "Overbought", color=color.red, linestyle=hline.style_dashed)
+//hline(oversoldLevel, "Oversold", color=color.green, linestyle=hline.style_dashed)
+
+// Plot the signal line using a dynamic color according to trend direction.
+plot(signalLine, title="Signal Line", color=(trendDirection > 0 ? color.lime : color.red), linewidth=2)
+
+// Plot the raw momentum line in a contrasting color.
+plot(momentumLine, title="Momentum Line", color=color.orange, linewidth=1, style=plot.style_line)
+
+// ===== Signal Filtering for Best Buy/Sell Entries =====
+// Instead of plotting every zero-line crossover, we filter signals with additional conditions:
+//   • Require that the oscillator’s recent values confirm an oversold (for buy) or overbought (for sell) move.
+//   • Optionally, only trigger buy signals in an uptrend and sell signals in a downtrend.
+buySignal  = ta.crossover(signalLine, 0) and (ta.lowest(signalLine, confirmationPeriod) < -minOscMove) and (useTrendFilter ? trendDirection > 0 : true)
+sellSignal = ta.crossunder(signalLine, 0) and (ta.highest(signalLine, confirmationPeriod) > minOscMove) and (useTrendFilter ? trendDirection < 0 : true)
+
+// ===== Plotting Optimized Signal Markers =====
+// To place the markers closer to the oscillator line, we plot them at a slight vertical offset.
+// For a buy signal, lower the marker slightly from the oscillator line;
+// for a sell, raise the marker slightly.
+buyMarker  = buySignal  ? signalLine - markerOffset : na
+sellMarker = sellSignal ? signalLine + markerOffset : na
+
+//plotshape(buyMarker,  title="Buy Signal",  style=shape.triangleup,   location=location.absolute, color=color.green, size=size.small, text="BUY")
+//plotshape(sellMarker, title="Sell Signal", style=shape.triangledown, location=location.absolute, color=color.red,   size=size.small, text="SELL")
+
+// ===== Alert Conditions for Automated Notifications =====
+//alertcondition(buySignal,  title="Buy Alert",  message="Buy signal detected!")
+//alertcondition(sellSignal, title="Sell Alert", message="Sell signal detected!")
+//alertcondition(signalLine > overboughtLevel, title="Overbought Alert", message="Oscillator is in the overbought zone!")
+//alertcondition(signalLine < oversoldLevel,   title="Oversold Alert",  message="Oscillator is in the oversold zone!")

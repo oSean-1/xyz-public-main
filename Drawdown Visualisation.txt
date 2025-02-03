@@ -1,0 +1,143 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © botnet101
+
+
+//@version=6
+indicator("Drawdown Visualisation", overlay=false, format=format.percent, precision=2)
+
+// ──────────────────────────────────────────────
+// INPUTS
+// ──────────────────────────────────────────────
+// Custom Date Settings
+useCustomStartDate = input.bool(false, title="Use Custom Start Date", group="Custom Date Settings")
+startTime        = input.time(timestamp("01 Jan 2020 00:00 +0000"), title="Custom Start Date", group="Custom Date Settings")
+
+// Label Settings
+labelSizeInput = input.string("Normal", options=["Huge", "Large", "Normal", "Small", "Tiny"], title="Label Size", group="Label Settings")
+labelOffset    = input.int(5, step=5, title="Label Offset (bars)", group="Label Settings")
+
+// Visibility Settings
+showAllLabels  = input.bool(true, title="Show All Labels", group="Visibility Settings")
+showAllLines   = input.bool(true, title="Show All Lines", group="Visibility Settings")
+
+// Background Lines and Labels for Drawdown thresholds
+value_0Label    = input.float(defval=0, title="", minval=-100, maxval=0, group="Lines and Labels Settings", inline="0")
+value_50Label   = input.float(defval=-50, title="", minval=-100, maxval=0, group="Lines and Labels Settings", inline="50")
+value_100Label  = input.float(defval=-100, title="", minval=-100, maxval=0, group="Lines and Labels Settings", inline="100")
+
+show_0Label    = input.bool(defval=true, title="Label", group="Lines and Labels Settings", inline="0")
+show_50Label   = input.bool(defval=true, title="Label", group="Lines and Labels Settings", inline="50")
+show_100Label  = input.bool(defval=true, title="Label", group="Lines and Labels Settings", inline="100")
+
+show_0Line     = input.bool(defval=true, title="Line", group="Lines and Labels Settings", inline="0")
+show_50Line    = input.bool(defval=true, title="Line", group="Lines and Labels Settings", inline="50")
+show_100Line   = input.bool(defval=true, title="Line", group="Lines and Labels Settings", inline="100")
+
+colour_0Label   = input.color(defval=color.new(color.green, 50), title="", group="Lines and Labels Settings", inline="0")
+colour_50Label  = input.color(defval=color.new(color.orange, 50), title="", group="Lines and Labels Settings", inline="50")
+colour_100Label = input.color(defval=color.new(color.red, 50), title="", group="Lines and Labels Settings", inline="100")
+
+// Historic Drawdowns Settings
+show_past_drawdowns = input.bool(defval=true, title="Show Past Drawdowns", group="Historic Drawdowns")
+lookbackLength      = input.int(defval=50, title="Lookback Length", step=1, minval=0, group="Historic Drawdowns")
+
+//──────────────────────────────────────────────
+// FUNCTIONS
+//──────────────────────────────────────────────
+
+// Returns true if current bar is within custom window (if enabled)
+inCustomWindow() =>
+    useCustomStartDate ? (time >= startTime and time <= timestamp(year, month, dayofmonth, 23, 59, 59)) : true
+
+// Map label size string to Pine's size constant
+getLabelSize() =>
+    switch labelSizeInput
+        "Huge"  => size.huge
+        "Large" => size.large
+        "Small" => size.small
+        "Tiny"  => size.tiny
+        => size.normal
+
+// Determines whether to use the custom date filter
+useStartDate() =>
+    not useCustomStartDate or (useCustomStartDate and inCustomWindow())
+
+// Calculate the All-Time High (ATH) during the defined period
+getATH() =>
+    var float ath = 0.0
+    if useStartDate() and high > ath
+        ath := high
+    ath
+
+// Calculate drawdown based on the selected calculation type (percentage or point)
+getDrawdown(athVal) =>
+    float dd = 100 * (low / athVal) - 100
+    useStartDate() ? dd : 0
+
+// Update the maximum drawdown reached so far
+getMaxDrawdown(curDD) =>
+    var float maxDD = 0.0
+    if useStartDate() and curDD < maxDD
+        maxDD := curDD
+    maxDD
+
+// Create a label at a given level
+createLabel(showLabel, labelText, levelValue, col, isBackgroundLabel) =>
+    if not na(levelValue) and barstate.islast and showAllLines and showLabel
+        dt   = time - time[1]
+        newX = time + labelOffset * dt
+        string percStr = str.tostring(levelValue, format.percent)
+        string textLabel = labelText != "" ? labelText + " (" + percStr + ")" : percStr
+        // Choose text colour based on background flag
+        color textCol = isBackgroundLabel ? col : color.white
+        lblStyle = isBackgroundLabel ? label.style_none : label.style_label_left
+        lbl = label.new(x=newX, y=levelValue, xloc=xloc.bar_time, style=lblStyle, text=textLabel, textcolor=textCol, color=color.new(col, 0), size=getLabelSize())
+        label.delete(lbl[1])
+
+
+// Plot historic drawdowns using pivot detection
+plotHistoricDrawdowns(curDD) =>
+    // Use a lookback period to detect local lows
+    pl = ta.pivotlow(curDD, lookbackLength, lookbackLength)
+    histDD = math.round(pl, 2)
+    if not na(histDD) and show_past_drawdowns
+        label.new(x=bar_index[lookbackLength], y=histDD, text=str.tostring(histDD, format.percent), style=label.style_label_up, color=color.new(color.black, 100), textcolor=color.white)
+
+//──────────────────────────────────────────────
+// MAIN CALCULATIONS
+//──────────────────────────────────────────────
+ath = getATH()
+curDD = useStartDate() ? getDrawdown(ath) : na
+maxDD = getMaxDrawdown(curDD)
+
+//──────────────────────────────────────────────
+// PLOTTING
+//──────────────────────────────────────────────
+// Define background threshold lines
+topLine    = showAllLines ? value_0Label   : na
+midLine    = showAllLines ? value_50Label  : na
+bottomLine = showAllLines ? value_100Label : na
+
+color color_red    = #FF0000
+color color_green  = #008000	
+color gradient_col = color.from_gradient(curDD, -100, 0, color_red, color.green)
+
+// Draw current drawdown and max drawdown lines
+plot(curDD, color=color.new(gradient_col, 0), linewidth=2, style=plot.style_line, title="Drawdown")
+plot(maxDD, color=color.new(color.red, 0), linewidth=2, style=plot.style_line, title="Max Drawdown")
+
+// Plot background threshold lines and labels
+plot(show_0Line ? topLine : na, color=colour_0Label, linewidth=1, style=plot.style_line, title="0% DD")
+plot(show_50Line ? midLine : na, color=colour_50Label, linewidth=1, style=plot.style_line, title="-50% DD")
+plot(show_100Line ? bottomLine : na, color=colour_100Label, linewidth=1, style=plot.style_line, title="-100% DD")
+
+createLabel(show_0Label, "", topLine, colour_0Label, true)
+createLabel(show_50Label, "", midLine, colour_50Label, true)
+createLabel(show_100Label, "", bottomLine, colour_100Label, true)
+
+// Draw labels for current and maximum drawdown
+createLabel(true, "DD", math.round(curDD, 2), gradient_col, false)
+createLabel(true, "Max DD", math.round(maxDD, 2), color.red, false)
+
+// Plot historic drawdowns
+plotHistoricDrawdowns(curDD)
