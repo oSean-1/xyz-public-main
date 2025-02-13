@@ -1,0 +1,98 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Botnet101
+
+
+//@version=6
+indicator('Even vs Odd Days Performance', overlay = false)
+
+//region Input Parameters - Time Settings
+inputStartTime = input.time(timestamp('1 Jan 2000'), title = 'Start Time', group = 'Time Settings', tooltip = 'The start date for analyzing day performance.')
+inputEndTime = input.time(timestamp('1 Jan 2099'), title = 'End Time', group = 'Time Settings', tooltip = 'The end date for analyzing day performance.')
+isInTimeWindow = time >= inputStartTime and time <= inputEndTime
+//endregion
+
+//region Input Parameters - Table Settings
+showPerformanceTable = input.bool(true, "Show Table", group="Table Settings", tooltip = 'Toggle to display or hide the performance summary table.')
+tableLocation = input.string("Top Right", "Table Location", options=["Top Left", "Top Right", "Bottom Left", "Bottom Right"], group="Table Settings")
+tableFontSizeInput = input.string("Auto", "Font Size", options=["Auto", "Small", "Normal", "Large"], group="Table Settings", tooltip = 'Adjust the font size of the text within the performance table.')
+//endregion
+
+//region Mapping
+tableFontSize = tableFontSizeInput == "Auto" ? size.auto : tableFontSizeInput == "Small" ? size.small : tableFontSizeInput == "Normal" ? size.normal : tableFontSizeInput == "Large" ? size.large : na
+tableLocationMap = tableLocation == "Top Left" ? position.top_left : tableLocation == "Top Right" ? position.top_right : tableLocation == "Bottom Left" ? position.bottom_left : tableLocation == "Bottom Right" ? position.bottom_right : na
+//endregion
+
+//region Timeframe Check and Error Message
+var table errorMessageTable = table.new(position.middle_center, 1, 1)
+if barstate.islast and timeframe.period != '1D'
+    table.cell(errorMessageTable, 0, 0, 'Please use Daily Timeframe', text_size = tableFontSize, text_color = color.red)
+    runtime.error('Please use Daily Timeframe')
+//endregion
+
+//region Data Initialization
+var array<int> dailyCounts = array.new_int(2, na) // Count of days for even/odd types
+var array<int> dailyPositiveCounts = array.new_int(2, na) // Count of positive days for even/odd types
+var array<float> dailyPerformanceChanges = array.new_float(2, na) // Cumulative performance for even/odd days
+dayTypeNames = array.from('Even', 'Odd')
+dayTypeColors = array.from(color.green, color.red)
+//endregion
+
+dailyPriceChangePercent = 100 * (close - close[1]) / close[1]
+
+//region Daily Performance Calculation
+if isInTimeWindow
+    dayTypeIndex = dayofmonth % 2 // Determine day type index (0: even, 1: odd)
+
+    // Aggregate daily performance, counts, and positive day counts based on day type index.
+    array.set(dailyPerformanceChanges, dayTypeIndex, nz(array.get(dailyPerformanceChanges, dayTypeIndex)) + dailyPriceChangePercent)
+    currentDayTypeCount = nz(array.get(dailyCounts, dayTypeIndex)) + 1
+    array.set(dailyCounts, dayTypeIndex, currentDayTypeCount)
+
+    if dailyPriceChangePercent > 0
+        currentDayTypePositiveCount = nz(array.get(dailyPositiveCounts, dayTypeIndex)) + 1
+        array.set(dailyPositiveCounts, dayTypeIndex, currentDayTypePositiveCount)
+//endregion
+
+hline(0, color = color.gray)
+plot(array.get(dailyPerformanceChanges, 0), color = array.get(dayTypeColors, 0), style = plot.style_stepline, title = 'Even Days')
+plot(array.get(dailyPerformanceChanges, 1), color = array.get(dayTypeColors, 1), style = plot.style_stepline, title = 'Odd Days')
+
+//region Performance Table
+var table performanceTable = na
+var label evenLabel = na
+var label oddLabel  = na
+if barstate.islast and showPerformanceTable
+    evenLabel := label.new(bar_index+1, array.get(dailyPerformanceChanges, 0), style=label.style_label_left, text=str.tostring(array.get(dailyPerformanceChanges, 0), "#.##")+"%", color=color.green)
+    oddLabel  := label.new(bar_index+1, array.get(dailyPerformanceChanges, 1), style=label.style_label_left, text=str.tostring(array.get(dailyPerformanceChanges, 1), "#.##")+"%", color=color.red)
+
+    label.delete(evenLabel[1])
+    label.delete(oddLabel[1])
+
+    if showPerformanceTable
+        performanceTable := table.new(tableLocationMap, 6, 3, border_width = 1, border_color = color.gray, bgcolor = color.new(color.white, 0))
+
+        // Table Headers
+        table.cell(performanceTable, 0, 0, 'Day', text_color = color.black, text_size = tableFontSize)
+        table.cell(performanceTable, 1, 0, 'Performance', text_color = color.black, text_size = tableFontSize)
+        table.cell(performanceTable, 2, 0, 'Avg Returns', text_color = color.black, text_size = tableFontSize)
+        table.cell(performanceTable, 4, 0, '% Positive', text_color = color.black, text_size = tableFontSize)
+        table.cell(performanceTable, 5, 0, 'Count', text_color = color.black, text_size = tableFontSize)
+
+        // analysisStartYear = year(inputStartTime)
+        // analysisEndYear = year(inputEndTime)
+        // analysisYearDifference = math.max(1, analysisEndYear - analysisStartYear)
+
+        // Populate Table Data Rows
+        for i = 0 to 1 by 1
+            totalDayTypeReturn = nz(array.get(dailyPerformanceChanges, i))
+            dayTypeCount = nz(array.get(dailyCounts, i), 1)
+            averageDayTypeReturn = totalDayTypeReturn / dayTypeCount / 100
+            dayTypePositiveCount = nz(array.get(dailyPositiveCounts, i))
+            dayTypePositivePercent = dayTypePositiveCount / dayTypeCount
+
+            table.cell(performanceTable, 0, i + 1, array.get(dayTypeNames, i) + ':', text_color = array.get(dayTypeColors, i), text_size = tableFontSize)
+            table.cell(performanceTable, 1, i + 1, str.tostring(totalDayTypeReturn, format.percent), text_color = totalDayTypeReturn >= 0 ? color.green : color.red, text_size = tableFontSize)
+            table.cell(performanceTable, 2, i + 1, str.tostring(averageDayTypeReturn, '#.##%'), text_color = averageDayTypeReturn >= 0 ? color.green : color.red, text_size = tableFontSize)
+            table.cell(performanceTable, 4, i + 1, str.tostring(dayTypePositivePercent, '#.##%'), text_color = color.black, text_size = tableFontSize)
+            table.cell(performanceTable, 5, i + 1, str.tostring(dayTypeCount), text_color = color.black, text_size = tableFontSize)
+//endregion

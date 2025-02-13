@@ -1,0 +1,98 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Botnet101
+
+
+//@version=6
+indicator('Even vs Odd Weeks Performance', overlay = false)
+
+//region Input Parameters - Time Settings
+inputStartTime = input.time(timestamp('1 Jan 2000'), title = 'Start Time', group = 'Time Settings', tooltip = 'The start date for analyzing week performance.')
+inputEndTime = input.time(timestamp('1 Jan 2099'), title = 'End Time', group = 'Time Settings', tooltip = 'The end date for analyzing week performance.')
+isInTimeWindow = time >= inputStartTime and time <= inputEndTime
+//endregion
+
+//region Input Parameters - Table Settings
+showPerformanceTable = input.bool(true, "Show Table", group="Table Settings", tooltip = 'Toggle to display or hide the performance summary table.')
+tableLocation = input.string("Top Right", "Table Location", options=["Top Left", "Top Right", "Bottom Left", "Bottom Right"], group="Table Settings")
+tableFontSizeInput = input.string("Auto", "Font Size", options=["Auto", "Small", "Normal", "Large"], group="Table Settings", tooltip = 'Adjust the font size of the text within the performance table.')
+//endregion
+
+//region Mapping
+tableFontSize = tableFontSizeInput == "Auto" ? size.auto : tableFontSizeInput == "Small" ? size.small : tableFontSizeInput == "Normal" ? size.normal : tableFontSizeInput == "Large" ? size.large : na
+tableLocationMap = tableLocation == "Top Left" ? position.top_left : tableLocation == "Top Right" ? position.top_right : tableLocation == "Bottom Left" ? position.bottom_left : tableLocation == "Bottom Right" ? position.bottom_right : na
+//endregion
+
+//region Timeframe Check and Error Message
+var table errorMessageTable = table.new(position.middle_center, 1, 1)
+if barstate.islast and timeframe.period != '1W'
+    table.cell(errorMessageTable, 0, 0, 'Please use Weekly Timeframe', text_size = tableFontSize, text_color = color.red)
+    runtime.error('Please use Weekly Timeframe')
+//endregion
+
+//region Data Initialization
+var array<int> weeklyCounts = array.new_int(2, na) // Count of weeks for even/odd types
+var array<int> weeklyPositiveCounts = array.new_int(2, na) // Count of positive weeks for even/odd types
+var array<float> weeklyPerformanceChanges = array.new_float(2, na) // Cumulative performance for even/odd weeks
+
+weekTypeNames = array.from('Even', 'Odd')
+weekTypeColors = array.from(color.green, color.red)
+//endregion
+
+weeklyPriceChangePercent = 100 * (close - close[1]) / close[1]
+
+//region Weekly Performance Calculation
+if isInTimeWindow
+    weekTypeIndex = weekofyear % 2 // Determine week type index (0: even, 1: odd)
+
+    // Aggregate weekly performance, counts, and positive week counts based on week type index.
+    array.set(weeklyPerformanceChanges, weekTypeIndex, nz(array.get(weeklyPerformanceChanges, weekTypeIndex)) + weeklyPriceChangePercent)
+    currentWeekTypeCount = nz(array.get(weeklyCounts, weekTypeIndex)) + 1
+    array.set(weeklyCounts, weekTypeIndex, currentWeekTypeCount)
+
+    if weeklyPriceChangePercent > 0
+        currentWeekTypePositiveCount = nz(array.get(weeklyPositiveCounts, weekTypeIndex)) + 1
+        array.set(weeklyPositiveCounts, weekTypeIndex, currentWeekTypePositiveCount) // Corrected line: use weekTypeIndex
+//endregion
+
+hline(0, color = color.gray)
+plot(array.get(weeklyPerformanceChanges, 0), color = array.get(weekTypeColors, 0), style = plot.style_stepline, title = 'Even Weeks')
+plot(array.get(weeklyPerformanceChanges, 1), color = array.get(weekTypeColors, 1), style = plot.style_stepline, title = 'Odd Weeks')
+
+//region Performance Table
+var table performanceTable = na
+var label evenLabel = na
+var label oddLabel  = na
+if barstate.islast and showPerformanceTable
+    performanceTable := table.new(tableLocationMap, 6, 3, border_width = 1, border_color = color.gray, bgcolor = color.new(color.white, 0))
+
+    evenLabel := label.new(bar_index+1, array.get(weeklyPerformanceChanges, 0), style=label.style_label_left, text=str.tostring(array.get(weeklyPerformanceChanges, 0), "#.##")+"%", color=color.green)
+    oddLabel  := label.new(bar_index+1, array.get(weeklyPerformanceChanges, 1), style=label.style_label_left, text=str.tostring(array.get(weeklyPerformanceChanges, 1), "#.##")+"%", color=color.red)
+
+    label.delete(evenLabel[1])
+    label.delete(oddLabel[1])
+
+    // Table Headers
+    table.cell(performanceTable, 0, 0, 'Week', text_color = color.black, text_size = tableFontSize)
+    table.cell(performanceTable, 1, 0, 'Performance', text_color = color.black, text_size = tableFontSize)
+    table.cell(performanceTable, 2, 0, 'Avg Returns', text_color = color.black, text_size = tableFontSize)
+    table.cell(performanceTable, 4, 0, '% Positive', text_color = color.black, text_size = tableFontSize)
+    table.cell(performanceTable, 5, 0, 'Count', text_color = color.black, text_size = tableFontSize)
+
+    // analysisStartYear = year(inputStartTime)
+    // analysisEndYear = year(inputEndTime)
+    // analysisYearDifference = math.max(1, analysisEndYear - analysisStartYear)
+
+    // Populate Table Data Rows
+    for i = 0 to 1 by 1
+        totalWeekTypeReturn = nz(array.get(weeklyPerformanceChanges, i))
+        weekTypeCount = nz(array.get(weeklyCounts, i), 1)
+        averageWeekTypeReturn = totalWeekTypeReturn / weekTypeCount / 100
+        weekTypePositiveCount = nz(array.get(weeklyPositiveCounts, i))
+        weekTypePositivePercent = weekTypePositiveCount / weekTypeCount
+
+        table.cell(performanceTable, 0, i + 1, array.get(weekTypeNames, i) + ':', text_color = array.get(weekTypeColors, i), text_size = tableFontSize)
+        table.cell(performanceTable, 1, i + 1, str.tostring(totalWeekTypeReturn, format.percent), text_color = totalWeekTypeReturn >= 0 ? color.green : color.red, text_size = tableFontSize)
+        table.cell(performanceTable, 2, i + 1, str.tostring(averageWeekTypeReturn, '#.##%'), text_color = averageWeekTypeReturn >= 0 ? color.green : color.red, text_size = tableFontSize)
+        table.cell(performanceTable, 4, i + 1, str.tostring(weekTypePositivePercent, '#.##%'), text_color = color.black, text_size = tableFontSize)
+        table.cell(performanceTable, 5, i + 1, str.tostring(weekTypeCount), text_color = color.black, text_size = tableFontSize)
+//endregion

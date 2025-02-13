@@ -1,0 +1,145 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// ©  Botnet101
+
+
+//@version=6
+indicator("Quarterly Performance", overlay=false)
+
+// ─────────────────────────────
+// Input Time Window
+// ─────────────────────────────
+in_start_time = input.time(timestamp("1 Jan 1999"), title="Start Time", group="Time Settings")
+in_end_time   = input.time(timestamp("1 Jan 2099"), title="End Time", group="Time Settings")
+in_window     = time >= in_start_time and time <= in_end_time
+
+// ─────────────────────────────
+// Table Settings Inputs
+// ─────────────────────────────
+showPerformanceTable = input.bool(true, "Show Table", group="Table Settings", tooltip="Toggle to display or hide the performance summary table.")
+tableLocationInput   = input.string("Top Right", "Table Location", options=["Top Left", "Top Right", "Bottom Left", "Bottom Right"], group="Table Settings")
+tableFontSizeInput   = input.string("Auto", "Font Size", options=["Auto", "Small", "Normal", "Large"], group="Table Settings", tooltip="Adjust the font size of the text within the performance table.")
+
+// Map font size and table location inputs to built-in constants
+tableFontSize = tableFontSizeInput == "Auto"   ? size.auto   : tableFontSizeInput == "Small"  ? size.small  : tableFontSizeInput == "Normal" ? size.normal : tableFontSizeInput == "Large"  ? size.large  : na
+tableLocationMap = tableLocationInput == "Top Left"     ? position.top_left     : tableLocationInput == "Top Right"    ? position.top_right    : tableLocationInput == "Bottom Left"  ? position.bottom_left  : tableLocationInput == "Bottom Right" ? position.bottom_right : na
+
+// ─────────────────────────────
+// Check for Quarterly Timeframe
+// ─────────────────────────────
+var table errorTable = table.new(position.middle_center, 1, 1)
+if barstate.islast and timeframe.period != "3M"
+    table.cell(errorTable, 0, 0, "Please use Quarterly Timeframe", text_size=size.large, text_color=color.red)
+    runtime.error("Please use Quarterly Timeframe")
+
+// ─────────────────────────────
+// Initialise Performance Arrays
+// ─────────────────────────────
+var month_count         = array.new_int(4, 0)
+var month_positiveCount = array.new_int(4, 0)
+var month_performance   = array.new_float(4, 0.0)
+
+var q1_performance = array.new_float()
+var q2_performance = array.new_float()
+var q3_performance = array.new_float()
+var q4_performance = array.new_float()
+
+month_names  = array.from("Q1:Jan-Mar", "Q2:April-Jun", "Q3:Jul-Sep", "Q4:Oct-Dec")
+month_colors = array.from(color.blue, color.red, color.green, color.purple)
+
+// ─────────────────────────────
+// Calculate Monthly Change and Quarter Index
+// ─────────────────────────────
+month_change = 100 * (close - close[1]) / close[1]
+int quarterIndex = math.floor((month - 1) / 3)
+
+// ─────────────────────────────
+// Update Performance Data
+// ─────────────────────────────
+if in_window
+    // Push the monthly change into the appropriate quarter array
+    if quarterIndex == 0
+        array.push(q1_performance, month_change)
+    else if quarterIndex == 1
+        array.push(q2_performance, month_change)
+    else if quarterIndex == 2
+        array.push(q3_performance, month_change)
+    else if quarterIndex == 3
+        array.push(q4_performance, month_change)
+
+    // Update cumulative performance for the quarter
+    currentPerf = array.get(month_performance, quarterIndex)
+    array.set(month_performance, quarterIndex, currentPerf + month_change)
+    
+    // Update count and positive count
+    currentCount = array.get(month_count, quarterIndex)
+    array.set(month_count, quarterIndex, currentCount + 1)
+    if month_change > 0
+        currentPosCount = array.get(month_positiveCount, quarterIndex)
+        array.set(month_positiveCount, quarterIndex, currentPosCount + 1)
+
+// ─────────────────────────────
+// Plot Quarterly Performance (Stepline)
+// ─────────────────────────────
+hline(0, color=color.gray)
+plot(array.get(month_performance, 0), color=array.get(month_colors, 0), style=plot.style_stepline, title="Q1:Jan-Mar")
+plot(array.get(month_performance, 1), color=array.get(month_colors, 1), style=plot.style_stepline, title="Q2:Apr-Jun")
+plot(array.get(month_performance, 2), color=array.get(month_colors, 2), style=plot.style_stepline, title="Q3:Jul-Sep")
+plot(array.get(month_performance, 3), color=array.get(month_colors, 3), style=plot.style_stepline, title="Q4:Oct-Dec")
+
+// ─────────────────────────────
+// Performance Table & Labels
+// ─────────────────────────────
+var table perf_table = table.new(position=tableLocationMap, columns=6, rows=6, border_width=1, border_color=color.gray, bgcolor=color.new(color.white, 0))
+var label q1Label = na
+var label q2Label = na
+var label q3Label = na
+var label q4Label = na
+
+if barstate.islast
+    // Create labels for each quarter with formatted text
+    q1Label := label.new(bar_index + 1, array.get(month_performance, 0), str.tostring(array.get(month_performance, 0), "#.##") + "%", style=label.style_label_left, color=array.get(month_colors, 0))
+    q2Label := label.new(bar_index + 1, array.get(month_performance, 1), str.tostring(array.get(month_performance, 1), "#.##") + "%", style=label.style_label_left, color=array.get(month_colors, 1))
+    q3Label := label.new(bar_index + 1, array.get(month_performance, 2), str.tostring(array.get(month_performance, 2), "#.##") + "%", style=label.style_label_left, color=array.get(month_colors, 2))
+    q4Label := label.new(bar_index + 1, array.get(month_performance, 3), str.tostring(array.get(month_performance, 3), "#.##") + "%", style=label.style_label_left, color=array.get(month_colors, 3))
+    
+    label.delete(q1Label[1])
+    label.delete(q2Label[1])
+    label.delete(q3Label[1])
+    label.delete(q4Label[1])
+
+    if showPerformanceTable
+        // Fill in table headers
+        table.cell(perf_table, 0, 0, "Quarter", text_color=color.black, text_size=tableFontSize)
+        table.cell(perf_table, 1, 0, "Performance", text_color=color.black, text_size=tableFontSize)
+        table.cell(perf_table, 2, 0, "Avg Returns", text_color=color.black, text_size=tableFontSize)
+        // table.cell(perf_table, 3, 0, "Annualised Return", text_color=color.black, text_size=tableFontSize)
+        table.cell(perf_table, 4, 0, "% Positive", text_color=color.black, text_size=tableFontSize)
+        table.cell(perf_table, 5, 0, "Count", text_color=color.black, text_size=tableFontSize)
+
+        // Calculate performance statistics for each quarter
+        startYear = year(in_start_time)
+        endYear   = year(in_end_time)
+        year_difference = endYear - startYear
+
+        for i = 0 to 3 by 1
+            month_value = array.get(month_performance, i)
+            table.cell(perf_table, 0, i + 1, array.get(month_names, i) + ":", text_color=array.get(month_colors, i), text_size=tableFontSize)
+            
+            // Select the appropriate quarter performance array
+            quarter_perf = i == 0 ? q1_performance :
+                         i == 1 ? q2_performance :
+                         i == 2 ? q3_performance : q4_performance
+            performance_sum = array.sum(quarter_perf)
+            perfColor = performance_sum >= 0 ? color.green : color.red
+            table.cell(perf_table, 1, i + 1, str.tostring(performance_sum, format.percent), text_color=perfColor, text_size=tableFontSize)
+            
+            avg_return = month_value / array.get(month_count, i) / 100
+            table.cell(perf_table, 2, i + 1, str.tostring(avg_return, "#.##%"), text_color=month_value >= 0 ? color.green : color.red, text_size=tableFontSize)
+            
+            // annualised_return = 0.0  // Placeholder for further calculation
+            // table.cell(perf_table, 3, i + 1, str.tostring(annualised_return, "#.##%"), text_color=color.black, text_size=tableFontSize)
+            
+            positive_percent = array.get(month_positiveCount, i) / array.get(month_count, i)
+            table.cell(perf_table, 4, i + 1, str.tostring(positive_percent, "#.##%"), text_color=color.black, text_size=tableFontSize)
+            table.cell(perf_table, 5, i + 1, str.tostring(array.get(month_count, i)), text_color=color.black, text_size=tableFontSize)
+

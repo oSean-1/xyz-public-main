@@ -1,0 +1,97 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © entomologyx
+
+
+//@version=5
+indicator("Catastrophe Distance", overlay=true)
+
+// User Inputs
+drawdown_threshold = input.float(25, title="Drawdown Threshold (%)", minval=1, step=1) / 100
+lookback_period = input.int(5, title="Lookback Period (Candles)", minval=1)
+average_window = input.int(7, title="Average Over Last X Catastrophes", minval=1)
+
+// Variables
+var int last_catastrophe_bar = na
+var float last_catastrophe_price = na
+var int candles_between_catastrophes = na
+var int catastrophe_count = 0
+var float average_candles_between = na
+var int candles_since_last_catastrophe = na
+var label dynamic_label = na
+var box catastrophe_box = na
+var line cycle_line = na
+
+// Array to store the intervals between catastrophes
+var float[] intervals = array.new_float(0)
+
+// Calculate the aggregated drawdown over the last `lookback_period` candles
+drawdown = (ta.highest(high, lookback_period) - low) / ta.highest(high, lookback_period)
+
+// Check if the drawdown exceeds the threshold and it's the first occurrence
+catastrophe = drawdown >= drawdown_threshold and (na(last_catastrophe_bar) or bar_index > last_catastrophe_bar + lookback_period)
+
+// If a catastrophe is detected, calculate the time between catastrophes
+if catastrophe
+    if not na(last_catastrophe_bar)
+        // Calculate the number of bars between the previous and current catastrophe
+        candles_between_catastrophes := bar_index - last_catastrophe_bar
+        
+        // Update the array with the latest interval
+        array.unshift(intervals, candles_between_catastrophes)
+        if array.size(intervals) > average_window
+            array.pop(intervals)
+
+        // Calculate the average over the last `x` catastrophes
+        average_candles_between := array.avg(intervals)
+        
+        // Draw a line between the previous and current catastrophe
+        cycle_line := line.new(x1=last_catastrophe_bar, y1=last_catastrophe_price, x2=bar_index, y2=low, color=color.new(color.blue, 0), width=2)
+        
+        // Calculate minimum price in the range between last catastrophe and current
+        min_price = ta.lowest(low, bar_index - last_catastrophe_bar + 1)
+        
+        // Place a label consistently below the minimum price with a fixed offset
+        mid_point_x = (last_catastrophe_bar + bar_index) / 2
+        label_y_position = min_price - (syminfo.mintick * 20)  // Fixed offset below the minimum price
+        label.new(x=mid_point_x, y=label_y_position, text=str.tostring(candles_between_catastrophes) + " bars", style=label.style_label_up, color=color.new(color.blue, 0), textcolor=color.white, size=size.normal)
+
+    // Create a persistent label for the catastrophe event in grey
+    catastrophe_label_text = "Catastrophe\n" + str.tostring(drawdown * 100) + "% Drop\nPrice: " + str.tostring(low)
+    label.new(x=bar_index, y=high * 1.5, text=catastrophe_label_text, style=label.style_label_down, color=color.new(color.gray, 0), textcolor=color.white, size=size.normal)
+    
+    // Update the last catastrophe bar and price
+    last_catastrophe_bar := bar_index
+    last_catastrophe_price := low
+
+// Calculate the number of candles since the last catastrophe for dynamic display
+if not na(last_catastrophe_bar)
+    candles_since_last_catastrophe := bar_index - last_catastrophe_bar
+
+// Dynamic label showing candles since the last catastrophe and average time
+dynamic_label_text = "Candles since last: " + str.tostring(candles_since_last_catastrophe) + "\nAvg. time between (last " + str.tostring(average_window) + "): " + str.tostring(average_candles_between) + " bars"
+
+// Change dynamic label color to black if the current count is above the average, otherwise green
+dynamic_label_color = candles_since_last_catastrophe > average_candles_between ? color.black : color.green
+
+// Display the dynamic label with the appropriate color
+if not na(candles_since_last_catastrophe)
+    if na(dynamic_label)
+        dynamic_label := label.new(x=bar_index, y=high * 1.5, text=dynamic_label_text, style=label.style_label_down, color=color.new(dynamic_label_color, 0), textcolor=color.white, size=size.normal)
+    else
+        label.set_xy(dynamic_label, bar_index, high * 1.5)
+        label.set_text(dynamic_label, dynamic_label_text)
+        label.set_color(dynamic_label, color.new(dynamic_label_color, 0))
+
+// Highlight the catastrophe zone on the chart
+if catastrophe
+    if na(catastrophe_box)
+        catastrophe_box := box.new(left=last_catastrophe_bar, top=high, right=bar_index, bottom=low, bgcolor=color.new(color.green, 80))
+    else
+        box.set_right(catastrophe_box, bar_index)
+else
+    if not na(catastrophe_box)
+        box.delete(catastrophe_box)
+        catastrophe_box := na
+
+// Add markers for the first catastrophe event only
+plotshape(series=catastrophe, location=location.belowbar, color=color.green, style=shape.triangleup, text="CAT", size=size.large)

@@ -1,0 +1,506 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © liquid-trader
+
+// This indicator plots the normalized price changes of commonly traded futures. Visualizing data in this way
+// makes studying and understanding market participation and sentiment easier.
+// More here: https://www.tradingview.com/script/xSoaWEDM-Futures-Correlation-Visualizer/
+
+//@version=5
+indicator("Futures Correlation Visualizer", dynamic_requests=true)
+
+
+
+// ---------------------------------------------------- SETTINGS --------------------------------------------------- //
+
+// Base Colors, Groups, and ToolTip
+const color none = color.rgb(0,0,0,100), const color equity_color = color.rgb(19, 163 , 215), const color crypto_color = color.fuchsia, const color curncy_color = color.rgb(0, 210, 180), const color bond_color = color.rgb(210, 50, 100), const color zone_color = color.new(color.gray, 90), const int rise = 85, const int fall = 90, const string g0 = "General Settings", const string g1 = "Equity", const string g2 = "Metal", const string g3 = "Energy", const string g4 = "Crypto", const string g5 = "Currency", const string g6 = "Bonds", const string g7 = "Agriculture", const string tt = "Plot colors 1 & 2. See the \"Color Scheme\" tooltip for more about how these colors are used."
+
+// Note
+note = input.text_area("You can only select a maximum of 20 symbols.\n\nThe \"request\" functions are limited to 40 calls, 1 timeframe counts as a call, and 2 timeframes are used per symbol. Normalized values come from 1D data, and timeframe.period is used for the remainder of the plot. A runtime error will occur when more than 20 symbols are enabled.\n\nThis limitation is unavoidable.", "Note")
+
+// NASDAQ 100 Settings
+const string NQ_symb = "NQ", const string NQ_desc = "NASDAQ 100"
+NQ_clr1 = input.color(color.new(equity_color, rise), "", inline=NQ_symb, group=g1, display=display.none)
+NQ_clr2 = input.color(color.new(equity_color, fall), "", inline=NQ_symb, group=g1, display=display.none)
+NQ_show = input.bool(true, NQ_symb + "    •   " + NQ_desc, tt, inline=NQ_symb, group=g1, display=display.none)
+
+// S&P 500
+const string ES_symb = "ES", const string ES_desc = "S&P 500"
+ES_clr1 = input.color(color.new(equity_color, rise), "", inline=ES_symb, group=g1, display=display.none)
+ES_clr2 = input.color(color.new(equity_color, fall), "", inline=ES_symb, group=g1, display=display.none)
+ES_show = input.bool(true, ES_symb + "     •   " + ES_desc, tt, inline=ES_symb, group=g1, display=display.none)
+
+// Russel 2000
+const string RT_symb = "RTY", const string RT_desc = "Russell 2000"
+RT_clr1 = input.color(color.new(equity_color, rise), "", inline=RT_symb, group=g1, display=display.none)
+RT_clr2 = input.color(color.new(equity_color, fall), "", inline=RT_symb, group=g1, display=display.none)
+RT_show = input.bool(false, RT_symb + "   •   " + RT_desc, tt, inline=RT_symb, group=g1, display=display.none)
+
+// Dow Jones
+const string YM_symb = "YM", const string YM_desc = "Dow Jones"
+YM_clr1 = input.color(color.new(equity_color, rise), "", inline=YM_symb, group=g1, display=display.none)
+YM_clr2 = input.color(color.new(equity_color, fall), "", inline=YM_symb, group=g1, display=display.none)
+YM_show = input.bool(false, YM_symb + "    •   " + YM_desc, tt, inline=YM_symb, group=g1, display=display.none)
+
+// Silver
+const string SI_symb = "SI", const string SI_desc = "Silver"
+SI_clr1 = input.color(color.rgb(173, 171, 184, rise), "", inline=SI_symb, group=g2, display=display.none)
+SI_clr2 = input.color(color.rgb(173, 171, 184, fall), "", inline=SI_symb, group=g2, display=display.none)
+SI_show = input.bool(true, SI_symb + "     •   " + SI_desc, tt, inline=SI_symb, group=g2, display=display.none)
+
+// Gold
+const string GC_symb = "GC", const string GC_desc = "Gold"
+GC_clr1 = input.color(color.rgb(214, 154, 0, rise), "", inline=GC_symb, group=g2, display=display.none)
+GC_clr2 = input.color(color.rgb(214, 154, 0, fall), "", inline=GC_symb, group=g2, display=display.none)
+GC_show = input.bool(true, GC_symb + "   •   " + GC_desc, tt, inline=GC_symb, group=g2, display=display.none)
+
+// Copper
+const string HG_symb = "HG", const string HG_desc = "Copper"
+HG_clr1 = input.color(color.rgb(194, 106, 68, rise), "", inline=HG_symb, group=g2, display=display.none)
+HG_clr2 = input.color(color.rgb(194, 106, 68, fall), "", inline=HG_symb, group=g2, display=display.none)
+HG_show = input.bool(true, HG_symb + "   •   " + HG_desc, tt, inline=HG_symb, group=g2, display=display.none)
+
+// Platinum
+const string PL_symb = "PA", const string PL_desc = "Platinum"
+PL_clr1 = input.color(color.rgb(194, 184, 171, rise), "", inline=PL_symb, group=g2, display=display.none)
+PL_clr2 = input.color(color.rgb(194, 184, 171, fall), "", inline=PL_symb, group=g2, display=display.none)
+PL_show = input.bool(true, PL_symb + "   •   " + PL_desc, tt, inline=PL_symb, group=g2, display=display.none)
+
+// Palladium
+const string PA_symb = "PL", const string PA_desc = "Palladium"
+PA_clr1 = input.color(color.rgb(171, 182, 184, rise), "", inline=PA_symb, group=g2, display=display.none)
+PA_clr2 = input.color(color.rgb(171, 182, 184, fall), "", inline=PA_symb, group=g2, display=display.none)
+PA_show = input.bool(false, PA_symb + "   •   " + PA_desc, tt, inline=PA_symb, group=g2, display=display.none)
+
+// Crude Oil
+const int CL = 9, const string CL_symb = "CL", const string CL_desc = "Crude Oil"
+CL_clr1 = input.color(color.rgb(150, 80, 40, rise), "", inline=CL_symb, group=g3, display=display.none)
+CL_clr2 = input.color(color.rgb(150, 80, 40, fall), "", inline=CL_symb, group=g3, display=display.none)
+CL_show = input.bool(true, CL_symb + "    •   " + CL_desc, tt, inline=CL_symb, group=g3, display=display.none)
+
+// Natural Gas
+const string NG_symb = "NG", const string NG_desc = "Natural Gas"
+NG_clr1 = input.color(color.rgb(100, 125, 175, rise), "", inline=NG_symb, group=g3, display=display.none)
+NG_clr2 = input.color(color.rgb(100, 125, 175, fall), "", inline=NG_symb, group=g3, display=display.none)
+NG_show = input.bool(true, NG_symb + "   •   " + NG_desc, tt, inline=NG_symb, group=g3, display=display.none)
+
+// RBOB Gasoline
+const string RB_symb = "RB", const string RB_desc = "RBOB Gasoline"
+RB_clr1 = input.color(color.rgb(237, 110, 40, rise), "", inline=RB_symb, group=g3, display=display.none)
+RB_clr2 = input.color(color.rgb(237, 110, 40, fall), "", inline=RB_symb, group=g3, display=display.none)
+RB_show = input.bool(false, RB_symb + "   •   " + RB_desc, tt, inline=RB_symb, group=g3, display=display.none)
+
+// NY Harbor ULSD
+const string HO_symb = "HO", const string HO_desc = "NY Harbor ULSD"
+HO_clr1 = input.color(color.rgb(175, 140, 100, rise), "", inline=HO_symb, group=g3, display=display.none)
+HO_clr2 = input.color(color.rgb(175, 140, 100, fall), "", inline=HO_symb, group=g3, display=display.none)
+HO_show = input.bool(false, HO_symb + "   •   " + HO_desc, tt, inline=HO_symb, group=g3, display=display.none)
+
+// Bitcoin
+const string BC_symb = "BTC", const string BC_desc = "Bitcoin"
+BC_clr1 = input.color(color.new(crypto_color, rise), "", inline=BC_symb, group=g4, display=display.none)
+BC_clr2 = input.color(color.new(crypto_color, fall), "", inline=BC_symb, group=g4, display=display.none)
+BC_show = input.bool(true, BC_symb + "   •   " + BC_desc, tt, inline=BC_symb, group=g4, display=display.none)
+
+// Ethereum
+const string ET_symb = "ETH", const string ET_desc = "Ethereum"
+ET_clr1 = input.color(color.new(crypto_color, rise), "", inline=ET_symb, group=g4, display=display.none)
+ET_clr2 = input.color(color.new(crypto_color, fall), "", inline=ET_symb, group=g4, display=display.none)
+ET_show = input.bool(true, ET_symb + "   •   " + ET_desc, tt, inline=ET_symb, group=g4, display=display.none)
+
+// U.S. Dollar Index
+const string DX_symb = "DX", const string DX_desc = "U.S. Dollar Index"
+DX_clr1 = input.color(color.new(curncy_color, rise), "", inline=DX_symb, group=g5, display=display.none)
+DX_clr2 = input.color(color.new(curncy_color, fall), "", inline=DX_symb, group=g5, display=display.none)
+DX_show = input.bool(false, DX_symb + "   •   " + DX_desc, tt, inline=DX_symb, group=g5, display=display.none)
+
+// Australian Dollar
+const string AD_symb = "6A", const string AD_desc = "Australian Dollar"
+AD_clr1 = input.color(color.new(curncy_color, rise), "", inline=AD_symb, group=g5, display=display.none)
+AD_clr2 = input.color(color.new(curncy_color, fall), "", inline=AD_symb, group=g5, display=display.none)
+AD_show = input.bool(true, AD_symb + "   •   " + AD_desc, tt, inline=AD_symb, group=g5, display=display.none)
+
+// British Pound
+const string BP_symb = "6B", const string BP_desc = "British Pound"
+BP_clr1 = input.color(color.new(curncy_color, rise), "", inline=BP_symb, group=g5, display=display.none)
+BP_clr2 = input.color(color.new(curncy_color, fall), "", inline=BP_symb, group=g5, display=display.none)
+BP_show = input.bool(false, BP_symb + "   •   " + BP_desc, tt, inline=BP_symb, group=g5, display=display.none)
+
+// Canadian Dollar
+const string CA_symb = "6C", const string CA_desc = "Canadian Dollar"
+CA_clr1 = input.color(color.new(curncy_color, rise), "", inline=CA_symb, group=g5, display=display.none)
+CA_clr2 = input.color(color.new(curncy_color, fall), "", inline=CA_symb, group=g5, display=display.none)
+CA_show = input.bool(false, CA_symb + "   •   " + CA_desc, tt, inline=CA_symb, group=g5, display=display.none)
+
+// Euro
+const string EU_symb = "6E", const string EU_desc = "Euro"
+EU_clr1 = input.color(color.new(curncy_color, rise), "", inline=EU_symb, group=g5, display=display.none)
+EU_clr2 = input.color(color.new(curncy_color, fall), "", inline=EU_symb, group=g5, display=display.none)
+EU_show = input.bool(false, EU_symb + "   •   " + EU_desc, tt, inline=EU_symb, group=g5, display=display.none)
+
+// Japanese Yen
+const string JY_symb = "6J", const string JY_desc = "Japanese Yen"
+JY_clr1 = input.color(color.new(curncy_color, rise), "", inline=JY_symb, group=g5, display=display.none)
+JY_clr2 = input.color(color.new(curncy_color, fall), "", inline=JY_symb, group=g5, display=display.none)
+JY_show = input.bool(true, JY_symb + "   •   " + JY_desc, tt, inline=JY_symb, group=g5, display=display.none)
+
+// New Zealand Dollar
+const string NZ_symb = "6N", const string NZ_desc = "New Zealand Dollar"
+NZ_clr1 = input.color(color.new(curncy_color, rise), "", inline=NZ_symb, group=g5, display=display.none)
+NZ_clr2 = input.color(color.new(curncy_color, fall), "", inline=NZ_symb, group=g5, display=display.none)
+NZ_show = input.bool(true, NZ_symb + "   •   " + NZ_desc, tt, inline=NZ_symb, group=g5, display=display.none)
+
+// Swiss Franc
+const string SF_symb = "6S", const string SF_desc = "Swiss Franc"
+SF_clr1 = input.color(color.new(curncy_color, rise), "", inline=SF_symb, group=g5, display=display.none)
+SF_clr2 = input.color(color.new(curncy_color, fall), "", inline=SF_symb, group=g5, display=display.none)
+SF_show = input.bool(true, SF_symb + "   •   " + SF_desc, tt, inline=SF_symb, group=g5, display=display.none)
+
+// Ultra U.S. Treasury Bond
+const string UB_symb = "UB", const string UB_desc = "Ultra U.S. Treasury Bond"
+UB_clr1 = input.color(color.new(bond_color, rise), "", inline=UB_symb, group=g6, display=display.none)
+UB_clr2 = input.color(color.new(bond_color, fall), "", inline=UB_symb, group=g6, display=display.none)
+UB_show = input.bool(true, UB_symb + "   •   " + UB_desc, tt, inline=UB_symb, group=g6, display=display.none)
+
+// Ultra 10-Year U.S. Treasury Note
+const string TN_symb = "TN", const string TN_desc = "Ultra 10-Yr U.S. T-Note"
+TN_clr1 = input.color(color.new(bond_color, rise), "", inline=TN_symb, group=g6, display=display.none)
+TN_clr2 = input.color(color.new(bond_color, fall), "", inline=TN_symb, group=g6, display=display.none)
+TN_show = input.bool(false, TN_symb + "   •   " + TN_desc, tt, inline=TN_symb, group=g6, display=display.none)
+
+// T-Bond
+const string ZB_symb = "ZB", const string ZB_desc = "T-Bond"
+ZB_clr1 = input.color(color.new(bond_color, rise), "", inline=ZB_symb, group=g6, display=display.none)
+ZB_clr2 = input.color(color.new(bond_color, fall), "", inline=ZB_symb, group=g6, display=display.none)
+ZB_show = input.bool(false, ZB_symb + "   •   " + ZB_desc, tt, inline=ZB_symb, group=g6, display=display.none)
+
+// 10-Year T-Note
+const string ZN_symb = "ZN", const string ZN_desc = "10-Year T-Note"
+ZN_clr1 = input.color(color.new(bond_color, rise), "", inline=ZN_symb, group=g6, display=display.none)
+ZN_clr2 = input.color(color.new(bond_color, fall), "", inline=ZN_symb, group=g6, display=display.none)
+ZN_show = input.bool(false, ZN_symb + "   •   " + ZN_desc, tt, inline=ZN_symb, group=g6, display=display.none)
+
+// 5-Year T-Note
+const string ZF_symb = "ZF", const string ZF_desc = "5-Year T-Note"
+ZF_clr1 = input.color(color.new(bond_color, rise), "", inline=ZF_symb, group=g6, display=display.none)
+ZF_clr2 = input.color(color.new(bond_color, fall), "", inline=ZF_symb, group=g6, display=display.none)
+ZF_show = input.bool(false, ZF_symb + "   •   " + ZF_desc, tt, inline=ZF_symb, group=g6, display=display.none)
+
+// 2-Year T-Note
+const string ZT_symb = "ZT", const string ZT_desc = "2-Year T-Note"
+ZT_clr1 = input.color(color.new(bond_color, rise), "", inline=ZT_symb, group=g6, display=display.none)
+ZT_clr2 = input.color(color.new(bond_color, fall), "", inline=ZT_symb, group=g6, display=display.none)
+ZT_show = input.bool(false, ZT_symb + "   •   " + ZT_desc  + "                  ", tt, inline=ZT_symb, group=g6, display=display.none)
+
+// Corn
+const string ZC_symb = "ZC", const string ZC_desc = "Corn"
+ZC_clr1 = input.color(color.rgb(251, 192, 45, rise), "", inline=ZC_symb, group=g7, display=display.none)
+ZC_clr2 = input.color(color.rgb(251, 192, 45, fall), "", inline=ZC_symb, group=g7, display=display.none)
+ZC_show = input.bool(true, ZC_symb + "   •   " + ZC_desc, tt, inline=ZC_symb, group=g7, display=display.none)
+
+// Wheat
+const string ZW_symb = "ZW", const string ZW_desc = "Wheat"
+ZW_clr1 = input.color(color.rgb(255, 214, 0, rise), "", inline=ZW_symb, group=g7, display=display.none)
+ZW_clr2 = input.color(color.rgb(255, 214, 0, fall), "", inline=ZW_symb, group=g7, display=display.none)
+ZW_show = input.bool(true, ZW_symb + "   •   " + ZW_desc, tt, inline=ZW_symb, group=g7, display=display.none)
+
+// Soybean Oil
+const string ZL_symb = "ZL", const string ZL_desc = "Soybean Oil"
+ZL_clr1 = input.color(color.rgb(56, 142, 60, rise), "", inline=ZL_symb, group=g7, display=display.none)
+ZL_clr2 = input.color(color.rgb(56, 142, 60, fall), "", inline=ZL_symb, group=g7, display=display.none)
+ZL_show = input.bool(true, ZL_symb + "   •   " + ZL_desc, tt, inline=ZL_symb, group=g7, display=display.none)
+
+// Soybean Meal
+const string ZM_symb = "ZM", const string ZM_desc = "Soybean Meal"
+ZM_clr1 = input.color(color.rgb(56, 142, 60, rise), "", inline=ZM_symb, group=g7, display=display.none)
+ZM_clr2 = input.color(color.rgb(56, 142, 60, fall), "", inline=ZM_symb, group=g7, display=display.none)
+ZM_show = input.bool(true, ZM_symb + "   •   " + ZM_desc, tt, inline=ZM_symb, group=g7, display=display.none)
+
+// Soybean
+const string ZS_symb = "ZS", const string ZS_desc = "Soybean"
+ZS_clr1 = input.color(color.rgb(56, 142, 60, rise), "", inline=ZS_symb, group=g7, display=display.none)
+ZS_clr2 = input.color(color.rgb(56, 142, 60, fall), "", inline=ZS_symb, group=g7, display=display.none)
+ZS_show = input.bool(false, ZS_symb + "   •   " + ZS_desc, tt, inline=ZS_symb, group=g7, display=display.none)
+
+// Cocoa
+const string CC_symb = "CC", const string CC_desc = "Cocoa"
+CC_clr1 = input.color(color.rgb(107, 71, 50, rise), "", inline=CC_symb, group=g7, display=display.none)
+CC_clr2 = input.color(color.rgb(107, 71, 50, fall), "", inline=CC_symb, group=g7, display=display.none)
+CC_show = input.bool(false, CC_symb + "   •   " + CC_desc, tt, inline=CC_symb, group=g7, display=display.none)
+
+// Coffee
+const string KC_symb = "KC", const string KC_desc = "Coffee"
+KC_clr1 = input.color(color.rgb(47, 14, 19, rise), "", inline=KC_symb, group=g7, display=display.none)
+KC_clr2 = input.color(color.rgb(47, 14, 19, fall), "", inline=KC_symb, group=g7, display=display.none)
+KC_show = input.bool(false, KC_symb + "   •   " + KC_desc, tt, inline=KC_symb, group=g7, display=display.none)
+
+// Sugar No. 11
+const string SB_symb = "SB", const string SB_desc = "Sugar No. 11"
+SB_clr1 = input.color(color.rgb(208, 192, 172, rise), "", inline=SB_symb, group=g7, display=display.none)
+SB_clr2 = input.color(color.rgb(208, 192, 172, fall), "", inline=SB_symb, group=g7, display=display.none)
+SB_show = input.bool(false, SB_symb + "   •   " + SB_desc, tt, inline=SB_symb, group=g7, display=display.none)
+
+// Cotton No. 2
+const string CT_symb = "CT", const string CT_desc = "Cotton No. 2"
+CT_clr1 = input.color(color.rgb(188, 172, 146, rise), "", inline=CT_symb, group=g7, display=display.none)
+CT_clr2 = input.color(color.rgb(188, 172, 146, fall), "", inline=CT_symb, group=g7, display=display.none)
+CT_show = input.bool(false, CT_symb + "   •   " + CT_desc, tt, inline=CT_symb, group=g7, display=display.none)
+
+// Live Cattle
+const string LE_symb = "LE", const string LE_desc = "Live Cattle"
+LE_clr1 = input.color(color.rgb(194, 106, 68, rise), "", inline=LE_symb, group=g7, display=display.none)
+LE_clr2 = input.color(color.rgb(194, 106, 68, fall), "", inline=LE_symb, group=g7, display=display.none)
+LE_show = input.bool(false, LE_symb + "   •   " + LE_desc, tt, inline=LE_symb, group=g7, display=display.none)
+
+// Lean Hog
+const string HE_symb = "HE", const string HE_desc = "Lean Hog"
+HE_clr1 = input.color(color.rgb(229, 115, 115, rise), "", inline=HE_symb, group=g7, display=display.none)
+HE_clr2 = input.color(color.rgb(229, 115, 115, fall), "", inline=HE_symb, group=g7, display=display.none)
+HE_show = input.bool(false, HE_symb + "   •   " + HE_desc, tt, inline=HE_symb, group=g7, display=display.none)
+
+// General Settings
+const string n1 = "Todays Open", const string n2 = "Yesterdays Close"
+nrmSrc = input.string(n1, "Norm. Source", [n1, n2], "The source used to normalize todays change (the \"zero\" value).", group=g0, display=display.none)
+const string d1 = "Percentage ( % )", const string d2 = "Basis Points ( ‱ )", const string d3 = "Value Delta ( Δ )"
+delta = input.string(d1, "Measure as...", [d1, d2, d3], group=g0, display=display.none)
+const string c1 = "Expansion & Contraction", const string c2 = "Positive & Negative", const string c3 = "Rise & Fall", const string c4 = "Monotone", const string c1_desc = c1 + "\nWhen price is FURTHER away from zero than the previous bars close, the first color will be used. When the price is CLOSER to zero than the pervious bars close, the second color will be used.\n\n", const string c2_desc = c2 + "\nWhen price is ABOVE zero, the first color will be used. When price is BELOW zero, the second color will be used.\n\n", const string c3_desc = c3 + "\nWhen price is GREATER than the previous bars close, the first color will be used. When price is LESS than the previous bars close, the second color will be used.\n\n", const string c4_desc = c4 + "\nUses the first color for all conditions.", const string clr_desc = c1_desc + c2_desc + c3_desc + c4_desc
+color_scheme = input.string(c1, "Color Scheme", [c1, c2, c3, c4], clr_desc, group=g0, display=display.none)
+plot_style = input.string("Area", "Plot Style", ["Area", "Line"], group=g0, display=display.none), var style = plot_style == "Area" ? plot.style_areabr : plot.style_linebr
+width = input.int(1, "Line Width", 1, 10, 1, group=g0, display=display.none)
+txtClrMatch = input.bool(true, "Match label text color to plot color", group=g0, display=display.none)
+mergeLabels = input.bool(false, "Merge labels within", inline="merge", group=g0, display=display.none)
+mergeThreshold = input.float(0.15, "", 0.01, 1000, 0.01, inline="merge", group=g0, display=display.none)
+zones  = input.bool(true, "Zones", inline="zone", group=g0, display=display.none)
+zone_1 = input.float(0.75, "", 0, 10, inline="zone", group=g0, display=display.none)
+zone_2 = input.float(1.5, "", 0, 10, inline="zone", group=g0, display=display.none)
+zero = input.bool(true, "Zero   ", inline="zero", group=g0, display=display.none)
+
+
+
+// ----------------------------------------------------- CORE ------------------------------------------------------ //
+
+// @type Object to store symbol data.
+type symData
+    bool   Show
+    string Ticker
+    string Name
+    color  Color_1
+    color  Color_2
+    label  Label
+    float  Norm
+    float  Change
+
+// @variable An array of all symbols in this script.
+var symbols = array.new<symData>()
+
+// Glyph of measurement type
+var diffGlyph = switch delta
+    d1 => " %"
+    d2 => " ‱"
+    d3 => " Δ"
+
+// @function Assembles the text and tooltip strings for a label.
+method new_label_string(symData s, string Type, array<string> strArr = na, array<float> fltArr = na) =>
+    dir = math.sign(s.Change) > 0 ? "+" : "-"
+    chg = str.tostring(math.round(math.abs(s.Change), 2))
+    if Type == "text"
+        if na(strArr)
+            "← " + s.Ticker + " • " + dir + chg + diffGlyph
+        else
+            "← " + strArr.join(" / ")
+    else
+        if na(strArr)
+            s.Name + " " + dir + chg + diffGlyph
+        else
+            for [i, str] in strArr
+                strArr.set(i, str + " " + dir + str.tostring(math.round(math.abs(fltArr.get(i)), 2)) + diffGlyph)
+            strArr.join("\n")
+
+// @function Creates a new label for a symbols plot.
+method new_label(symData s, array<string> tickArr = na, array<string> nameArr = na, array<float> chngArr = na) =>
+    if not na(s.Norm)
+        y = na(chngArr) ? na(s.Change) ? 0 : s.Change : chngArr.median()
+        Color = na(tickArr) ? txtClrMatch ? color.new(s.Color_1, color.t(s.Color_1) / 3) : color.new(chart.fg_color, 50) : color.new(chart.fg_color, 25)
+        Text = s.new_label_string("text", tickArr, chngArr)
+        Tool = s.new_label_string("tool", nameArr, chngArr)
+        s.Label := label.new(time, y, Text, xloc.bar_time, yloc.price, none, label.style_label_left, Color, size.normal, text.align_left, Tool)
+
+// @function Updates label coordinates and strings.
+method update_label(symData s) =>
+    if na(s.Label)
+        s.new_label()
+    else
+        s.Label.set_x(time)
+        s.Label.set_y(s.Change)
+        s.Label.set_text(s.new_label_string("text"))
+        s.Label.set_tooltip(s.new_label_string("tool"))
+    true
+
+
+// Initialize symbols
+var Symbols_Not_Initialized = true
+if Symbols_Not_Initialized
+
+    // Create temporary arrays to help initialize the symbols object array
+    plots = array.from(NQ_show, ES_show, RT_show, YM_show, SI_show, GC_show, HG_show, PL_show, PA_show, CL_show, NG_show, RB_show, HO_show, BC_show, ET_show, DX_show, AD_show, BP_show, CA_show, EU_show, JY_show, NZ_show, SF_show, UB_show, TN_show, ZB_show, ZN_show, ZF_show, ZT_show, ZW_show, ZS_show, ZL_show, ZC_show, CC_show, KC_show, SB_show, ZM_show, CT_show, LE_show, HE_show)
+    ticks = array.from(NQ_symb, ES_symb, RT_symb, YM_symb, SI_symb, GC_symb, HG_symb, PL_symb, PA_symb, CL_symb, NG_symb, RB_symb, HO_symb, BC_symb, ET_symb, DX_symb, AD_symb, BP_symb, CA_symb, EU_symb, JY_symb, NZ_symb, SF_symb, UB_symb, TN_symb, ZB_symb, ZN_symb, ZF_symb, ZT_symb, ZW_symb, ZS_symb, ZL_symb, ZC_symb, CC_symb, KC_symb, SB_symb, ZM_symb, CT_symb, LE_symb, HE_symb)
+    names = array.from(NQ_desc, ES_desc, RT_desc, YM_desc, SI_desc, GC_desc, HG_desc, PL_desc, PA_desc, CL_desc, NG_desc, RB_desc, HO_desc, BC_desc, ET_desc, DX_desc, AD_desc, BP_desc, CA_desc, EU_desc, JY_desc, NZ_desc, SF_desc, UB_desc, TN_desc, ZB_desc, ZN_desc, ZF_desc, ZT_desc, ZW_desc, ZS_desc, ZL_desc, ZC_desc, CC_desc, KC_desc, SB_desc, ZM_desc, CT_desc, LE_desc, HE_desc)
+    clr1  = array.from(NQ_clr1, ES_clr1, RT_clr1, YM_clr1, SI_clr1, GC_clr1, HG_clr1, PL_clr1, PA_clr1, CL_clr1, NG_clr1, RB_clr1, HO_clr1, BC_clr1, ET_clr1, DX_clr1, AD_clr1, BP_clr1, CA_clr1, EU_clr1, JY_clr1, NZ_clr1, SF_clr1, UB_clr1, TN_clr1, ZB_clr1, ZN_clr1, ZF_clr1, ZT_clr1, ZW_clr1, ZS_clr1, ZL_clr1, ZC_clr1, CC_clr1, KC_clr1, SB_clr1, ZM_clr1, CT_clr1, LE_clr1, HE_clr1)
+    clr2  = array.from(NQ_clr2, ES_clr2, RT_clr2, YM_clr2, SI_clr2, GC_clr2, HG_clr2, PL_clr2, PA_clr2, CL_clr2, NG_clr2, RB_clr2, HO_clr2, BC_clr2, ET_clr2, DX_clr2, AD_clr2, BP_clr2, CA_clr2, EU_clr2, JY_clr2, NZ_clr2, SF_clr2, UB_clr2, TN_clr2, ZB_clr2, ZN_clr2, ZF_clr2, ZT_clr2, ZW_clr2, ZS_clr2, ZL_clr2, ZC_clr2, CC_clr2, KC_clr2, SB_clr2, ZM_clr2, CT_clr2, LE_clr2, HE_clr2)
+
+    // Set plot visibility
+    enabledPlots = 0
+    for [i, show] in plots
+        if show
+            s = symData.new(true)
+            s.Ticker  := ticks.get(i)
+            s.Name    := names.get(i)
+            s.Color_1 := clr1.get(i)
+            s.Color_2 := clr2.get(i)
+            symbols.push(s)
+            enabledPlots += show ? 1 : 0
+    
+    if enabledPlots > 20
+        runtime.error(str.format("Maximum number of enabled symbols (20) was reached. You have {0} enabled.", enabledPlots))
+    else
+        for i = 1 to 20 - symbols.size()
+            symbols.push(symData.new(false))
+
+    Symbols_Not_Initialized := false
+
+newSession = session.isfirstbar
+overlapped = map.new<float, string>()
+
+// Track normalized changes
+for [i, s] in symbols
+    if s.Show 
+
+        // Reset norm value each new session
+        if newSession
+            s.Norm := na
+            s.Label.delete()
+
+        // Because request.*() is limited to 40 calls, 1 timeframe counts as a call, and 2 timeframes are used per
+        // symbol (1D and timeframe.period), a runtime error will occur when more than 20 symbols are enabled.
+        // Norm. values must come from a "1D" chart, and the plots require values from the timeframe.period,
+        // thus the limitation is unavoidable.
+        [Open, Close, Close_1, Time_TradingDay] = request.security(s.Ticker + "1!", na(s.Norm) ? "1D" : timeframe.period, [open, close, close[1], time_tradingday], lookahead = barmerge.lookahead_on)
+
+        // Because the time of the first bar is irregular accross Futures, it's important the requested security and
+        // the charted security have the same time_tradingday to ensure the normalization works as expected.
+        if Time_TradingDay == time_tradingday
+            if na(s.Norm)
+                s.Norm := nrmSrc == n1 ? Open : Close_1
+            else
+                s.Change := switch delta
+                    d1 => (Close / s.Norm - 1) * 100   // Percent
+                    d2 => (Close / s.Norm - 1) * 10000 // Basis Points
+                    d3 => Close - s.Norm               // Value
+        else if newSession
+            s.Change := 0
+
+        // Track which labels to merge when enabled, or simply update the label
+        if mergeLabels
+            price = math.round(s.Change / mergeThreshold) * mergeThreshold
+            overlapped.put(price, overlapped.get(price) + str.tostring(i) + " ")
+        else
+            s.update_label()
+
+// Merge labels with identical levels
+if mergeLabels
+    tickArr = array.new_string()
+    nameArr = array.new_string()
+    chngArr = array.new_float()
+    for val in overlapped.values()
+        str = str.trim(val)
+        arr = str.split(str, " ")
+        i = int(str.tonumber(arr.get(0)))
+        s = symbols.get(i)
+
+        // When more than one label has the same rounded Y coordinate…
+        if arr.size() > 1
+            for idx in arr
+                S = symbols.get(int(str.tonumber(idx)))
+                tickArr.push(S.Ticker)
+                nameArr.push(S.Name)
+                chngArr.push(S.Change)
+                S.Label.delete()
+
+            // Give one of the symbols a label with all the names
+            s.new_label(tickArr, nameArr, chngArr)
+
+            // Clear arrays for next iteration
+            tickArr.clear(), nameArr.clear(), chngArr.clear()
+
+        // Otherwise give the unique value a new label when the line is displayed
+        else
+            s.Label.delete()
+            s.new_label()
+
+
+
+// ---------------------------------------------------- PLOTS ------------------------------------------------------ //
+
+// @function Gets a symbols changed value.
+Series(int i) => symbols.get(i).Change
+
+// @function Gets a setting specific color.
+Color(int i) =>
+    s = symbols.get(i)
+    color plotColor = na
+    if s.Show
+        pos = s.Change > 0
+        neg = s.Change < 0
+        up  = s.Change > s.Change[1]
+        dn  = s.Change < s.Change[1]
+        exp = (pos and up) or (neg and dn) 
+        switch color_scheme
+            c1 => plotColor := exp ? s.Color_1 : s.Color_2
+            c2 => plotColor := pos ? s.Color_1 : s.Color_2
+            c3 => plotColor := up  ? s.Color_1 : s.Color_2
+            => plotColor := s.Color_1
+        if txtClrMatch and not na(s.Label)
+            if not str.contains(s.Label.get_text(), "/")
+                s.Label.set_textcolor(color.new(plotColor, color.t(plotColor) / 3))
+    plotColor
+
+// Only 20 plots are supported because of the request.security() call limitations.
+plot(Series(0),  "", Color(0),  width, style, editable=false, display= display.pane)
+plot(Series(1),  "", Color(1),  width, style, editable=false, display= display.pane)
+plot(Series(2),  "", Color(2),  width, style, editable=false, display= display.pane)
+plot(Series(3),  "", Color(3),  width, style, editable=false, display= display.pane)
+plot(Series(4),  "", Color(4),  width, style, editable=false, display= display.pane)
+plot(Series(5),  "", Color(5),  width, style, editable=false, display= display.pane)
+plot(Series(6),  "", Color(6),  width, style, editable=false, display= display.pane)
+plot(Series(7),  "", Color(7),  width, style, editable=false, display= display.pane)
+plot(Series(8),  "", Color(8),  width, style, editable=false, display= display.pane)
+plot(Series(9),  "", Color(9),  width, style, editable=false, display= display.pane)
+plot(Series(10), "", Color(10), width, style, editable=false, display= display.pane)
+plot(Series(11), "", Color(11), width, style, editable=false, display= display.pane)
+plot(Series(12), "", Color(12), width, style, editable=false, display= display.pane)
+plot(Series(13), "", Color(13), width, style, editable=false, display= display.pane)
+plot(Series(14), "", Color(14), width, style, editable=false, display= display.pane)
+plot(Series(15), "", Color(15), width, style, editable=false, display= display.pane)
+plot(Series(16), "", Color(16), width, style, editable=false, display= display.pane)
+plot(Series(17), "", Color(17), width, style, editable=false, display= display.pane)
+plot(Series(18), "", Color(18), width, style, editable=false, display= display.pane)
+plot(Series(19), "", Color(19), width, style, editable=false, display= display.pane)
+
+// Zone Multiplier
+var zone_mult = switch delta
+    d1 => 1
+    d2 => 100
+    d3 => 0
+
+// Plot Positive Zone
+var pos_1_pct = hline(zones ? zone_1 * zone_mult : na, "", none, hline.style_solid, 1, false, display.none)
+var pos_2_pct = hline(zones ? zone_2 * zone_mult : na, "", none, hline.style_solid, 1, false, display.none)
+fill(pos_1_pct, pos_2_pct, zone_color, "", false)
+
+// Plot Negative Zone
+var neg_1_pct = hline(zones ?-zone_1 * zone_mult : na, "", none, hline.style_solid, 1, false, display.none)
+var neg_2_pct = hline(zones ?-zone_2 * zone_mult : na, "", none, hline.style_solid, 1, false, display.none)
+fill(neg_1_pct, neg_2_pct, zone_color, "", false)
+
+// Plot zero line
+var zro_0_pct = hline(zero ? 0 : na, "", color.new(chart.fg_color, 75), hline.style_dotted, 1, false, display.all)

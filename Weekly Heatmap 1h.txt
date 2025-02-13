@@ -1,0 +1,201 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © entomologyx
+// © BobRivera990
+// I took the script from BobRivera990 who unfortunately hasn't been active since 2022. I really loved the script and just did a new iteration with the most requested features and some own ideas
+//@version=5
+indicator("[Weekly Heatmap 1h]", overlay=true)
+
+var string GP01 = "Background Color"
+var string GP02 = "Text Color"
+var string GP03 = "Settings"
+
+var color LOW_COLOR  = color.rgb(255, 241, 118, 0)
+var color HIGH_COLOR = color.rgb(233, 30, 99, 0)
+
+cellLowColorInput  = input.color(LOW_COLOR,  "Low Color",  inline="01", group=GP01)
+cellHighColorInput = input.color(HIGH_COLOR, "High Color", inline="02", group=GP01)
+textLowColorInput  = input.color(color.black, "Low Color",  inline="03", group=GP02)
+textHighColorInput = input.color(color.yellow, "High Color", inline="04", group=GP02)
+
+lookbackWeeks     = input.int(100, "Lookback Period (Weeks) Start", minval=1, group=GP03)
+offsetWeeks       = input.int(0,   "Lookback Period (Weeks) End",   minval=0, group=GP03)
+timezoneOffset    = input.int(0,   "Timezone Offset (Hours)",       minval=-12, maxval=14, group=GP03)
+// Change the value type options so that we use "Close-Open" (i.e. close minus open)
+valueType         = input.string("Volume", "Value Type", options=["Range", "Volume", "Winrate", "Close-Open"], group=GP03)
+currentColorInput = input.color(color.rgb(112, 74, 226), "Current Color", group=GP03)
+
+int barDay  = dayofweek(time + timezoneOffset * 3600000)
+int barHour = hour(time + timezoneOffset * 3600000)
+
+// analysisStart: beginning of lookback period
+// analysisEnd:   end of lookback period (exclusive)
+int analysisStart = int(timenow - (lookbackWeeks * 7 * 24 * 60 * 60 * 1000))
+int analysisEnd   = int(timenow - (offsetWeeks   * 7 * 24 * 60 * 60 * 1000))
+
+var bool IS_CORRECT_TIMEFRAME = timeframe.isminutes and timeframe.multiplier == 60
+
+var string DBOX_TIMEFRAME    = "Please use 1-hour timeframe!!!"
+var string DBOX_DATA         = "The data vendor doesn't provide the selected data for this symbol!"
+var string DBOX_LOOKBACK_ERR = "Offset Weeks must be less than Lookback Period (Weeks)"
+
+// Global dialog box and main table declarations
+var table dialogBox = table.new(position.bottom_center, 1, 1, bgcolor=color.yellow)
+var table mainTable = table.new(position.bottom_left, 25, 8, bgcolor=color.white)
+
+getAvgValue(_cumArray, _cntArray, _index) =>
+    float _cum = array.get(_cumArray, _index)
+    int   _cnt = array.get(_cntArray, _index)
+    _cnt == 0 ? 0 : _cum / _cnt
+
+getMinValue(_sunAvgArray, _monAvgArray, _tueAvgArray, _wedAvgArray, _thrAvgArray, _friAvgArray, _satAvgArray) =>
+    float _min1 = array.min(_sunAvgArray)
+    float _min2 = array.min(_monAvgArray)
+    float _min3 = array.min(_tueAvgArray)
+    float _min4 = array.min(_wedAvgArray)
+    float _min5 = array.min(_thrAvgArray)
+    float _min6 = array.min(_friAvgArray)
+    float _min7 = array.min(_satAvgArray)
+    math.min(_min1, _min2, _min3, _min4, _min5, _min6, _min7)
+
+getMaxValue(_sunAvgArray, _monAvgArray, _tueAvgArray, _wedAvgArray, _thrAvgArray, _friAvgArray, _satAvgArray) =>
+    float _max1 = array.max(_sunAvgArray)
+    float _max2 = array.max(_monAvgArray)
+    float _max3 = array.max(_tueAvgArray)
+    float _max4 = array.max(_wedAvgArray)
+    float _max5 = array.max(_thrAvgArray)
+    float _max6 = array.max(_friAvgArray)
+    float _max7 = array.max(_satAvgArray)
+    math.max(_max1, _max2, _max3, _max4, _max5, _max6, _max7)
+
+getTotalValue(_sunAvgArray, _monAvgArray, _tueAvgArray, _wedAvgArray, _thrAvgArray, _friAvgArray, _satAvgArray) =>
+    float _sum1 = array.sum(_sunAvgArray)
+    float _sum2 = array.sum(_monAvgArray)
+    float _sum3 = array.sum(_tueAvgArray)
+    float _sum4 = array.sum(_wedAvgArray)
+    float _sum5 = array.sum(_thrAvgArray)
+    float _sum6 = array.sum(_friAvgArray)
+    float _sum7 = array.sum(_satAvgArray)
+    _sum1 + _sum2 + _sum3 + _sum4 + _sum5 + _sum6 + _sum7
+
+// In fillCell, for "Close-Open" we display the raw average value with 4 decimals.
+// For other value types, we display a share or winrate.
+fillCell(_table, _columnId, _rowId, _avgArray, _minValue, _maxValue, _totalValue) =>
+    float _avgValue  = array.get(_avgArray, _columnId - 1)
+    float _share     = _totalValue == 0 ? 0 : _avgValue / _totalValue
+    string _cellText = valueType == "Winrate" ? str.tostring(_avgValue * 100, "0.00") + "%" :
+                       (valueType == "Close-Open" ? str.tostring(_avgValue, "0.0000") : str.tostring(_share, "0.00%"))
+    color _bgColor   = color.from_gradient(_avgValue, _minValue, _maxValue, cellLowColorInput, cellHighColorInput)
+    color _textColor = color.from_gradient(_avgValue, _minValue, _maxValue, textLowColorInput, textHighColorInput)
+    bool isCurrentHour = (_columnId == (barHour + 1)) and (_rowId == barDay)
+    if isCurrentHour
+        _bgColor := currentColorInput
+    table.cell(_table, _columnId, _rowId, _cellText, text_color=_textColor, bgcolor=_bgColor)
+
+fillColumn(_table, _columnId, _sunAvgArray, _monAvgArray, _tueAvgArray, _wedAvgArray, _thrAvgArray, _friAvgArray, _satAvgArray, _minValue, _maxValue, _totalValue) =>
+    string _header = str.tostring(_columnId - 1, "00")
+    table.cell(_table, _columnId, 0, _header, text_color=color.white, bgcolor=color.black)
+    fillCell(_table, _columnId, 1, _sunAvgArray, _minValue, _maxValue, _totalValue)
+    fillCell(_table, _columnId, 2, _monAvgArray, _minValue, _maxValue, _totalValue)
+    fillCell(_table, _columnId, 3, _tueAvgArray, _minValue, _maxValue, _totalValue)
+    fillCell(_table, _columnId, 4, _wedAvgArray, _minValue, _maxValue, _totalValue)
+    fillCell(_table, _columnId, 5, _thrAvgArray, _minValue, _maxValue, _totalValue)
+    fillCell(_table, _columnId, 6, _friAvgArray, _minValue, _maxValue, _totalValue)
+    fillCell(_table, _columnId, 7, _satAvgArray, _minValue, _maxValue, _totalValue)
+
+showDialog(_dialogBox, _dialog) =>
+    table.cell(_dialogBox, 0, 0, _dialog, text_color=color.red, text_size=size.large)
+
+// Arrays to accumulate data per hour for each day of week
+var float[] sunCumArray = array.new_float(24, 0.0)
+var float[] monCumArray = array.new_float(24, 0.0)
+var float[] tueCumArray = array.new_float(24, 0.0)
+var float[] wedCumArray = array.new_float(24, 0.0)
+var float[] thuCumArray = array.new_float(24, 0.0)
+var float[] friCumArray = array.new_float(24, 0.0)
+var float[] satCumArray = array.new_float(24, 0.0)
+
+var int[] sunCntArray = array.new_int(24, 0)
+var int[] monCntArray = array.new_int(24, 0)
+var int[] tueCntArray = array.new_int(24, 0)
+var int[] wedCntArray = array.new_int(24, 0)
+var int[] thuCntArray = array.new_int(24, 0)
+var int[] friCntArray = array.new_int(24, 0)
+var int[] satCntArray = array.new_int(24, 0)
+
+var float[] sunAvgArray = array.new_float(24, 0)
+var float[] monAvgArray = array.new_float(24, 0)
+var float[] tueAvgArray = array.new_float(24, 0)
+var float[] wedAvgArray = array.new_float(24, 0)
+var float[] thuAvgArray = array.new_float(24, 0)
+var float[] friAvgArray = array.new_float(24, 0)
+var float[] satAvgArray = array.new_float(24, 0)
+
+var float minValue   = na
+var float maxValue   = na
+var float totalValue = na
+
+var bool cndNoData = false
+
+// Use "Close-Open": value is computed as close - open
+float selectedValue = switch valueType
+    "Range"      => high - low
+    "Volume"     => volume
+    "Winrate"    => close > open ? 1.0 : 0.0
+    "Close-Open" => close - open
+
+// Accumulate data only for bars within the analysis period
+if IS_CORRECT_TIMEFRAME and time >= analysisStart and time < analysisEnd
+    switch barDay
+        1 => array.set(sunCumArray, barHour, array.get(sunCumArray, barHour) + selectedValue), array.set(sunCntArray, barHour, array.get(sunCntArray, barHour) + 1)
+        2 => array.set(monCumArray, barHour, array.get(monCumArray, barHour) + selectedValue), array.set(monCntArray, barHour, array.get(monCntArray, barHour) + 1)
+        3 => array.set(tueCumArray, barHour, array.get(tueCumArray, barHour) + selectedValue), array.set(tueCntArray, barHour, array.get(tueCntArray, barHour) + 1)
+        4 => array.set(wedCumArray, barHour, array.get(wedCumArray, barHour) + selectedValue), array.set(wedCntArray, barHour, array.get(wedCntArray, barHour) + 1)
+        5 => array.set(thuCumArray, barHour, array.get(thuCumArray, barHour) + selectedValue), array.set(thuCntArray, barHour, array.get(thuCntArray, barHour) + 1)
+        6 => array.set(friCumArray, barHour, array.get(friCumArray, barHour) + selectedValue), array.set(friCntArray, barHour, array.get(friCntArray, barHour) + 1)
+        7 => array.set(satCumArray, barHour, array.get(satCumArray, barHour) + selectedValue), array.set(satCntArray, barHour, array.get(satCntArray, barHour) + 1)
+
+if barstate.islast
+    // Compute averages for each hour slot for each day
+    for _hour = 0 to 23
+        float _avg = getAvgValue(sunCumArray, sunCntArray, _hour)
+        array.set(sunAvgArray, _hour, _avg)
+        _avg := getAvgValue(monCumArray, monCntArray, _hour)
+        array.set(monAvgArray, _hour, _avg)
+        _avg := getAvgValue(tueCumArray, tueCntArray, _hour)
+        array.set(tueAvgArray, _hour, _avg)
+        _avg := getAvgValue(wedCumArray, wedCntArray, _hour)
+        array.set(wedAvgArray, _hour, _avg)
+        _avg := getAvgValue(thuCumArray, thuCntArray, _hour)
+        array.set(thuAvgArray, _hour, _avg)
+        _avg := getAvgValue(friCumArray, friCntArray, _hour)
+        array.set(friAvgArray, _hour, _avg)
+        _avg := getAvgValue(satCumArray, satCntArray, _hour)
+        array.set(satAvgArray, _hour, _avg)
+    minValue   := getMinValue(sunAvgArray, monAvgArray, tueAvgArray, wedAvgArray, thuAvgArray, friAvgArray, satAvgArray)
+    maxValue   := getMaxValue(sunAvgArray, monAvgArray, tueAvgArray, wedAvgArray, thuAvgArray, friAvgArray, satAvgArray)
+    totalValue := getTotalValue(sunAvgArray, monAvgArray, tueAvgArray, wedAvgArray, thuAvgArray, friAvgArray, satAvgArray)
+    // Define dataAvailable so that for "Close-Open" we assume data is available even if totalValue==0.
+    bool dataAvailable = (valueType == "Close-Open") or (totalValue > 0)
+    
+    // Instead of cndNoData, we now use dataAvailable in the final check.
+    if not IS_CORRECT_TIMEFRAME
+        showDialog(dialogBox, DBOX_TIMEFRAME)
+    else if offsetWeeks >= lookbackWeeks
+        showDialog(dialogBox, DBOX_LOOKBACK_ERR)
+    else if not dataAvailable
+        showDialog(dialogBox, DBOX_DATA)
+    else
+        // Update table headers
+        table.cell(mainTable, 0, 0, "", text_color=color.white, bgcolor=color.black)
+        table.cell(mainTable, 0, 1, "Sun", text_color=color.white, bgcolor=color.black)
+        table.cell(mainTable, 0, 2, "Mon", text_color=color.white, bgcolor=color.black)
+        table.cell(mainTable, 0, 3, "Tue", text_color=color.white, bgcolor=color.black)
+        table.cell(mainTable, 0, 4, "Wed", text_color=color.white, bgcolor=color.black)
+        table.cell(mainTable, 0, 5, "Thu", text_color=color.white, bgcolor=color.black)
+        table.cell(mainTable, 0, 6, "Fri", text_color=color.white, bgcolor=color.black)
+        table.cell(mainTable, 0, 7, "Sat", text_color=color.white, bgcolor=color.black)
+        for _columnId = 1 to 24
+            fillColumn(mainTable, _columnId, sunAvgArray, monAvgArray, tueAvgArray, wedAvgArray, thuAvgArray, friAvgArray, satAvgArray, minValue, maxValue, totalValue)
+        // Draw vertical lines to mark analysisStart and analysisEnd using time (xloc.bar_time)
+    line.new(x1=analysisStart, y1=close + 10 * syminfo.mintick, x2=analysisStart, y2=close - 10 * syminfo.mintick, color=color.white, width=1, xloc=xloc.bar_time)
+line.new(x1=analysisEnd,   y1=close + 10 * syminfo.mintick, x2=analysisEnd,   y2=close - 10 * syminfo.mintick, color=color.white, width=1, xloc=xloc.bar_time)

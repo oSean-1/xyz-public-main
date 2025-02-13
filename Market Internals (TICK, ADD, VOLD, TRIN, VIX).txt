@@ -1,0 +1,314 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © liquid-trader
+
+// This script allows you to perform data transformations on Market Internals, across exchanges, and specify
+// signal parameters, to more easily identify sentiment extremes.
+// More here: https://www.tradingview.com/script/aNrCpO4C-Market-Internals-TICK-ADD-VOLD-TRIN-VIX/
+
+//@version=6
+indicator("Market Internals (TICK, ADD, VOLD, TRIN, VIX)", "Mkt Int", overlay=false, format=format.volume, precision=2,  max_labels_count=500, max_bars_back=1440)
+import liquid-trader/UtilityLibrary/3 as util
+
+
+// ---------------------------------------------------- SETTINGS --------------------------------------------------- //
+
+// Base Colors
+const color none = color.rgb(0,0,0,100), const color clr0 = color.new(color.black, 100), const color clr1 = color.rgb(175, 235, 245), const color clr2 = color.aqua, const color clr3 = color.rgb(35, 150, 245, 50), const color clr4 = color.new(color.red, 50), const color clr5 = color.red, const color clr6 = color.rgb(255, 205, 205), const color clr7 = color.orange, const color clr8 = color.lime, const color clr9 = color.new(color.gray, 50)
+
+// Group Labels
+const string g1 = "Signal", const string g2 = "Plot Colors", const string g3 = "Ancillary Options"
+
+// Market Internal Settings
+const string all = "All Stocks (USA)", const string sum = "Sum of NYSE & NASDAQ", const string avg = "Avg. of NYSE & NASDAQ", const string both = "Both NYSE & NASDAQ", const string ny = "NYSE", const string nq = "NASDAQ", const string TICK = "TICK", const string ADD = "ADD", const string VOLD = "VOLD", const string TRIN = "TRIN", const string VIX = "VIX", const string ABVD = "ABVD", const string TKCD = "TKCD", const string BATD = "BATD", const string DXY = "DXY"
+ind = input.string(TICK, "Indicator   ", [TICK, ADD, VOLD, TRIN, VIX, ABVD, TKCD, BATD, DXY], "TICK\nThe TICK subtracts the total number of stocks making a downtick from the total number of stocks making an uptick.\n\nADD\nThe Advance Decline Difference subtracts the total number of stocks below yesterdays close from the total number of stocks above yesterdays close.\n\nVOLD\nThe Volume Difference subtracts the total declining volume from the total advancing volume.\n\nTRIN\nThe Arms Index (aka. Trading Index) divides the ratio of Advancing Stocks / Volume by the ratio of Declining Stocks / Volume.\n\nVIX\nThe CBOE Volatility Index is derived from SPX index option prices, generating a 30-day forward projection of volatility.\n\nABVD\nAn unofficial index measuring all stocks above VWAP as a percent difference.\n\nTKCD\nAn unofficial index subtracting the total number of market down ticks from the total number of market up ticks.\n\nBATD\nAn unofficial index measuring the difference between trades that occured at the ask and trades that occured at the bid.\n\nDXY\nThe U.S. Dollar Index", inline="internal")
+exch = input.string(all, "", [all, sum, avg, both, ny, nq], inline="internal")
+
+// Plot Type Settings
+const string m1 = "Candles", const string m2 = "Bars", const string m3 = "Line", const string m4 = "Circles", const string m5 = "Columns"
+mode = input.string(m1, "Mode        ", [m1, m2, m3, m4, m5], "How the data will be displayed and the source used for colors / non-OHLC plots.\n\n\"Max\" is the value furthest from zero.\n\"Min\"is the value nearest to zero.", inline="mode", display=display.none)
+
+// Source Settings
+const string O = "open", const string H = "high", const string L = "low", const string C = "close", const string HL2 = "hl2", const string HLC3 = "hlc3", const string OHLC4 = "ohlc4", const string HLCC4 = "hlcc4", const string MAX = "Max", const string MIN = "Min"
+src = input.string(C, "", [O,H,L,C,HL2, HLC3, OHLC4, HLCC4, MAX, MIN], "", inline="mode", display=display.none)
+
+// Scale Settings
+const string bv = "Bar Value", const string cm = "Cumulative", const string ra = "Raw", const string ro = "Ratio", const string pd = "Percent Diff."
+scale = input.string(bv, "Scale        ", [bv,cm],"Bar Value\nThe value of a given bar.\n\nCumulative\nThe value of a given bar and all preceeding bars in a session.\n\nRaw\nThe exact value of the underlying symbol.\n\nRatio\nA directionalized ratio, where values > 1 are positive and bullish, and values < 1 are negative and bearish. For example, a ratio of \"0.5\" would be a bearish \"-2\", \"0.25\" would be \"-4\", etc. The VIX, TRIN, and DXY are automatically inverted to retain the scales bull-bear intention.\n\nPercent Diff.\nThe bull-bear difference as a precentage. As with the ratio, the VIX, TRIN, and DXY are automatically inverted to retain the scales bull-bear intention.", inline="scale"), cumulative = scale == cm
+barVal = input.string(ra, "", [ra, ro, pd], inline="scale"), raw = barVal == ra, ratio = barVal == ro, pctDif = barVal == pd
+norm = input.bool(true, "Ratio Norm. Threshold ", "A ratio will be normalized to 0 when 1:1, scaled linearly toward the specified threshold when greater than 1:1, and then retain its exact value when the threshold is crossed.\n\nFor example, with a threshold of \"2\":\n1:1 = 0,  1.5:1 = 1, 2:1 = 2, 3:1 = 3, etc.\n\nThis helps create continuity between positive and negative ratios, where the plot might otherwise display unexpectedly, at the expense of being technically incorrect between 0 and the threshold.\n\nWith this in mind, most traders will want to set the ratios threshold at a level where accuracy becomes more important than visual continuity. If this level is unknown, \"2\" is a good baseline, as it represents one side of the ratio being double the other.", inline="normalize", display=display.none)
+normLvl = input.float(2, "", 1, inline="normalize", display=display.none)
+reset = input.bool(true, "Reset cumulative total with each new session.")
+
+// Signal Range Settings
+shoSig = input.bool(true, "Show signal ranges", tooltip="Displays ranges for a given market internal. The signal ranges are hidden when values are cumulative.", group=g1, display=display.none)
+ovrMax = input.bool(false, "Override Max ", tooltip="Overrides the signals default Max level. Each level is multiplied by -1 to get an equivalent range below zero.", inline="sigMax", group=g1, display=display.none)
+sigMax = input.float(3000, "", 0, inline="sigMax", group=g1, display=display.none)
+ovrMin = input.bool(false, "Override Min  ", tooltip="Overrides the signals default Min level. Each level is multiplied by -1 to get an equivalent range below zero.", inline="sigMin", group=g1, display=display.none)
+sigMin = input.float(1500, "", 0, inline="sigMin", group=g1, display=display.none)
+noise = input.bool(false, "Reduce Noise", "Shifts values closer to zero when they are below the lower signal threshold. The specified number is the exponent in a power function. For candle / bar modes, each value will be adjusted toward zero. For line / circle / column modes, the value closest to zero will display.", inline="noise", group=g1, display=display.none)
+nosLvl = input.float(1.5, "", inline="noise", group=g1, display=display.none)
+shoBthSig = input.bool(false, "Always keep both signal zones visible", group=g1, display=display.none)
+
+// Plot Color Settings
+clrUp = input.color(clr3, "Bull  ", "Default, within signal, and beyond signal colors.", inline="bullColors", group=g2, display=display.none)
+sigHi = input.color(clr2, "", inline="bullColors", group=g2, display=display.none)
+maxHi = input.color(clr1, "", inline="bullColors", group=g2, display=display.none)
+clrDn = input.color(clr4, "Bear", "Default, within signal, and beyond signal colors.", inline="bearColors", group=g2, display=display.none)
+sigLo = input.color(clr5, "", inline="bearColors", group=g2, display=display.none)
+maxLo = input.color(clr6, "", inline="bearColors", group=g2, display=display.none)
+relZro = input.bool(true, "Plot colors should be relative to zero", "When enabled, the plot will inherit \"bull\" colors when above zero and \"bear\" colors when below zero. When disabled and directional colors are enabled, the plot will inherit the default \"bull\" color when rising, and the default \"bear\" color when falling. Otherwise, the plot will use the default \"bull\" color.", group=g2, display=display.none)
+clrDif = input.bool(true, "Directional colors", "When the plot colors are relative to zero, changes the opacity of a bars color if moving toward zero, where \"100\" percent is the full value of the original color and \"0\" is transparent. When the plot colors are NOT relative to zero, the plot will inherit \"bull\" colors when rising and \"bear\" colors when falling.", inline="clrDif", group=g2, display=display.none)
+difPct = input.int(50, "", 0, 100, 1, inline="clrDif", group=g2, display=display.none)
+var dirAlpha = difPct / 100, var bullFill = color.new(clrUp, 95), var bearFill = color.new(clrDn, 95)
+
+// Line Settings
+shoNmh = input.bool(true, "Differentiate RTH from ETH", "Changes the indicators background as a reminder that data is not available outide regular trading hours (RTH), if the chart is showing electronic trading hours (ETH).", inline="nmh", group=g3, display=display.none)
+nmhClr = input.color(color.new(color.gray, 95), "", inline="nmh", group=g3, display=display.none)
+shoZro = input.bool(false, "Show zero line      ", inline="zro", group=g3, display=display.none)
+zroClr = input.color(color.gray,"", inline="zro", group=g3, display=display.none)
+
+// Linear Regression Settings
+shoLinReg = input.bool(false, "Linear Regression", "Color and length of a linear regression line.", inline="linreg", group=g3, display=display.none)
+linRegclr = input.color(clr7, "", inline="linreg", group=g3, display=display.none)
+linRegLen = input.int(30, "", inline="linreg", group=g3, display=display.none)
+
+// Table Settings
+shoSym = input.bool(false, "Symbol    ", inline="symbol", group=g3, display=display.none)
+txtClr = input.color(clr9, "", inline="symbol", group=g3, display=display.none)
+celClr = input.color(clr0, "", inline="symbol", group=g3, display=display.none)
+symSiz = input.string(size.huge, "", [size.tiny, size.small, size.normal, size.large, size.huge, size.auto], inline="symbol", group=g3, display=display.none)
+yPos = input.string("Middle", "Symbol Loc. ", ["Top", "Middle", "Bottom"], inline="table", group=g3, display=display.none)
+xPos = input.string("Center", "",["Left", "Center", "Right"], inline="table", group=g3, display=display.none)
+
+
+
+// ----------------------------------------------------- CORE ------------------------------------------------------ //
+
+// Define session segments
+market = bool(time("1440", "0930-1600", "America/New_York"))
+newSession = session.isfirstbar
+firstMarketBar = market and (not market[1] or newSession)
+
+// Initialize constants for the signal property functions
+const float tikRawLo = 600,   const float addRawLo = 1000, const float vldRawLo = 500000000,  const float trnRawLo = 1.5,
+const float tikRawHi = 1000,  const float addRawHi = 2000, const float vldRawHi = 1000000000, const float trnRawHi = 2,
+const float tikRtoLo = 0.25,  const float addRtoLo = 2,    const float vldRtoLo = 2.5,        const float trnRtoLo = 0.75,
+const float tikRtoHi = 0.5,   const float addRtoHi = 5,    const float vldRtoHi = 5,          const float trnRtoHi = 2,
+const float tikPctLo = 6,     const float addPctLo = 30,   const float vldPctLo = 25,         const float trnPctLo = 20,
+const float tikPctHi = 11,    const float addPctHi = 60,   const float vldPctHi = 50,         const float trnPctHi = 35,
+
+const float vixRawLo = 20,    const float abdRawLo = 50,   const float tkdRawLo = 45000,      const float batRawLo = 100000,
+const float vixRawHi = 30,    const float abdRawHi = 75,   const float tkdRawHi = 90000,      const float batRawHi = 200000,
+const float vixRtoLo = 0.075, const float abdRtoLo = 1,    const float tkdRtoLo = 0.025,      const float batRtoLo = 0.05,
+const float vixRtoHi = 0.15,  const float abdRtoHi = 2.25, const float tkdRtoHi = 0.05,       const float batRtoHi = 0.1,
+const float vixPctLo = 0.5,   const float abdPctLo = 20,   const float tkdPctLo = 0.625,      const float batPctLo = 1,
+const float vixPctHi = 1,     const float abdPctHi = 40,   const float tkdPctHi = 1.25,       const float batPctHi = 2,
+
+const float dxyRawLo = 120,
+const float dxyRawHi = 140,
+const float dxyRtoLo = 0.003,
+const float dxyRtoHi = 0.006,
+const float dxyPctLo = 0.15,
+const float dxyPctHi = 0.3,
+
+// Signal property functions
+sigLvl(ms, raLo, raHi, roLo, roHi, pdLo, pdHi) => raw ? ms ? raLo : raHi : ratio ? ms ? roLo : roHi : ms ? pdLo : pdHi
+setSig(s) =>
+    minSig = s == sigMin, maxSig = s == sigMax
+    if (minSig and ovrMin) or (maxSig and ovrMax)
+        s
+    else
+        switch ind
+            TICK => sigLvl(minSig, tikRawLo, tikRawHi, tikRtoLo, tikRtoHi, tikPctLo, tikPctHi)
+            ADD  => sigLvl(minSig, addRawLo, addRawHi, addRtoLo, addRtoHi, addPctLo, addPctHi)
+            VOLD => sigLvl(minSig, vldRawLo, vldRawHi, vldRtoLo, vldRtoHi, vldPctLo, vldPctHi)
+            TRIN => sigLvl(minSig, trnRawLo, trnRawHi, trnRtoLo, trnRtoHi, trnPctLo, trnPctHi)
+            VIX  => sigLvl(minSig, vixRawLo, vixRawHi, vixRtoLo, vixRtoHi, vixPctLo, vixPctHi)
+            ABVD => sigLvl(minSig, abdRawLo, abdRawHi, abdRtoLo, abdRtoHi, abdPctLo, abdPctHi)
+            TKCD => sigLvl(minSig, tkdRawLo, tkdRawHi, tkdRtoLo, tkdRtoHi, tkdPctLo, tkdPctHi)
+            BATD => sigLvl(minSig, batRawLo, batRawHi, batRtoLo, batRtoHi, batPctLo, batPctHi)
+            DXY  => sigLvl(minSig, dxyRawLo, dxyRawHi, dxyRtoLo, dxyRtoHi, dxyPctLo, dxyPctHi)
+
+// Set signal properties
+var sMin = setSig(sigMin)
+var sMax = setSig(sigMax)
+
+// Security request symbol functions
+dataType(raX, roX, pdX) => raw ? raX : ratio ? roX : pdX
+setSym1(ra1, ro1, pd1, ra2, ro2, pd2) => exch == all ? dataType(ra1, ro1, pd1) : dataType(ra2, ro2, pd2)
+setSym2(ra1, ro1, pd1) => dataType(ra1, ro1, pd1)
+
+// Set the symbol to request
+var sym1 = "", var sym2 = ""
+if sym1 == ""
+    switch ind
+        TICK => sym1 := setSym1("USI:TICK.US","(USI:ACTV.US+USI:TICK.US)/(USI:ACTV.US-USI:TICK.US)","USI:TICK.US/USI:ACTV.US*100","USI:TICK","(US1I:ACTV.NY+USI:TICK.NY)/(USI:ACTV.NY-USI:TICK.NY)","USI:TICK.NY/USI:ACTV.NY*100"), sym2 := setSym2("USI:TICKQ","(USI:ACTV.NQ+USI:TICK.NQ)/(USI:ACTV.NQ-USI:TICK.NQ)","USI:TICK.NQ/USI:ACTV.NQ*100")
+        ADD  => sym1 := setSym1("USI:ADVDEC.US","USI:ADVN.US/USI:DECL.US","USI:ADVDEC.US/(USI:ADVN.US+USI:DECL.US)*100","USI:ADD","USI:ADV/USI:DECL","(USI:ADV-USI:DECL)/(USI:ADV+USI:DECL)*100"), sym2 := setSym2("USI:ADDQ","USI:ADVQ/USI:DECLQ","(USI:ADVQ-USI:DECLQ)/(USI:ADVQ+USI:DECLQ)*100")
+        VOLD => sym1 := setSym1("USI:UPVOL.US-USI:DNVOL.US","USI:UPVOL.US/USI:DNVOL.US","(USI:UPVOL.US-USI:DNVOL.US)/USI:TVOL.US*100","USI:VOLD","USI:UVOL/USI:DVOL","USI:VOLD/USI:TVOL*100"), sym2 := setSym2("USI:VOLDQ","USI:UVOLQ/USI:DVOLQ","USI:VOLDQ/USI:TVOLQ*100")
+        TRIN => sym1 := setSym1("USI:TRIN.US","USI:TRIN.US","((USI:TRIN.US-1)/(USI:TRIN.US+1))*100","USI:TRIN.NY","USI:TRIN.NY","((USI:TRIN.NY-1)/(USI:TRIN.NY+1))*100"), sym2 := setSym2("USI:TRIN.NQ","USI:TRIN.NQ","((USI:TRIN.NQ-1)/(USI:TRIN.NQ+1))*100")
+        VIX  => sym1 := "CBOE:VIX", sym2 := "CBOE:VXN"
+        ABVD => sym1 := setSym1("USI:PCTABOVEVWAP.US","USI:PCTABOVEVWAP.US/(100-USI:PCTABOVEVWAP.US)","(USI:PCTABOVEVWAP.US-50)*2","USI:PCTABOVEVWAP.NY","USI:PCTABOVEVWAP.NY/(100-USI:PCTABOVEVWAP.NY)","(USI:PCTABOVEVWAP.NY-50)*2"), sym2 := setSym2("USI:PCTABOVEVWAP.NQ","USI:PCTABOVEVWAP.NQ/(100-USI:PCTABOVEVWAP.NQ)","(USI:PCTABOVEVWAP.NQ-50)*2")
+        TKCD => sym1 := setSym1("USI:UPTKS.US-DNTKS.US","USI:UPTKS.US/DNTKS.US","(USI:UPTKS.US-USI:DNTKS.US)/(USI:UPTKS.US+USI:DNTKS.US)*100","USI:UPTKS.NY-DNTKS.NY","USI:UPTKS.NY/DNTKS.NY","(USI:UPTKS.NY-USI:DNTKS.NY)/(USI:UPTKS.NY+USI:DNTKS.NY)*100"), sym2 := setSym2("USI:UPTKS.NQ-DNTKS.NQ","USI:UPTKS.NQ/DNTKS.NQ","(USI:UPTKS.NQ-USI:DNTKS.NQ)/(USI:UPTKS.NQ+USI:DNTKS.NQ)*100")
+        BATD => sym1 := setSym1("USI:BATD.US","USI:TRDS.ASK.US/TRDS.BID.US","USI:BATD.US/(USI:TRDS.ASK.US+USI:TRDS.BID.US)*100","USI:BATD.NY","USI:TRDS.ASK.NY/TRDS.BID.NY","USI:BATD.NY/(USI:TRDS.ASK.NY+USI:TRDS.BID.NY)*100"), sym2 := setSym2("USI:BATD.NQ","USI:TRDS.ASK.NQ/TRDS.BID.NQ","USI:BATD.NQ/(USI:TRDS.ASK.NQ+USI:TRDS.BID.NQ)*100")
+        DXY  => sym1 := "TVC:DXY", sym2 := sym1
+
+// Security request  candle value functions
+var float normVal = na
+var VIXorDXY = ind == VIX or ind == DXY
+noise(v) => noise and math.abs(v) < sMin ? v * math.pow(math.abs(v) / sMin, nosLvl) : v
+normalize(v) => norm and math.abs(v) < normLvl ? math.sign(v) * normLvl * ((math.abs(v) - 1) / (normLvl - 1)) : v
+v(v) =>
+    float r = na
+    if market
+        r := VIXorDXY and not raw ? ratio ? v / normVal : v - normVal : v        
+        r := noise(ratio ? r < 1 ? normalize(-1 / r) : normalize(r) : r)
+    (ind == TRIN or ind == VIX or ind == DXY) and not raw ? r * -1 : r
+
+// Set a normalized value for VIX and DXY
+setNormVal(t) => request.security(t, timeframe.period, open)
+if firstMarketBar and VIXorDXY and not raw
+    normVal := setNormVal(sym1)
+
+// Set candle values
+reqSec(sym) => request.security(sym, timeframe.period, [v(open), v(high), v(low), v(close), time], barmerge.gaps_on)
+[o1, h1, l1, c1, t1] = reqSec(sym1)
+[o2, h2, l2, c2, t2] = reqSec(sym2)
+
+// Set source values
+s1 = util.source(src, o1, h1, l1, c1)
+s2 = util.source(src, o2, h2, l2, c2)
+
+// Adjust source to the value nearest zero, based on plot and noise settings
+if noise and mode != m1 and mode != m2
+    if math.abs(s1) < sMin
+        s1 := util.source(MIN, o1, h1, l1, c1)
+    if math.abs(s2) < sMin
+        s2 := util.source(MIN, o2, h2, l2, c2)
+
+// Set the first plot values
+p1T = exch == nq ? t2 : t1
+p1Val(y, q) => p1T == time ? ind != VIX ? exch == sum ? y + q : exch == avg ? math.avg(y, q) : exch == nq ? q : y : y : na
+p1S = p1Val(s1, s2), p1O = p1Val(o1, o2), p1H = p1Val(h1, h2), p1L = p1Val(l1, l2), p1C = p1Val(c1, c2)
+
+// Set the second plot values
+p2T = t2
+p2Val(v) => p2T == time ? v : na
+p2S = p2Val(s2), p2O = p2Val(o2), p2H = p2Val(h2), p2L = p2Val(l2), p2C = p2Val(c2)
+
+// Color functions
+getColor(s) =>
+    if s > sMax and shoSig or (not relZro and s < -sMax and shoSig)
+        [maxHi, util.fade(maxHi, dirAlpha), maxLo]
+    else if s > sMin and shoSig or (not relZro and s < -sMin and shoSig)
+        [sigHi, util.fade(sigHi, dirAlpha), sigLo]
+    else if s > 0 or (not relZro and s <= 0)
+        [clrUp, util.fade(clrUp, dirAlpha), clrDn]
+    else if s < -sMax and shoSig
+        [util.fade(maxLo, dirAlpha), maxLo, clrUp]
+    else if s < -sMin and shoSig
+        [util.fade(sigLo, dirAlpha), sigLo, clrUp]
+    else
+        [util.fade(clrDn, dirAlpha), clrDn, clrUp]
+rgb(s, o, c, t) =>
+    [a, b, d] = getColor(s)
+    clrDif ? o <= c ? a : relZro ? b : d : not relZro ? a : s > 0 ? a : b
+
+// Set colors
+p2_rgb = rgb(p2S, p2O, p2C, p2T)
+p1_rgb = exch == nq ? p2_rgb : rgb(p1S, p1O, p1C, p1T)
+
+// Track cumulative total if enabled
+var cty = 0., var ctq = 0.
+if cumulative
+    if reset and firstMarketBar
+        cty := 0., p1S := 0., p1O := 0., p1H := 0., p1L := 0., p1C := 0.
+        ctq := 0., p2S := 0., p2O := 0., p2H := 0., p2L := 0., p2C := 0.
+    else if market and (not reset or not firstMarketBar)
+        cty := cty + p1S, p1S := cty, p1O := cty[1], p1H := cty > cty[1] ? cty : cty[1], p1L := cty < cty[1] ? cty : cty[1], p1C := cty
+        ctq := ctq + p2S, p2S := ctq, p2O := ctq[1], p2H := ctq > ctq[1] ? ctq : ctq[1], p2L := ctq < ctq[1] ? ctq : ctq[1], p2C := ctq
+
+// Calc linear regression
+var lrLen = 1, color lrClr = na, float linreg = na
+
+if shoLinReg
+
+    lrP1 = math.avg(p1O, p1H, p1L, p1C)
+    lrP2 = math.avg(p2O, p2H, p2L, p2C)
+    lrB  = math.avg(lrP1, lrP2)
+
+    lrSrc = exch == both ? lrB : lrP1
+    lrSrc := na(lrSrc) and not firstMarketBar and market ? lrSrc[1] : lrSrc
+
+    if newSession or na(lrSrc[1])
+        lrLen := 1
+    else if lrLen < linRegLen
+        lrLen += 1
+
+    linreg := ta.linreg(lrSrc, lrLen, 0)
+
+    if lrLen == 1
+        linreg := lrSrc
+
+    lrClr := clrDif ? linreg > linreg[1] ? linRegclr : util.fade(linRegclr, dirAlpha) : linRegclr
+
+
+
+// ---------------------------------------------------- PLOTS ------------------------------------------------------ //
+
+// Change background color when outside regular trading hours
+bgcolor(shoNmh and not market ? nmhClr : na, 0, false)
+
+// Plot zero level
+hline(0, "", zroClr, hline.style_dotted, 1, false, shoZro ? display.all : display.none)
+
+// Signal display logic
+var dhls = not shoBthSig or not shoSig or cumulative ? display.none : display.all
+var dhlf = shoSig and not cumulative ? display.all : display.none
+
+// Plot upper signal.
+bull1 = hline(sMin, color = none, editable = false, display = dhls)
+bull2 = hline(sMax, color = none, editable = false, display = dhls)
+fill(bull1, bull2, bullFill, display = dhlf)
+
+// Plot lower signal.
+bear1 = hline(-sMin, color = none, editable = false, display = dhls)
+bear2 = hline(-sMax, color = none, editable = false, display = dhls)
+fill(bear1, bear2, relZro ? bearFill : bullFill, display = dhlf)
+
+
+// Plot display logic
+mode(m, ifTrue) =>
+    if m == m1 or m == m2
+        mode == m and ifTrue ? display.pane + display.price_scale : display.none
+    else
+        mode != m1 and mode != m2 and ifTrue ? display.pane + display.price_scale : display.none
+
+// Plot style logic
+plotStyle = switch mode
+    m3 => plot.style_linebr
+    m4 => plot.style_circles
+    m5 => plot.style_columns
+    => plot.style_linebr
+
+// First plot
+plotcandle(p1O, p1H, p1L, p1C, "", p1_rgb, p1_rgb, false, bordercolor = p1_rgb, display = mode(m1, true))
+plotbar(p1O, p1H, p1L, p1C, "", p1_rgb, false, display = mode(m2, true))
+plot(p1S, "", newSession and not timeframe.isdwm ? none : p1_rgb, 2, plotStyle, false, 0, 0, false, false, display = mode(m3, true))
+
+// Second plot, when both exchanges are enabled
+plotcandle(p2O, p2H, p2L, p2C, "", p2_rgb, p2_rgb, false, bordercolor = p2_rgb, display = mode(m1, exch == both and ind != VIX))
+plotbar(p2O, p2H, p2L, p2C, "", p2_rgb, false, display = mode(m2, exch == both))
+plot(p2S, "", newSession and not timeframe.isdwm ? none : p2_rgb, 2, plotStyle, false, 0, 0, false, false, display = mode(m3, exch == both and ind != VIX))
+
+// Label each plot, when both exchanges are enabled
+if market and exch == both and ind != VIX
+    lbl1 = label.new(bar_index, p1T == time ? p1S : p1S[1], ny, style=label.style_label_left, color=none, textcolor=color.gray), label.delete(lbl1[1])
+    lbl2 = label.new(bar_index, p2T == time ? p2S : p2S[1], nq, style=label.style_label_left, color=none, textcolor=color.gray), label.delete(lbl2[1])
+
+// Linear regression line, if enabled
+plot(linreg, "", lrClr, 2, plot.style_linebr, false, 0, 0, false, false, display = shoLinReg ? display.pane+display.price_scale : display.none)
+
+// Show symbol, if enabled
+if shoSym
+    symTbl = table.new(str.lower(yPos) + "_" + str.lower(xPos), 1, 1, none, none, 0, none, 1)
+    symTbl.cell(0, 0, "\t\t"+ind+"\t\t", 0, 0, txtClr, text.align_center, text.align_center, symSiz, celClr)

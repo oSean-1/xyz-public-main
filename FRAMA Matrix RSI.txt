@@ -1,0 +1,329 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Uptrick
+
+
+
+
+//    ██╗   ██╗██████╗ ████████╗██████╗ ██╗ ██████╗██╗  ██╗
+//    ██║   ██║██╔══██╗╚══██╔══╝██╔══██╗██║██╔════╝██║ ██╔╝
+//    ██║   ██║██████╔╝   ██║   ██████╔╝██║██║     █████╔╝ 
+//    ██║   ██║██╔═══╝    ██║   ██╔══██╗██║██║     ██╔═██╗ 
+//    ╚██████╔╝██║        ██║   ██║  ██║██║╚██████╗██║  ██╗
+//     ╚═════╝ ╚═╝        ╚═╝   ╚═╝  ╚═╝╚═╝ ╚═════╝╚═╝  ╚═╝
+
+
+
+//@version=6
+indicator("Uptrick: FRAMA Matrix RSI", shorttitle="Frama Matrix", overlay=false)
+var string lastSignal = ""
+//───────────────────────────────────────────────────────────────────────────────
+// USER INPUTS
+//───────────────────────────────────────────────────────────────────────────────
+rsiLength          = input.int(14, "RSI Length", minval=1)
+framaLength        = input.int(16, "FRAMA Lookback", minval=2)
+alphaCoefficient   = input.float(4.6, "Alpha Coefficient", step=0.1, tooltip="Coefficient used in FRAMA smoothing factor calculation")
+dimenSensitivity   = input.float(1.0, "Fractal Dimension Sensitivity", step=0.1, tooltip="Multiplier applied to (dimen - 1)")
+rsiScale           = input.float(10.0, "RSI Scale Factor", step=0.1, tooltip="Scale factor applied to RSI when computing fractal dimension")
+thresholdBull      = input.int(50, "RSI Bull Threshold", tooltip="Above this level is bullish")
+showAlerts         = input.bool(true, "Show Bull/Bear Alerts")
+
+// New inputs to override the computed alpha
+useManualAlpha     = input.bool(false, "Use Manual Alpha", tooltip="If enabled, the FRAMA function uses a manual alpha value")
+manualAlphaValue   = input.float(0.5, "Manual Alpha Value", step=0.01, tooltip="Manual alpha value to use when enabled (values between 0.01 and 1)")
+
+// Noise filter to ignore tiny crosses or changes
+noiseFilter        = input.float(1.0, "Noise Filter", tooltip="Minimum difference from threshold to count a bull/bear cross.")
+
+// Additional toggles
+showStats          = input.bool(false, "Show Internal Stats Table?")
+showDivergence     = input.bool(false, "Enable Divergence Detection?")
+showReversals      = input.bool(false, "Show Potential Reversal Signals?")
+
+// ZLMA toggle and length
+zlmaLength         = input.int(14, "ZLMA Length", minval=1)
+
+// Classic RSI OB/OS levels for potential reversal signals (OB=70, OS=30)
+obLevel            = 70
+osLevel            = 30
+
+// NEW: Buy Sell Signal Option
+buySellOption      = input.string("ZLMA", "Buy Sell Signal Option", options=["ZLMA", "FRAMA RSI"])
+
+//───────────────────────────────────────────────────────────────────────────────
+// FRAMA FUNCTION
+//───────────────────────────────────────────────────────────────────────────────
+// This function scales the RSI by the RSI Scale Factor so that the computed
+// fractal dimension is more sensitive. Then, if "Use Manual Alpha" is enabled,
+// it simply uses the manual alpha value; otherwise it computes the alpha from
+// the fractal dimension.
+f_frama(src, length) =>
+    // Scale the RSI values to amplify differences
+    s = src * rsiScale
+    n    = length
+    half = math.floor(n / 2)
+    // Range calculations on the scaled series
+    high1   = ta.highest(s, half)
+    low1    = ta.lowest(s, half)
+    range1  = high1 - low1
+
+    high2   = ta.highest(s[half], half)
+    low2    = ta.lowest(s[half], half)
+    range2  = high2 - low2
+
+    highAll = ta.highest(s, n)
+    lowAll  = ta.lowest(s, n)
+    rangeAll = highAll - lowAll
+
+    // Avoid zero-range errors
+    range1nz   = range1 == 0.0 ? 0.0000001 : range1
+    range2nz   = range2 == 0.0 ? 0.0000001 : range2
+    rangeAllnz = rangeAll == 0.0 ? 0.0000001 : rangeAll
+
+    // Compute fractal dimension from the scaled values
+    dimen = (math.log(range1nz + range2nz) - math.log(rangeAllnz)) / math.log(2)
+    // Determine the smoothing factor (alpha):
+    // If using manual alpha, override the computed value.
+    alphaFR = useManualAlpha ? manualAlphaValue : math.exp(-alphaCoefficient * dimenSensitivity * (dimen - 1))
+    alphaFR := math.max(math.min(alphaFR, 1), 0.01)
+    // Adaptive smoothing (recursive) applied to the original RSI values
+    var float framaSeries = src
+    framaSeries := alphaFR * src + (1 - alphaFR) * nz(framaSeries[1])
+    framaSeries
+
+//───────────────────────────────────────────────────────────────────────────────
+// ZERO-LAG MA FUNCTION
+//───────────────────────────────────────────────────────────────────────────────
+// Simple approach: ZLMA = EMA(2*src - src[1], length)
+f_zlma(src, length) =>
+    ta.ema(2.0 * src - nz(src[1]), length)
+
+//───────────────────────────────────────────────────────────────────────────────
+// FRAMA-ADAPTED RSI
+//───────────────────────────────────────────────────────────────────────────────
+rsiValue  = ta.rsi(close, rsiLength)
+framaRsi  = f_frama(rsiValue, framaLength)
+// Optional: ZLMA of FRAMA RSI
+zlmaRsi   = f_zlma(framaRsi, zlmaLength)
+
+// Determine bullish/bearish (based on FRAMA RSI vs. thresholdBull)
+isBull    = framaRsi > thresholdBull
+isBear    = framaRsi < thresholdBull
+
+// Check for cross above/below threshold with noise filter
+bullCond  = isBull and not isBull[1] and (framaRsi - thresholdBull) > noiseFilter
+bearCond  = isBear and not isBear[1] and (thresholdBull - framaRsi) > noiseFilter
+
+rsiColor  = isBull ? #5CF0D7 : #B32AC3
+bulcolor  = color.rgb(74, 189, 170)
+bearcolor = #B32AC3
+hline(70, 'Overbought Line', #B32AC3)
+hline(30, 'Oversold Line', #5CF0D7)
+
+// Plot FRAMA RSI
+plot(framaRsi, color=rsiColor, linewidth=2, title="FRAMA RSI")
+
+plot(framaRsi, color=color.new(rsiColor,80), linewidth=8, title="FRAMA RSI S1")
+plot(framaRsi, color=color.new(rsiColor,90), linewidth=10, title="FRAMA RSI S2")
+hline(thresholdBull, "Threshold", color=color.new(color.gray, 50), linestyle=hline.style_dotted)
+
+// Plot ZLMA of FRAMA RSI
+plot(zlmaRsi, color=color.rgb(183, 183, 183), linewidth=2, style=plot.style_line, title="ZLMA of FRAMA RSI")
+
+plot(zlmaRsi, color=color.rgb(183, 183, 183, 78), linewidth=6, style=plot.style_line, title="ZLMA of FRAMA RSI S1")
+plot(zlmaRsi, color=color.rgb(183, 183, 183, 94), linewidth=8, style=plot.style_line, title="ZLMA of FRAMA RSI S2")
+
+
+//───────────────────────────────────────────────────────────────────────────────
+// POTENTIAL REVERSAL SIGNALS (labels on chart)
+//───────────────────────────────────────────────────────────────────────────────
+if showReversals
+    if rsiValue > obLevel and framaRsi > thresholdBull
+        label.new(bar_index, high, style=label.style_label_down, text="𝓟𝓸𝓽𝓮𝓷𝓽𝓲𝓪𝓵 𝓡𝓮𝓿𝓮𝓻𝓼𝓪𝓵",
+             color=bearcolor, textcolor=color.white, size=size.small, yloc=yloc.price, force_overlay=true)
+    if rsiValue < osLevel and framaRsi < thresholdBull
+        label.new(bar_index, low, style=label.style_label_up, text="𝓟𝓸𝓽𝓮𝓷𝓽𝓲𝓪𝓵 𝓡𝓮𝓿𝓮𝓻𝓼𝓪𝓵",
+             color=bulcolor, textcolor=color.white, size=size.small, yloc=yloc.price, force_overlay=true)
+ 
+//───────────────────────────────────────────────────────────────────────────────
+// DIVERGENCE DETECTION (optional)
+//───────────────────────────────────────────────────────────────────────────────
+fun_pivot_low(src, leftBars, rightBars) =>
+    na(src[leftBars]) ? false : ta.lowest(src, leftBars + rightBars + 1)[rightBars] == src[leftBars]
+
+fun_pivot_high(src, leftBars, rightBars) =>
+    na(src[leftBars]) ? false : ta.highest(src, leftBars + rightBars + 1)[rightBars] == src[leftBars]
+
+leftPivot  = 2
+rightPivot = 2
+
+bullPivotPrice = fun_pivot_low(low, leftPivot, rightPivot)
+bearPivotPrice = fun_pivot_high(high, leftPivot, rightPivot)
+bullPivotRsi   = fun_pivot_low(framaRsi, leftPivot, rightPivot)
+bearPivotRsi   = fun_pivot_high(framaRsi, leftPivot, rightPivot)
+
+if showDivergence
+    if bullPivotPrice and bullPivotRsi
+        prevPricePivotLow = ta.valuewhen(bullPivotPrice, low, 1)
+        prevRsiPivotLow   = ta.valuewhen(bullPivotRsi, framaRsi, 1)
+        if not na(prevPricePivotLow) and not na(prevRsiPivotLow)
+            if low < prevPricePivotLow and framaRsi > prevRsiPivotLow
+                label.new(bar_index[leftPivot], low[leftPivot], style=label.style_label_up,
+                     text="Bullish Div", color=bulcolor, textcolor=color.white,
+                     size=size.tiny, yloc=yloc.price, force_overlay=true)
+    if bearPivotPrice and bearPivotRsi
+        prevPricePivotHigh = ta.valuewhen(bearPivotPrice, high, 1)
+        prevRsiPivotHigh   = ta.valuewhen(bearPivotRsi, framaRsi, 1)
+        if not na(prevPricePivotHigh) and not na(prevRsiPivotHigh)
+            if high > prevPricePivotHigh and framaRsi < prevRsiPivotHigh
+                label.new(bar_index[leftPivot], high[leftPivot], style=label.style_label_down,
+                     text="Bearish Div", color=bearcolor, textcolor=color.white,
+                     size=size.tiny, yloc=yloc.price, force_overlay=true)
+
+                
+//───────────────────────────────────────────────────────────────────────────────
+// ALERTS (for FRAMA RSI threshold crosses)
+//───────────────────────────────────────────────────────────────────────────────
+if showAlerts
+    if bullCond
+        alert("FRAMA RSI: Just turned BULLISH!", alert.freq_once_per_bar)
+    if bearCond
+        alert("FRAMA RSI: Just turned BEARISH!", alert.freq_once_per_bar)
+
+//───────────────────────────────────────────────────────────────────────────────
+// LABELS ON MAIN CHART for FRAMA RSI threshold crosses (original signals)
+//───────────────────────────────────────────────────────────────────────────────
+showOriginalSignals = input.bool(false, "Show Threshold FRAMA Signals", tooltip="Show the original BUY/SELL signals based on FRAMA RSI threshold")
+if showOriginalSignals
+    if bullCond
+        label.new(bar_index, low, style=label.style_label_up, text="𝓛𝓸𝓷𝓰",
+             color=bulcolor, textcolor=color.white, size=size.small, yloc=yloc.price, force_overlay=true)
+    if bearCond
+        label.new(bar_index, high, style=label.style_label_down, text="𝓢𝓱𝓸𝓻𝓽",
+             color=bearcolor, textcolor=color.white, size=size.small, yloc=yloc.price, force_overlay=true)
+
+//───────────────────────────────────────────────────────────────────────────────
+// NEW: BUY/SELL SIGNALS based on selected Option
+//───────────────────────────────────────────────────────────────────────────────
+var string newSignalText = ""
+var bool newSignalTriggered = false
+var int lastBuySignalBar = na
+var int lastSellSignalBar = na
+var int minBarDistance = 5
+
+if buySellOption == "ZLMA"
+    if ta.crossover(zlmaRsi, osLevel) and (na(lastBuySignalBar) or bar_index - lastBuySignalBar > minBarDistance)
+        newSignalText := "▲ +"
+        newSignalTriggered := true
+        lastBuySignalBar := bar_index
+        lastSignal := "BUY"
+    if ta.crossunder(zlmaRsi, obLevel) and (na(lastSellSignalBar) or bar_index - lastSellSignalBar > minBarDistance)
+        newSignalText := "▼ +"
+        newSignalTriggered := true
+        lastSellSignalBar := bar_index
+        lastSignal := "SELL"
+
+else
+    if ta.crossover(framaRsi, osLevel) and (na(lastBuySignalBar) or bar_index - lastBuySignalBar > minBarDistance)
+        newSignalText := zlmaRsi < osLevel ? "▲ +" : "▲"
+        newSignalTriggered := true
+        lastBuySignalBar := bar_index
+        lastSignal := "BUY"
+    if ta.crossunder(framaRsi, obLevel) and (na(lastSellSignalBar) or bar_index - lastSellSignalBar > minBarDistance)
+        newSignalText := zlmaRsi > obLevel ? "▼ +" : "▼"
+        newSignalTriggered := true
+        lastSellSignalBar := bar_index
+        lastSignal := "SELL"
+
+
+if newSignalTriggered
+    isBuySignal = str.contains(newSignalText, "▲")
+    label.new(
+         bar_index, 
+         isBuySignal ? low - (high - low) * 0.1 : high + (high - low) * 0.1,
+         text=newSignalText, 
+         style=isBuySignal ? label.style_label_up : label.style_label_down,
+         color=isBuySignal ? bulcolor : bearcolor,
+         textcolor=color.white,
+         size=size.small,
+         yloc=yloc.price,
+         force_overlay=true)
+    if showAlerts
+        alert("Buy/Sell Signal: " + newSignalText, alert.freq_once_per_bar)
+    newSignalTriggered := false
+
+//───────────────────────────────────────────────────────────────────────────────
+// OPTIONAL TABLE (vertical) to show FRAMA stats or RSI values
+//───────────────────────────────────────────────────────────────────────────────
+var table statsTable = table.new(position.bottom_right, 10, 10, frame_color=color.white, frame_width=2, border_color=color.white, border_width=2, force_overlay=true)
+if showStats
+    table.clear(statsTable, 0, 0)
+    n    = framaLength
+    half = math.floor(n / 2)
+    high1   = ta.highest(rsiValue, half)
+    low1    = ta.lowest(rsiValue, half)
+    range1  = high1 - low1
+    high2   = ta.highest(rsiValue[half], half)
+    low2    = ta.lowest(rsiValue[half], half)
+    range2  = high2 - low2
+    highAll = ta.highest(rsiValue, n)
+    lowAll  = ta.lowest(rsiValue, n)
+    rangeAll = highAll - lowAll
+    range1nz   = range1 == 0.0 ? 0.0000001 : range1
+    range2nz   = range2 == 0.0 ? 0.0000001 : range2
+    rangeAllnz = rangeAll == 0.0 ? 0.0000001 : rangeAll
+    dimen   = (math.log(range1nz + range2nz) - math.log(rangeAllnz)) / math.log(2)
+    alphaFR_ = useManualAlpha ? manualAlphaValue : math.exp(-alphaCoefficient * dimenSensitivity * (dimen - 1))
+    alphaFR_ := math.max(math.min(alphaFR_, 1), 0.01)
+    table.cell(statsTable, 0, 0, "𝓕𝓻𝓪𝓶𝓪 𝓢𝓽𝓪𝓽𝓼", text_color=color.white, bgcolor=#000000)
+    table.cell(statsTable, 1, 0, "𝓥𝓪𝓵𝓾𝓮𝓼", text_color=color.white, bgcolor=#000000)
+    table.cell(statsTable, 0, 1, "Dimen", text_color=color.white, bgcolor=bearcolor)
+    table.cell(statsTable, 1, 1, str.tostring(dimen, format.mintick), text_color=color.white, bgcolor=bulcolor)
+    table.cell(statsTable, 0, 2, "Alpha", text_color=color.white, bgcolor=bearcolor)
+    table.cell(statsTable, 1, 2, str.tostring(alphaFR_, format.mintick), text_color=color.white, bgcolor=bulcolor)
+    table.cell(statsTable, 0, 3, "RSI", text_color=color.white, bgcolor=bearcolor)
+    table.cell(statsTable, 1, 3, str.tostring(rsiValue, format.mintick), text_color=color.white, bgcolor=bulcolor)
+    table.cell(statsTable, 0, 4, "FRAMA RSI", text_color=color.white, bgcolor=bearcolor)
+    table.cell(statsTable, 1, 4, str.tostring(framaRsi, format.mintick), text_color=color.white, bgcolor=bulcolor)
+    table.cell(statsTable, 0, 5, "ZLMA (" + str.tostring(zlmaLength) + ")", text_color=color.white, bgcolor=bearcolor)
+    table.cell(statsTable, 1, 5, str.tostring(zlmaRsi, format.mintick), text_color=color.white, bgcolor=bulcolor)
+else
+    table.clear(statsTable, 0, 0)
+
+//───────────────────────────────────────────────────────────────────────────────
+// ADD-ON: FULLY CUSTOMIZABLE BAR COLORING FOR ALL SIGNALS
+//───────────────────────────────────────────────────────────────────────────────
+barColorOption = input.string("None", "Bar Coloring Option", 
+     options=["None", "FRAMA RSI Threshold", "ZLMA Crossover", "Buy/Sell Signals", "Divergence", "Reversals"])
+bullishColor = input.color(#5CF0D7, "Bullish Bar Color")
+bearishColor = input.color(#B32AC3, "Bearish Bar Color")
+neutralColor = input.color(color.gray, "Neutral Bar Color")
+var color lastBarColor = na
+var color barColor = na
+
+if barColorOption == "FRAMA RSI Threshold"
+    barColor := isBull ? bullishColor : isBear ? bearishColor : lastBarColor
+if barColorOption == "ZLMA Crossover"
+    barColor := ta.crossover(zlmaRsi, osLevel) ? bullishColor : ta.crossunder(zlmaRsi, obLevel) ? bearishColor : lastBarColor
+if barColorOption == "Buy/Sell Signals"
+    // Instead of checking newSignalTriggered, check the persistent lastSignal value.
+    isBuySignal = lastSignal == "BUY"
+    isSellSignal = lastSignal == "SELL"
+    barColor := isBuySignal ? bullishColor : isSellSignal ? bearishColor : lastBarColor
+if barColorOption == "Divergence"
+    barColor := (bullPivotPrice and bullPivotRsi) ? bullishColor : (bearPivotPrice and bearPivotRsi) ? bearishColor : lastBarColor
+if barColorOption == "Reversals"
+    barColor := (rsiValue > obLevel and framaRsi > thresholdBull) ? bearishColor : (rsiValue < osLevel and framaRsi < thresholdBull) ? bullishColor : lastBarColor
+
+if not na(barColor)
+    lastBarColor := barColor
+barcolor(lastBarColor)
+
+
+
+
+//    ██╗   ██╗██████╗ ████████╗██████╗ ██╗ ██████╗██╗  ██╗
+//    ██║   ██║██╔══██╗╚══██╔══╝██╔══██╗██║██╔════╝██║ ██╔╝
+//    ██║   ██║██████╔╝   ██║   ██████╔╝██║██║     █████╔╝ 
+//    ██║   ██║██╔═══╝    ██║   ██╔══██╗██║██║     ██╔═██╗ 
+//    ╚██████╔╝██║        ██║   ██║  ██║██║╚██████╗██║  ██╗
+//     ╚═════╝ ╚═╝        ╚═╝   ╚═╝  ╚═╝╚═╝ ╚═════╝╚═╝  ╚═╝

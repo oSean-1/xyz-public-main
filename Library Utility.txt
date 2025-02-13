@@ -1,0 +1,373 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © liquid-trader
+
+//@version=6
+
+// @description A collection of custom utility functions used in my scripts.
+library("UtilityLibrary")
+
+
+
+// ------------------------------------------------------ TIME ----------------------------------------------------- //
+
+// @function Gets the number of milliseconds per bar.
+// @returns (int) The number of milliseconds per bar.
+export milliseconds_per_bar() =>
+ timeframe.multiplier * (
+ timeframe.isseconds ? 1000 :
+ timeframe.isminutes ? 60000 :
+ timeframe.isdaily   ? 86400000 :
+ timeframe.isweekly  ? 604800000 :
+ timeframe.ismonthly ? 2629800000 :
+ 1)
+
+
+// @function Checks if the current bar is the actual realtime bar.
+// @returns (bool) `true` when the current bar is the actual realtime bar, `false` otherwise.
+export realtime() =>
+	mspb = milliseconds_per_bar()
+	math.floor(time / mspb) == math.floor(timenow / mspb)
+
+
+// @function Checks if the current bar is the last replay bar.
+// @returns (bool) `true` when the current bar is the last replay bar, `false` otherwise.
+export replay() => barstate.islast and not barstate.ishistory and not realtime()
+
+
+// @function Checks how much of the current bar has elapsed.
+// @returns (float) Between 0 and 1.
+export bar_elapsed() => 
+	mspb = milliseconds_per_bar()
+	barstate.isconfirmed or not realtime() ? 1 : (timenow % mspb) / mspb
+
+// @function Converts a `bar_index` into a `bar_time`.
+// @param Bar_Index  (int) The `bar_index`.
+// @returns (int) `bar_time` of `bar_index`
+export bar_index_to_time(int Bar_Index) =>
+	Bar_Index * milliseconds_per_bar()
+
+
+
+// ----------------------------------------------------- PRICE ----------------------------------------------------- //
+
+// @function Calculates a source value. Most useful when a script uses `request.security` or `request.security_lower_tf`.
+// @param s (string) The desired source. Options: `open`, `high`, `low`, `close`, `hl2`, `hlc3`, `ohlc4`, `hlcc4`, `min`, or `max`.
+// @param o (float) The opening value.
+// @param h (float) The highest value.
+// @param l (float) The lowest value.
+// @param c (float) The closing value.
+// @returns (foat) The specified source, or 0 if the result is `na`.
+export source(string s, float o, float h, float l, float c) =>
+	src = str.lower(s)
+	array<float> candle = na, int min_idx = na, int max_idx = na
+	if src == "min" or src == "max"
+    	candle  := array.from(nz(o), nz(h), nz(l), nz(c), math.avg(nz(h), nz(l)), math.avg(nz(h), nz(l), nz(c)), math.avg(nz(o), nz(h), nz(l), nz(c)))
+		candAbs  = candle.abs() 
+		min_idx := candAbs.indexof(candAbs.min())
+		max_idx := candAbs.indexof(candAbs.max())
+    result = switch src
+        "open"  => o
+        "high"  => h
+        "low"   => l
+        "close" => c
+        "hl2"   => math.avg(h, l)
+        "hlc3"  => math.avg(h, l, c)
+        "ohlc4" => math.avg(o, h, l, c)
+        "hlcc4" => math.avg(h, l, c, c)
+        "min"   => candle.get(min_idx) // Value nearest zero: useful for oscillating values (aka. the "min" might be the "high")
+        "max"   => candle.get(max_idx) // Value furthest zero: useful for oscillating values (aka. the "max" might be the "low")
+	nz(result)
+
+
+
+// ------------------------------------------------------ MATH ----------------------------------------------------- //
+
+// @function Checks if a number is even.
+// @param number (float) The number to evaluate.
+// @returns (bool) `true` when the number is even, `false` when the number is odd.
+export even(float number) =>
+	number % 2 == 0
+
+
+// @function Gets the sign of a float.
+// @param number (float) The number to evaluate.
+// @returns (int) 1 or -1, unlike math.sign() which returns 0 if the number is 0.
+export sign(float number) =>
+	number < 0 ? -1 : 1
+
+
+// @function Derives an angle in radians from the XY coordinate.
+// @param y (float) Y coordinate.
+// @param x (float) X coordinate.
+// @returns (float) Between -π and π.
+export atan2(float y, float x) =>
+	if x == 0 and y == 0
+		na
+	else if x > 0
+		math.atan(y / x)
+	else if x < 0
+		d = y < 0 ? -1 : 1
+		math.atan(y / x) + math.pi * d
+	else // x == 0
+		d = y > 0 ? 1 : y < 0 ? -1 : 0
+		d * math.pi / 2
+
+
+// @function Ensures a value is between the `min` and `max` thresholds.
+// @param number (float) The number to clamp.
+// @param min (float) The minimum threshold (0 by default).
+// @param max (float) The maximum threshold (1 by default).
+// @returns (float) Between `min` and `max`.
+export clamp(float number, float min = 0, float max = 1) =>
+	math.min(math.max(number, min), max)
+
+
+
+// ----------------------------------------------- COLOR CONVERSIONS ----------------------------------------------- //
+
+// @function Removes gamma from normalized sRGB channel values.
+// @param value (float) The normalized channel value [0, 1].
+// @returns (float) Channel value with gamma removed.
+export remove_gamma(float value) =>
+	absV = math.abs(value)
+	absV > 0.04045
+	 ? sign(value) * (math.pow((absV + 0.055) / 1.055, 2.4))
+	 : value / 12.92
+
+
+// @function Adds gamma into normalized linear RGB channel values.
+// @param value (float) The normalized channel value [0, 1].
+// @returns (float) Channel value with gamma added.
+export add_gama(float value) =>
+	absV = math.abs(value)
+	absV > 0.0031308
+	 ? sign(value) * (1.055 * math.pow(absV, 1 / 2.4) - 0.055)
+	 : value * 12.92
+
+
+// @function Extracts XYZ-D65 channels from sRGB colors.
+// @param Color (color) The sRGB color to process.
+// @returns (float tuple) [x, y, z]
+export rgb_to_xyz(color Color) =>
+
+	// Normalize sRGB to [0, 1] range and remove gamma
+	r = remove_gamma(color.r(Color) / 255)
+	g = remove_gamma(color.g(Color) / 255)
+	b = remove_gamma(color.b(Color) / 255)
+
+	// Convert Linear RGB to XYZ-D65
+	x = 506752/1228815 * r + 87881/245763 * g + 12673/70218 * b
+	y = 87098/409605 * r + 175762/245763 * g + 12673/175545 * b
+	z = 7918/409605 * r + 87881/737289 * g + 1001167/1053270 * b
+
+	[x, y, z]
+
+
+// @function Converts XYZ-D65 channels to sRGB channels.
+// @param x (float) The X channel value.
+// @param y (float) The Y channel value.
+// @param z (float) The Z channel value.
+// @returns (int tuple) [r, g, b]
+export xyz_to_rgb(float x, float y, float z) =>
+
+	// Convert XYZ-D65 to sRGB
+	r = math.round(clamp(add_gama(12831/3959 * x + -329/214 * y + -1974/3959 * z)) * 255)
+	g = math.round(clamp(add_gama(-851781/878810 * x + 1648619/878810 * y + 36519/878810 * z)) * 255)
+	b = math.round(clamp(add_gama(705/12673 * x + -2585/12673 * y + 705/667 * z)) * 255)
+
+	[r, g, b]
+
+
+// @function Extracts OKLAB-D65 channels from sRGB colors.
+// @param Color (color) The sRGB color to process.
+// @returns (float tuple) [l, a, b]
+export rgb_to_oklab(color Color) =>
+
+	// Convert sRGB to XYZ-D65
+	[x, y, z] = rgb_to_xyz(Color)
+
+	// Convert XYZ-D65 to LMS
+	L = math.pow(0.8190224379967030 * x + 0.3619062600528904 * y + -0.1288737815209879 * z, 1/3)
+	M = math.pow(0.0329836539323885 * x + 0.9292868615863434 * y +  0.0361446663506424 * z, 1/3)
+	S = math.pow(0.0481771893596242 * x + 0.2642395317527308 * y +  0.6335478284694309 * z, 1/3)
+
+	// Convert LMS to OKLAB-D65
+	l = 0.2104542683093140 * L +  0.7936177747023054 * M + -0.0040720430116193 * S
+	A = 1.9779985324311684 * L + -2.4285922420485799 * M +  0.4505937096174110 * S
+	B = 0.0259040424655478 * L +  0.7827717124575296 * M + -0.8086757549230774 * S
+
+	[l, A, B]
+
+
+// @function Converts OKLAB-D65 channels to sRGB channels.
+// @param l (float) The L channel value.
+// @param a (float) The A channel value.
+// @param b (float) The B channel value.
+// @returns (int tuple) [r, g, b]
+export oklab_to_rgb(float l, float a, float b) =>
+
+	// Convert OKLAB-D65 to LMS
+	L = math.pow(l +  0.3963377773761749 * a +  0.2158037573099136 * b, 3)
+	M = math.pow(l + -0.1055613458156586 * a + -0.0638541728258133 * b, 3)
+	S = math.pow(l + -0.0894841775298119 * a + -1.2914855480194092 * b, 3)
+
+	// Convert LMS to XYZ-D65
+	x =  1.2268798758459243 * L + -0.5578149944602171 * M +  0.2813910456659647 * S
+	y = -0.0405757452148008 * L +  1.1122868032803170 * M + -0.0717110580655164 * S
+	z = -0.0763729366746601 * L + -0.4214933324022432 * M +  1.5869240198367816 * S
+
+	// Convert XYZ-D65 to sRGB
+	xyz_to_rgb(x, y, z)
+
+
+// @function Extracts OKLCH channels from sRGB colors.
+// @param Color (color) The sRGB color to process.
+// @returns (float tuple) [l, c, h]
+export rgb_to_oklch(color Color) =>
+
+	// Convert sRGB to OKLAB-D65
+	[l, a, b] = rgb_to_oklab(Color)
+
+	// OKLAB-D65 to OKLCH
+	c  = math.sqrt(a * a + b * b)
+	h  = atan2(b, a)
+
+	[l, c, h]
+
+
+// @function Converts OKLCH channels to sRGB channels.
+// @param l (float) The L channel value.
+// @param c (float) The C channel value.
+// @param h (float) The H channel value.
+// @returns (float tuple) [r, g, b]
+export oklch_to_rgb(float l, float c, float h) =>
+
+	// Convert OKLCH to OKLAB-D65
+	A = c * math.cos(h)
+	B = c * math.sin(h)
+
+	// Convert OKLAB-D65 to sRGB
+	oklab_to_rgb(l, A, B)
+
+
+// @function Ensures the hue angles are set correctly for linearly interpolating OKLCH.
+// @param l1 (float) The first L channel value.
+// @param h1 (float) The first H channel value.
+// @param l2 (float) The second L channel value.
+// @param h2 (float) The second H channel value.
+// @param dist (string) The preferred angular distance to use. Options: `min` or `max` (`min` by default).
+// @returns (float tuple) [h1, h2]
+export hues(float l1, float h1, float l2, float h2, string dist = "min") =>
+	// Ensure the hue angle of white matches the other color
+	H1 = l1 == 1 ? h2 : h1
+	H2 = l2 == 1 ? H1 : h2
+
+	// Set the angular distance
+	diff = H2 - H1
+	H2 := H1 + ( dist == "max"
+	 ? math.abs(diff) > math.pi ? diff : diff - 2 * math.pi * sign(diff)
+	 : math.abs(diff) > math.pi ? diff - 2 * math.pi * sign(diff) : diff )
+
+	[H1, H2]
+
+
+// ------------------------------------------------- INTERPOLATION ------------------------------------------------- //
+
+// @function Linearly interpolates between two values.
+// @param a (float) The starting point (first value).
+// @param b (float) The ending point (second value).
+// @param t (float) The interpolation factor [0, 1].
+// @returns (float) Between `a` and `b`.
+export lerp(float a, float b, float t = 0.5) =>
+	a + (b - a) * clamp(t)
+
+
+// @function A non-linear (smooth) interpolation between 0 and 1.
+// @param t (float) The interpolation factor [0, 1].
+// @param precise (bool) Sets if the calc should be precise or efficient (`true` by default).
+// @returns (float) Between 0 and 1.
+export smoothstep(float t = 0.5, bool precise = true) =>
+	x = clamp(t)
+	y = precise ? -math.cos(x * math.pi) / 2 + 0.5 : x * x * (3 - 2 * x)
+
+
+// @function A customizable non-linear interpolation between 0 and 1.
+// @param t (float) The interpolation factor [0, 1].
+// @param n (float) The degree of ease [0≤] (1 by default).
+// @param v (string) The easing variant type: `in-out`, `in`, or `out` (`in-out` by default).
+// @param x1 (float) Optional X coordinate of starting point [0, 1] (0 by default).
+// @param y1 (float) Optional Y coordinate of starting point [0, 1] (0 by default).
+// @param x2 (float) Optional X coordinate of ending point [0, 1] (1 by default).
+// @param y2 (float) Optional Y coordinate of ending point [0, 1] (1 by default).
+// @returns (float) Between 0 and 1.
+export ease(float t = 0.5, float n = 1, string v = "in-out", float x1 = 0, float y1 = 0, float x2 = 1, float y2 = 1) =>
+	x = clamp((t - x1) / (x2 - x1))
+	p = math.max(0, n) + 1
+	i = math.pow(x, p)
+	o = math.pow(1 - x, p)
+	y = clamp((v == "in" ? i : v == "out" ? 1 - o : i / (i + o)) * (y2 - y1) + y1)
+
+
+// @function Linearly interpolates a colors transparency.
+// @param Color (color) The color to process.
+// @param Alpha (float) The interpolation factor [0, 1], where `0` is fully transparent and `1` is the original transparency value (0.5 by default).
+// @returns (color) The same RGB color with an interpolated A channel.
+export fade(color Color, float Alpha = 0.5) =>
+	color.new(Color, lerp(100, color.t(Color), Alpha))
+
+
+// @function Linearly interpolates between two colors.
+// @param color1 (color) The first color.
+// @param color2 (color) The second color.
+// @param blend (float) The interpolation factor [0, 1].
+// @param space (string) The color space to use for interpolating. Options: `rgb`, `oklab`, and `oklch` (`rgb` by default).
+// @param dist (string) The anglular distance to use for the hue change when the color space is set to `oklch`. Options: `min` and `max` (`min` by default).
+// @returns (color) Blend of `color1` and `color2`.
+export mix(color color1, color color2, float blend = 0.5, string space = "rgb", string dist = "min") =>
+	t = lerp(color.t(color1), color.t(color2), blend)
+	if space == "oklab"
+		[l1, a1, b1] = rgb_to_oklab(color1)
+		[l2, a2, b2] = rgb_to_oklab(color2)
+		[r, g, b] = oklab_to_rgb(lerp(l1, l2, blend), lerp(a1, a2, blend), lerp(b1, b2, blend))
+		color.rgb(r, g, b, t)
+	else if space == "oklch"
+		[l1, c1, h1] = rgb_to_oklch(color1)
+		[l2, c2, h2] = rgb_to_oklch(color2)
+		[H1, H2] = hues(l1, h1, l2, h2, dist)
+		[r, g, b] = oklch_to_rgb(lerp(l1, l2, blend), lerp(c1, c2, blend), lerp(H1, H2, blend))
+		color.rgb(r, g, b, t)
+	else
+		r = lerp(color.r(color1), color.r(color2), blend)
+		g = lerp(color.g(color1), color.g(color2), blend)
+		b = lerp(color.b(color1), color.b(color2), blend)
+		color.rgb(r, g, b, t)
+
+
+
+// ------------------------------------------------- EXAMPLE PLOTs ------------------------------------------------- //
+
+var session_index = -1
+var bar_index_within_session = -1
+var number_of_bars_within_session = 1440
+bar_index_within_session += 1
+
+if session.isfirstbar
+	session_index += 1
+	number_of_bars_within_session :=
+	 session_index == 1 or bar_index_within_session > number_of_bars_within_session
+	 ? bar_index_within_session
+	 : number_of_bars_within_session
+	bar_index_within_session := 0
+session_elapsed = bar_index_within_session / number_of_bars_within_session
+
+p1Val = even(session_index) ? session_elapsed : 1 - session_elapsed
+plot(series = ease(p1Val) * 2 - 1, color = mix(color.lime, color.fuchsia, smoothstep(p1Val), "oklch"), style = plot.style_area, display = display.pane)
+plot(series = ease(p1Val) * 1.8 - 0.9, color = chart.bg_color, style = plot.style_area, display = display.pane)
+
+p2Val = (session_elapsed + 1) % 1
+p2Val:= even(session_index) ? p2Val < 1 ? 1 - p2Val : p2Val : p2Val < 1 ? p2Val : 1 - p2Val
+plot(series = smoothstep(p2Val) / 2 - 0.25, color = mix(color.red, color.yellow, smoothstep(p2Val), "oklch"), linewidth = 10, display = display.pane)
+
+Table = table.new(position.middle_center, 1, 2)
+Table.cell(0, 0, "Utility Library", text_color = chart.fg_color, text_size = size.huge)
+Table.cell(0, 1, "Supplementary Pine Script Helpers", text_color = color.new(chart.fg_color, 25), text_size = size.large)

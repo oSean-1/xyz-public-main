@@ -1,0 +1,96 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Botnet101
+
+
+//@version=6
+indicator('Month of Year Performance', overlay = false)
+
+//region Input Parameters - Time Settings
+inputStartTime = input.time(timestamp('1 Jan 2000'), title = 'Start Time', group = 'Time Settings', tooltip = 'The start date for analyzing day performance.')
+inputEndTime = input.time(timestamp('1 Jan 2099'), title = 'End Time', group = 'Time Settings', tooltip = 'The end date for analyzing day performance.')
+isInTimeWindow = time >= inputStartTime and time <= inputEndTime
+//endregion
+
+//region Input Parameters - Table Settings
+showPerformanceTable = input.bool(true, "Show Table", group="Table Settings", tooltip = 'Toggle to display or hide the performance summary table.')
+tableLocation = input.string("Top Right", "Table Location", options=["Top Left", "Top Right", "Bottom Left", "Bottom Right"], group="Table Settings")
+tableFontSizeInput = input.string("Auto", "Font Size", options=["Auto", "Small", "Normal", "Large"], group="Table Settings", tooltip = 'Adjust the font size of the text within the performance table.')
+//endregion
+
+//region Mapping
+tableFontSize = tableFontSizeInput == "Auto" ? size.auto : tableFontSizeInput == "Small" ? size.small : tableFontSizeInput == "Normal" ? size.normal : tableFontSizeInput == "Large" ? size.large : na
+tableLocationMap = tableLocation == "Top Left" ? position.top_left : tableLocation == "Top Right" ? position.top_right : tableLocation == "Bottom Left" ? position.bottom_left : tableLocation == "Bottom Right" ? position.bottom_right : na
+//endregion
+
+cur_month = month(time_tradingday)
+
+//region Timeframe Check and Error Message
+var table _text = table.new(position.middle_center, 1, 1)
+if barstate.islast and timeframe.period != '1M'
+    table.cell(_text, 0, 0, 'Please use Monthly Timeframe', text_size = size.large, text_color = color.red)
+    runtime.error('Please use Monthly Timeframe')
+//endregion
+
+//region Data Initialization
+var array<int> month_count = array.new_int(12, na)
+var array<int> month_positiveCount = array.new_int(12, na)
+var array<float> month_performance = array.new_float(12, na)
+month_names = array.from('January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December')
+month_colors = array.from(color.blue, color.red, color.green, color.orange, color.purple, color.fuchsia, color.teal, color.yellow, color.navy, color.lime, color.maroon, color.aqua)
+//endregion
+
+month_change = 100 * (close - close[1]) / close[1]
+
+//region Monthly Performance Calculation
+if isInTimeWindow
+    array.set(month_performance, cur_month - 1, nz(array.get(month_performance, cur_month - 1)) + month_change)
+
+    _count = nz(array.get(month_count, month - 1)) + 1
+    array.set(month_count, cur_month - 1, _count)
+
+    if month_change > 0
+        _positiveCount = nz(array.get(month_positiveCount, cur_month - 1)) + 1
+        array.set(month_positiveCount, cur_month - 1, _positiveCount)
+//endregion
+
+hline(0, color = color.gray)
+plot(array.get(month_performance, 0), color = array.get(month_colors, 0), style = plot.style_stepline, title = 'January')
+plot(array.get(month_performance, 1), color = array.get(month_colors, 1), style = plot.style_stepline, title = 'February')
+plot(array.get(month_performance, 2), color = array.get(month_colors, 2), style = plot.style_stepline, title = 'March')
+plot(array.get(month_performance, 3), color = array.get(month_colors, 3), style = plot.style_stepline, title = 'April')
+plot(array.get(month_performance, 4), color = array.get(month_colors, 4), style = plot.style_stepline, title = 'May')
+plot(array.get(month_performance, 5), color = array.get(month_colors, 5), style = plot.style_stepline, title = 'June')
+plot(array.get(month_performance, 6), color = array.get(month_colors, 6), style = plot.style_stepline, title = 'July')
+plot(array.get(month_performance, 7), color = array.get(month_colors, 7), style = plot.style_stepline, title = 'August')
+plot(array.get(month_performance, 8), color = array.get(month_colors, 8), style = plot.style_stepline, title = 'September')
+plot(array.get(month_performance, 9), color = array.get(month_colors, 9), style = plot.style_stepline, title = 'October')
+plot(array.get(month_performance, 10), color = array.get(month_colors, 10), style = plot.style_stepline, title = 'November')
+plot(array.get(month_performance, 11), color = array.get(month_colors, 11), style = plot.style_stepline, title = 'December')
+
+//region Performance Table
+var table perf_table = table.new(position = position.top_right, columns = 6, rows = 13, border_width = 1, border_color = color.gray, bgcolor = color.new(color.white, 0))
+var label[] monthLabels = array.new<label>(12, na)
+if barstate.islast and showPerformanceTable
+    for i = 0 to 11
+        label.delete(array.get(monthLabels, i))
+        lbl = label.new(bar_index + 1, array.get(month_performance, i), str.tostring(array.get(month_performance, i), "#.##") + "%", style=label.style_label_left, color=array.get(month_colors, i))
+        array.set(monthLabels, i, lbl)
+
+    // Table Headers
+    table.cell(perf_table, 0, 0, 'Month', text_color = color.black, text_size=tableFontSize)
+    table.cell(perf_table, 1, 0, 'Performance', text_color = color.black, text_size=tableFontSize)
+    table.cell(perf_table, 2, 0, '% Positive', text_color = color.black, text_size=tableFontSize)
+    table.cell(perf_table, 3, 0, 'Count', text_color = color.black, text_size=tableFontSize)
+
+    // Populate Table Data Rows
+    for i = 0 to 11 by 1
+        month_value = array.get(month_performance, i)
+        avg_return = month_value / array.get(month_count, i) / 100
+        positive_percent = array.get(month_positiveCount, i) / array.get(month_count, i)
+
+        table.cell(perf_table, 0, i + 1, array.get(month_names, i) + ':', text_color = array.get(month_colors, i), text_size=tableFontSize)
+        table.cell(perf_table, 1, i + 1, na(month_value) ? 'No Data' : str.tostring(month_value, format.percent), text_color = month_value >= 0 ? color.green : color.red, text_size=tableFontSize)
+        table.cell(perf_table, 2, i + 1, str.tostring(avg_return, '#.##%'), text_color = month_value >= 0 ? color.green : color.red, text_size=tableFontSize)
+        table.cell(perf_table, 4, i + 1, str.tostring(positive_percent, '#.##%'), text_color = color.black, text_size=tableFontSize)
+        table.cell(perf_table, 5, i + 1, str.tostring(array.get(month_count, i)), text_color = color.black, text_size=tableFontSize)
+//endregion
